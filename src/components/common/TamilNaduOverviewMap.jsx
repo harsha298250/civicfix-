@@ -156,6 +156,9 @@ export const TamilNaduOverviewMap = ({
     let selectedMarker = null;
 
     complaints.forEach((c) => {
+      // Never render a marker if location is suppressed for resident privacy
+      if (c.locationSuppressed) return;
+
       const lat = Number(c.location?.coordinates?.lat);
       const lng = Number(c.location?.coordinates?.lng);
 

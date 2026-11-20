@@ -236,4 +236,18 @@ public interface ComplaintRepository extends JpaRepository<Complaint, UUID> {
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Complaint c SET c.visionStatus = 'FAILED', c.visionReason = 'Vision triage timed out or process crashed while RUNNING' WHERE c.visionStatus = 'RUNNING' AND c.visionAt < :stuckCutoff")
     int cleanupStuckRunningRows(@Param("stuckCutoff") OffsetDateTime stuckCutoff);
+
+    @Query(value = "SELECT * FROM complaints WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC",
+           countQuery = "SELECT count(*) FROM complaints WHERE deleted_at IS NOT NULL",
+           nativeQuery = true)
+    Page<Complaint> findSoftDeletedComplaints(Pageable pageable);
+
+    @Query(value = "SELECT * FROM complaints WHERE (id = :id OR LOWER(reference_id) = LOWER(:ref)) AND deleted_at IS NOT NULL",
+           nativeQuery = true)
+    Optional<Complaint> findSoftDeletedByIdOrRefNative(@Param("id") UUID id, @Param("ref") String ref);
+
+    @Modifying(clearAutomatically = true)
+    @Query(value = "UPDATE complaints SET deleted_at = NULL, deleted_by = NULL, deletion_reason = NULL, updated_at = NOW() WHERE id = :id AND deleted_at IS NOT NULL",
+           nativeQuery = true)
+    int restoreSoftDeletedComplaintNative(@Param("id") UUID id);
 }

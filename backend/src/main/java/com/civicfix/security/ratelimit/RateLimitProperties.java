@@ -11,11 +11,21 @@ public class RateLimitProperties {
 
     private LimitConfig login = new LimitConfig(5, Duration.ofMinutes(15));
     private LimitConfig accountLogin = new LimitConfig(20, Duration.ofHours(1));
+    private LimitConfig ipLogin = new LimitConfig(30, Duration.ofMinutes(15));
     private LimitConfig register = new LimitConfig(5, Duration.ofHours(1));
     private LimitConfig complaintCreate = new LimitConfig(10, Duration.ofMinutes(1));
     private LimitConfig upload = new LimitConfig(10, Duration.ofMinutes(1));
     private LimitConfig reverseGeocode = new LimitConfig(30, Duration.ofMinutes(1));
     private LimitConfig publicFeatures = new LimitConfig(60, Duration.ofMinutes(1));
+    private LimitConfig forgotPassword = new LimitConfig(5, Duration.ofMinutes(15));
+
+    public LimitConfig getForgotPassword() {
+        return forgotPassword;
+    }
+
+    public void setForgotPassword(LimitConfig forgotPassword) {
+        this.forgotPassword = forgotPassword;
+    }
 
     public LimitConfig getLogin() {
         return login;
@@ -31,6 +41,14 @@ public class RateLimitProperties {
 
     public void setAccountLogin(LimitConfig accountLogin) {
         this.accountLogin = accountLogin;
+    }
+
+    public LimitConfig getIpLogin() {
+        return ipLogin;
+    }
+
+    public void setIpLogin(LimitConfig ipLogin) {
+        this.ipLogin = ipLogin;
     }
 
     public LimitConfig getRegister() {

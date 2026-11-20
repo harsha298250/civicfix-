@@ -1,9 +1,14 @@
 package com.civicfix.admin;
 
 import com.civicfix.admin.dto.*;
+import com.civicfix.common.ApiResponse;
+import com.civicfix.common.PagedResponse;
+import com.civicfix.complaint.ComplaintService;
+import com.civicfix.complaint.dto.ComplaintResponse;
 import com.civicfix.security.UserPrincipal;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -31,10 +36,17 @@ import java.util.UUID;
 public class AdminController {
 
     private final AdminService adminService;
+    private final ComplaintService complaintService;
     private final Environment environment;
 
     public AdminController(AdminService adminService, Environment environment) {
+        this(adminService, null, environment);
+    }
+
+    @Autowired
+    public AdminController(AdminService adminService, ComplaintService complaintService, Environment environment) {
         this.adminService = adminService;
+        this.complaintService = complaintService;
         this.environment = environment;
     }
 
@@ -138,6 +150,35 @@ public class AdminController {
     public ResponseEntity<Map<String, Boolean>> getDemoStatus() {
         boolean available = Arrays.asList(environment.getActiveProfiles()).contains("dev");
         return ResponseEntity.ok(Map.of("available", available));
+    }
+
+    /**
+     * Inspect archived/soft-deleted complaints with deletion metadata and reasons.
+     * Strictly restricted to platform users with ADMIN role.
+     */
+    @GetMapping("/complaints/deleted")
+    public ResponseEntity<PagedResponse<AdminDeletedComplaintResponse>> getSoftDeletedComplaints(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.min(100, Math.max(1, size)));
+        return ResponseEntity.ok(complaintService.getSoftDeletedComplaints(pageable, principal));
+    }
+
+    /**
+     * Restore an archived/soft-deleted complaint back into active municipal processing.
+     * Requires an explicit audit justification reason and ADMIN authority.
+     */
+    @PostMapping("/complaints/{id}/restore")
+    public ResponseEntity<ApiResponse<ComplaintResponse>> restoreComplaint(
+            @PathVariable String id,
+            @Valid @RequestBody RestoreComplaintRequest req,
+            @AuthenticationPrincipal UserPrincipal principal,
+            HttpServletRequest request
+    ) {
+        ComplaintResponse restored = complaintService.restoreComplaint(id, req.getReason(), principal, request.getRemoteAddr());
+        return ResponseEntity.ok(ApiResponse.success("Complaint successfully restored and returned to active municipal processing.", restored));
     }
 }
 

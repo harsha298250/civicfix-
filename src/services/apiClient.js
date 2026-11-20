@@ -130,7 +130,9 @@ export const apiClient = {
     register: (payload) => apiRequest('/auth/register', { method: 'POST', body: payload }),
     login: (identifier, password) => apiRequest('/auth/login', { method: 'POST', body: { identifier, password } }),
     logout: () => apiRequest('/auth/logout', { method: 'POST' }),
-    getCurrentUser: () => apiRequest('/auth/me')
+    getCurrentUser: () => apiRequest('/auth/me'),
+    forgotPassword: (email) => apiRequest('/auth/forgot-password', { method: 'POST', body: { email } }),
+    resetPassword: (payload) => apiRequest('/auth/reset-password', { method: 'POST', body: payload })
   },
 
   // Complaint Endpoints
@@ -227,6 +229,30 @@ export const apiClient = {
       if (params.to) query.append('to', params.to);
       const qs = query.toString();
       return apiRequest(`/complaints/public/trust${qs ? '?' + qs : ''}`);
+    },
+    downloadReceipt: async (id) => {
+      const baseUrl = getApiBaseUrl();
+      let url;
+      if (baseUrl.startsWith('http://') || baseUrl.startsWith('https://')) {
+        url = `${baseUrl}/complaints/${encodeURIComponent(id)}/receipt`;
+      } else if (typeof window !== 'undefined' && window.location) {
+        url = `${baseUrl}/complaints/${encodeURIComponent(id)}/receipt`;
+      } else {
+        url = `http://localhost:8080${baseUrl}/complaints/${encodeURIComponent(id)}/receipt`;
+      }
+      const headers = { 'Accept': 'application/pdf' };
+      const res = await fetch(url, { method: 'GET', headers, credentials: 'include' });
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}: Failed to download receipt`;
+        try {
+          const json = await res.json();
+          if (json?.message) msg = json.message;
+        } catch (_) {}
+        const err = new Error(msg);
+        err.status = res.status;
+        throw err;
+      }
+      return await res.blob();
     }
   },
 

@@ -80,11 +80,71 @@ public class ComplaintResponse {
     public ComplaintResponse() {}
 
     public static ComplaintResponse fromEntity(Complaint c, UserPrincipal principal) {
+        return fromEntity(c, principal, true);
+    }
+
+    public static ComplaintResponse fromEntity(Complaint c, UserPrincipal principal, boolean isDetailView) {
         ComplaintResponse resp = fromEntity(c);
         if (resp != null && c != null && principal != null) {
-            resp.applyRoleVisionProjection(c, principal);
+            resp.applyRoleProjections(c, principal, isDetailView);
         }
         return resp;
+    }
+
+    public void applyRoleProjections(Complaint c, UserPrincipal principal, boolean isDetailView) {
+        if (c == null || principal == null) {
+            return;
+        }
+
+        // 1. Vision Role Projection
+        applyRoleVisionProjection(c, principal);
+
+        // 2. Citizen Contact Privacy Projection (ISSUE-SEC-01)
+        boolean isStaff = principal.getAuthorities().stream().anyMatch(a ->
+                "ROLE_OFFICER".equals(a.getAuthority()) ||
+                "ROLE_SUPERVISOR".equals(a.getAuthority()) ||
+                "ROLE_ADMIN".equals(a.getAuthority())
+        );
+
+        boolean isWorker = principal.getAuthorities().stream().anyMatch(a ->
+                "ROLE_WORKER".equals(a.getAuthority())
+        );
+
+        boolean isOwner = c.getCitizen() != null && c.getCitizen().getId().equals(principal.getId());
+
+        if (this.citizen != null && c.getCitizen() != null) {
+            if (isWorker) {
+                // Workers strictly do NOT receive citizen email or phone
+                this.citizen.remove("email");
+                this.citizen.remove("phone");
+            } else if (isOwner) {
+                // Owning citizen receives their own contact details
+                if (c.getCitizen().getEmail() != null) {
+                    this.citizen.put("email", c.getCitizen().getEmail());
+                }
+                if (c.getCitizen().getPhone() != null) {
+                    this.citizen.put("phone", c.getCitizen().getPhone());
+                }
+            } else if (isStaff) {
+                if (isDetailView) {
+                    // Municipal officers, supervisors and admins receive contact details in detail view
+                    if (c.getCitizen().getEmail() != null) {
+                        this.citizen.put("email", c.getCitizen().getEmail());
+                    }
+                    if (c.getCitizen().getPhone() != null) {
+                        this.citizen.put("phone", c.getCitizen().getPhone());
+                    }
+                } else {
+                    // Data minimization on list views
+                    this.citizen.remove("email");
+                    this.citizen.remove("phone");
+                }
+            } else {
+                // Non-owning citizens or others never receive contact details
+                this.citizen.remove("email");
+                this.citizen.remove("phone");
+            }
+        }
     }
 
     public void applyRoleVisionProjection(Complaint c, UserPrincipal principal) {
@@ -185,8 +245,8 @@ public class ComplaintResponse {
             Map<String, Object> cit = new HashMap<>();
             cit.put("id", c.getCitizen().getId().toString());
             cit.put("name", c.getCitizen().getFullName());
-            cit.put("email", c.getCitizen().getEmail());
-            cit.put("phone", c.getCitizen().getPhone());
+            // Fail-closed default: citizen email and phone omitted to prevent data leakage.
+            // Populated strictly via applyRoleProjections() based on authenticated role and view type.
             resp.setCitizen(cit);
         }
 

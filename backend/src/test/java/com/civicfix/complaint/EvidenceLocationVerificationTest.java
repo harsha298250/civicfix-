@@ -72,6 +72,7 @@ public class EvidenceLocationVerificationTest {
         officerUser.setId(UUID.randomUUID());
         officerUser.setFullName("Officer Dave");
         officerUser.setEmail("officer.dave@civicfix.local");
+        officerUser.setWard("Ward 08, Anna Nagar, Chennai");
         officerUser.setRoles(Set.of(new Role(RoleName.OFFICER)));
         officerPrincipal = new UserPrincipal(officerUser);
 
@@ -85,6 +86,7 @@ public class EvidenceLocationVerificationTest {
         complaintWithCoords.setLongitude(BASE_LON);
         complaintWithCoords.setAssignedWorker(workerUser);
         complaintWithCoords.setAssignedOfficer(officerUser);
+        complaintWithCoords.setWard("Ward 08, Anna Nagar, Chennai");
         complaintWithCoords.setVersion(1L);
 
         complaintWithoutCoords = new Complaint();
@@ -97,6 +99,7 @@ public class EvidenceLocationVerificationTest {
         complaintWithoutCoords.setLongitude(null);
         complaintWithoutCoords.setAssignedWorker(workerUser);
         complaintWithoutCoords.setAssignedOfficer(officerUser);
+        complaintWithoutCoords.setWard("Ward 08, Anna Nagar, Chennai");
         complaintWithoutCoords.setVersion(1L);
 
         complaintRepository = (ComplaintRepository) Proxy.newProxyInstance(

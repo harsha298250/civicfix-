@@ -43,24 +43,35 @@ public class ProductionSafetyGuard implements ApplicationRunner {
     private final String dbPassword;
     private final boolean allowSeedAccounts;
     private final VisionTriageProperties visionProperties;
+    private final String receiptHmacSecret;
 
     @Autowired
     public ProductionSafetyGuard(
             UserRepository userRepository,
             @Value("${spring.datasource.password:}") String dbPassword,
             @Value("${civicfix.security.allow-seed-accounts:${ALLOW_SEED_ACCOUNTS:false}}") boolean allowSeedAccounts,
-            @Autowired(required = false) VisionTriageProperties visionProperties) {
+            @Autowired(required = false) VisionTriageProperties visionProperties,
+            @Value("${civicfix.receipt.hmac-secret:}") String receiptHmacSecret) {
         this.userRepository = userRepository;
         this.dbPassword = dbPassword;
         this.allowSeedAccounts = allowSeedAccounts;
         this.visionProperties = visionProperties;
+        this.receiptHmacSecret = receiptHmacSecret;
+    }
+
+    public ProductionSafetyGuard(
+            UserRepository userRepository,
+            String dbPassword,
+            boolean allowSeedAccounts,
+            VisionTriageProperties visionProperties) {
+        this(userRepository, dbPassword, allowSeedAccounts, visionProperties, "valid_mock_hmac_secret_for_tests");
     }
 
     public ProductionSafetyGuard(
             UserRepository userRepository,
             String dbPassword,
             boolean allowSeedAccounts) {
-        this(userRepository, dbPassword, allowSeedAccounts, null);
+        this(userRepository, dbPassword, allowSeedAccounts, null, "valid_mock_hmac_secret_for_tests");
     }
 
     @Override
@@ -69,6 +80,7 @@ public class ProductionSafetyGuard implements ApplicationRunner {
         validateDatabasePassword();
         enforceSeedAccountPolicy();
         validateVisionConfiguration();
+        validateReceiptHmacConfiguration();
     }
 
     /**
@@ -84,12 +96,14 @@ public class ProductionSafetyGuard implements ApplicationRunner {
     }
 
     /**
-     * Requirement (a): Disable V2 seed account UUIDs unless ALLOW_SEED_ACCOUNTS=true.
+     * Requirement (a): Refuse startup if ALLOW_SEED_ACCOUNTS=true in prod profile (fail-closed).
+     * Otherwise, disable all V2 seed account UUIDs.
      */
     public int enforceSeedAccountPolicy() {
         if (allowSeedAccounts) {
-            log.warn("SECURITY WARNING: ALLOW_SEED_ACCOUNTS=true in production profile. V2 seed accounts remain active.");
-            return 0;
+            throw new IllegalStateException(
+                    "Production startup rejected: ALLOW_SEED_ACCOUNTS cannot be enabled in the 'prod' profile. Known seed accounts with default credentials pose a critical security vulnerability."
+            );
         }
 
         int disabledCount = 0;
@@ -136,6 +150,23 @@ public class ProductionSafetyGuard implements ApplicationRunner {
                 }
             }
         }
+    }
+
+    /**
+     * Requirement: Refuse startup if CIVICFIX_RECEIPT_HMAC_SECRET is missing or equals dev default in prod.
+     */
+    public void validateReceiptHmacConfiguration() {
+        if (receiptHmacSecret == null || receiptHmacSecret.trim().isEmpty()
+                || com.civicfix.complaint.PdfReceiptService.DEV_DEFAULT_HMAC_SECRET.equalsIgnoreCase(receiptHmacSecret.trim())) {
+            throw new IllegalStateException(
+                    "Production startup rejected: CIVICFIX_RECEIPT_HMAC_SECRET cannot be empty or the dev default ('"
+                            + com.civicfix.complaint.PdfReceiptService.DEV_DEFAULT_HMAC_SECRET + "') in the 'prod' profile. Configure a secure, unique HMAC secret."
+            );
+        }
+    }
+
+    public String getReceiptHmacSecret() {
+        return receiptHmacSecret;
     }
 }
 

@@ -77,6 +77,7 @@ class ComplaintServiceOfficerTest {
         officerUser.setFullName("Elena Vance");
         officerUser.setEmail("elena.vance@metro.gov");
         officerUser.setPasswordHash("$2a$10$hashed");
+        officerUser.setWard("Ward 08, Anna Nagar, Chennai");
         officerUser.setRoles(Set.of(officerRole));
         officerPrincipal = new UserPrincipal(officerUser);
 
@@ -120,6 +121,7 @@ class ComplaintServiceOfficerTest {
         complaint.setAssignedOfficer(officerUser);
         complaint.setAssignedWorker(workerUser);
         complaint.setAddress("5th Cross Road, Anna Nagar");
+        complaint.setWard("Ward 08, Anna Nagar, Chennai");
     }
 
     @Test

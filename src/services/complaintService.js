@@ -266,6 +266,10 @@ export const complaintService = {
             ward: item.ward || null,
             coordinates: coords
           },
+          locationSuppressed: Boolean(item.locationSuppressed),
+          aggregated: Boolean(item.aggregated),
+          count: item.count || 1,
+          suppressionReason: item.suppressionReason || null,
           createdAt: item.createdAt || new Date().toISOString()
         };
       });
@@ -273,6 +277,10 @@ export const complaintService = {
       if (err.status === 400 || err.status === 401 || err.status === 403) throw err;
       throw new Error(err.message || 'Cannot reach the server. Failed to load public map feed.');
     }
+  },
+
+  downloadReceipt: async (idOrRef) => {
+    return await apiClient.complaints.downloadReceipt(idOrRef);
   },
 
   // Officer GIS map feed: Returns complaints for operational spatial tracking

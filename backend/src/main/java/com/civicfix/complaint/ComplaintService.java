@@ -1,5 +1,6 @@
 package com.civicfix.complaint;
 
+import com.civicfix.admin.dto.AdminDeletedComplaintResponse;
 import com.civicfix.ai.AiTriageService;
 import com.civicfix.audit.AuditService;
 import com.civicfix.common.PagedResponse;
@@ -12,6 +13,7 @@ import com.civicfix.complaint.sla.SlaEscalationService;
 import com.civicfix.complaint.sla.SlaService;
 import com.civicfix.security.UserPrincipal;
 import com.civicfix.storage.StorageService;
+import com.civicfix.supervisor.SupervisorService;
 import com.civicfix.user.RoleName;
 import com.civicfix.user.User;
 import com.civicfix.user.UserRepository;
@@ -34,6 +36,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -41,6 +44,9 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -69,6 +75,12 @@ public class ComplaintService {
 
     @org.springframework.beans.factory.annotation.Value("${civicfix.evidence.max-accuracy-meters:100.0}")
     private double maxAccuracyMeters = 100.0;
+
+    @org.springframework.beans.factory.annotation.Value("${public-map.minimum-group-size:5}")
+    private int publicMapMinimumGroupSize = 5;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private PdfReceiptService pdfReceiptService;
 
     public void setMaxDistanceMeters(double maxDistanceMeters) {
         this.maxDistanceMeters = maxDistanceMeters;
@@ -172,8 +184,12 @@ public class ComplaintService {
     }
 
     private ComplaintResponse toResponse(Complaint c, UserPrincipal principal) {
+        return toResponse(c, principal, true);
+    }
+
+    private ComplaintResponse toResponse(Complaint c, UserPrincipal principal, boolean isDetailView) {
         if (c == null) return null;
-        return ComplaintResponse.fromEntity(c, principal);
+        return ComplaintResponse.fromEntity(c, principal, isDetailView);
     }
 
     @Transactional
@@ -401,14 +417,35 @@ public class ComplaintService {
         Page<Complaint> page;
 
         if (isAdmin || isOfficer) {
+            String targetWard = ward;
+            if (isOfficer && !isAdmin) {
+                if (!principal.hasActiveCrossWardAccess()) {
+                    // Default rule: Officers can ONLY access complaints in their assigned ward
+                    targetWard = principal.getWard();
+                } else if (targetWard != null && !targetWard.trim().isEmpty() && !targetWard.trim().equalsIgnoreCase(principal.getWard())) {
+                    // Audited cross-ward access
+                    auditService.logAction(
+                            principal.getId(),
+                            principal.getFullName(),
+                            "OFFICER",
+                            "OFFICER_CROSS_WARD_ACCESS",
+                            "WARD",
+                            targetWard.trim(),
+                            "Officer accessed complaints in cross-ward: " + targetWard.trim(),
+                            null,
+                            "SUCCESS"
+                    );
+                }
+            }
+
             if (minLat != null) {
-                if (ward != null && !ward.trim().isEmpty()) {
-                    page = complaintRepository.findBySpatialBoundsAndWard(minLat, maxLat, minLng, maxLng, ward.trim(), pageable);
+                if (targetWard != null && !targetWard.trim().isEmpty()) {
+                    page = complaintRepository.findBySpatialBoundsAndWard(minLat, maxLat, minLng, maxLng, targetWard.trim(), pageable);
                 } else {
                     page = complaintRepository.findBySpatialBounds(minLat, maxLat, minLng, maxLng, pageable);
                 }
-            } else if (ward != null && !ward.trim().isEmpty()) {
-                page = complaintRepository.findByWardIgnoreCaseOrderByCreatedAtDesc(ward.trim(), pageable);
+            } else if (targetWard != null && !targetWard.trim().isEmpty()) {
+                page = complaintRepository.findByWardIgnoreCaseOrderByCreatedAtDesc(targetWard.trim(), pageable);
             } else if (status != null) {
                 page = complaintRepository.findByStatusOrderByCreatedAtDesc(status, pageable);
             } else if (category != null && !category.trim().isEmpty()) {
@@ -435,8 +472,9 @@ public class ComplaintService {
             }
         }
 
+        // List view: apply data minimization (isDetailView = false)
         List<ComplaintResponse> dtoList = page.getContent().stream()
-                .map(c -> toResponse(c, principal))
+                .map(c -> toResponse(c, principal, false))
                 .collect(Collectors.toList());
 
         return new PagedResponse<>(dtoList, page.getNumber(), page.getSize(),
@@ -477,12 +515,147 @@ public class ComplaintService {
                     .collect(Collectors.toList());
         }
 
+        int threshold = this.publicMapMinimumGroupSize > 0 ? this.publicMapMinimumGroupSize : 5;
+
+        // Group complaints strictly by stable spatial boundaries (Ward or fixed 0.05-deg grid)
+        Map<String, List<Complaint>> groups = new LinkedHashMap<>();
+        for (Complaint c : complaints) {
+            String key = getSpatialAggregationKey(c);
+            groups.computeIfAbsent(key, k -> new ArrayList<>()).add(c);
+        }
+
         List<PublicMapComplaintResponse> result = new ArrayList<>();
         int mapIndex = 1;
-        for (Complaint c : complaints) {
-            result.add(PublicMapComplaintResponse.fromEntity(c, mapIndex++));
+
+        for (Map.Entry<String, List<Complaint>> entry : groups.entrySet()) {
+            String groupKey = entry.getKey();
+            List<Complaint> group = entry.getValue();
+            int groupSize = group.size();
+
+            if (groupSize < threshold) {
+                // Low-density group (< k complaints). Coordinates are strictly suppressed to protect resident privacy.
+                for (Complaint c : group) {
+                    result.add(PublicMapComplaintResponse.suppressed(
+                            c,
+                            mapIndex++,
+                            "Low complaint density (< " + threshold + " reports in area). Exact location suppressed for resident privacy."
+                    ));
+                }
+            } else {
+                // Eligible for safe display (>= k complaints).
+                // Centroid coordinates for the cluster prevent individual location deduction
+                BigDecimal sumLat = BigDecimal.ZERO;
+                BigDecimal sumLng = BigDecimal.ZERO;
+                int validCoords = 0;
+                for (Complaint c : group) {
+                    if (c.getLatitude() != null && c.getLongitude() != null) {
+                        sumLat = sumLat.add(c.getLatitude());
+                        sumLng = sumLng.add(c.getLongitude());
+                        validCoords++;
+                    }
+                }
+                BigDecimal centroidLat = validCoords > 0
+                        ? sumLat.divide(BigDecimal.valueOf(validCoords), 3, RoundingMode.HALF_UP)
+                        : null;
+                BigDecimal centroidLng = validCoords > 0
+                        ? sumLng.divide(BigDecimal.valueOf(validCoords), 3, RoundingMode.HALF_UP)
+                        : null;
+
+                for (Complaint c : group) {
+                    PublicMapComplaintResponse resp = PublicMapComplaintResponse.fromEntity(c, mapIndex++);
+                    resp.setCount(groupSize);
+                    resp.setAggregated(true);
+                    resp.setLocationSuppressed(false);
+                    if (centroidLat != null && centroidLng != null) {
+                        resp.setLatitude(centroidLat);
+                        resp.setLongitude(centroidLng);
+                    }
+                    result.add(resp);
+                }
+            }
         }
         return result;
+    }
+
+    private BigDecimal getStableGroupAnchorLat(String groupKey, List<Complaint> group) {
+        if (groupKey.startsWith("GRID_")) {
+            try {
+                String[] parts = groupKey.split("_");
+                int latIndex = Integer.parseInt(parts[1]);
+                return BigDecimal.valueOf((latIndex + 0.5) * 0.05).setScale(3, RoundingMode.HALF_UP);
+            } catch (Exception ignored) {}
+        }
+        BigDecimal sumLat = BigDecimal.ZERO;
+        int count = 0;
+        for (Complaint c : group) {
+            if (c.getLatitude() != null) {
+                sumLat = sumLat.add(c.getLatitude());
+                count++;
+            }
+        }
+        return count > 0 ? sumLat.divide(BigDecimal.valueOf(count), 3, RoundingMode.HALF_UP) : null;
+    }
+
+    private BigDecimal getStableGroupAnchorLng(String groupKey, List<Complaint> group) {
+        if (groupKey.startsWith("GRID_")) {
+            try {
+                String[] parts = groupKey.split("_");
+                int lngIndex = Integer.parseInt(parts[2]);
+                return BigDecimal.valueOf((lngIndex + 0.5) * 0.05).setScale(3, RoundingMode.HALF_UP);
+            } catch (Exception ignored) {}
+        }
+        BigDecimal sumLng = BigDecimal.ZERO;
+        int count = 0;
+        for (Complaint c : group) {
+            if (c.getLongitude() != null) {
+                sumLng = sumLng.add(c.getLongitude());
+                count++;
+            }
+        }
+        return count > 0 ? sumLng.divide(BigDecimal.valueOf(count), 3, RoundingMode.HALF_UP) : null;
+    }
+
+    private String getSpatialAggregationKey(Complaint c) {
+        if (c.getWard() != null && !c.getWard().trim().isEmpty()) {
+            return "WARD_" + c.getWard().trim().toUpperCase(Locale.ROOT);
+        }
+        if (c.getLatitude() != null && c.getLongitude() != null) {
+            int latIndex = (int) Math.floor(c.getLatitude().doubleValue() / 0.05);
+            int lngIndex = (int) Math.floor(c.getLongitude().doubleValue() / 0.05);
+            return String.format(Locale.ROOT, "GRID_%d_%d", latIndex, lngIndex);
+        }
+        return "UNKNOWN_ZONE";
+    }
+
+    public void setPublicMapMinimumGroupSize(int size) {
+        this.publicMapMinimumGroupSize = size;
+    }
+
+    public int getPublicMapMinimumGroupSize() {
+        return this.publicMapMinimumGroupSize;
+    }
+
+    public void setPdfReceiptService(PdfReceiptService pdfReceiptService) {
+        this.pdfReceiptService = pdfReceiptService;
+    }
+
+    @Transactional(readOnly = true)
+    public boolean verifyReceiptSignature(String idOrRef, String signature) {
+        Complaint complaint = resolveComplaint(idOrRef);
+        if (this.pdfReceiptService == null) {
+            this.pdfReceiptService = new PdfReceiptService();
+        }
+        return this.pdfReceiptService.verifyReceiptSignature(complaint, signature);
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] generateComplaintReceiptPdf(String idOrRef, UserPrincipal principal) {
+        Complaint complaint = resolveComplaint(idOrRef);
+        enforceReadPermission(complaint, principal);
+        if (this.pdfReceiptService == null) {
+            this.pdfReceiptService = new PdfReceiptService();
+        }
+        return this.pdfReceiptService.generateReceiptPdf(complaint);
     }
 
     @Transactional(readOnly = true)
@@ -512,6 +685,7 @@ public class ComplaintService {
         }
 
         Complaint complaint = resolveComplaint(idOrRef);
+        enforceOfficerWardAccess(complaint, principal);
         User officer = userRepository.findById(principal.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Officer account not found."));
 
@@ -573,6 +747,10 @@ public class ComplaintService {
         boolean isAdmin = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
         boolean isWorker = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_WORKER"));
         boolean isCitizen = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_CITIZEN"));
+
+        if (isOfficer) {
+            enforceOfficerWardAccess(complaint, principal);
+        }
 
         if (req.getVersion() != null && !req.getVersion().equals(complaint.getVersion())) {
             throw new ConflictException("Complaint has been modified by another transaction or user. Please refresh the record and try again.");
@@ -1088,6 +1266,7 @@ public class ComplaintService {
         }
 
         Complaint complaint = resolveComplaint(idOrRef);
+        enforceOfficerWardAccess(complaint, principal);
         User officer = userRepository.findById(principal.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Officer account not found."));
 
@@ -1207,6 +1386,8 @@ public class ComplaintService {
 
         Complaint child = resolveComplaint(idOrRef);
         Complaint parent = resolveComplaint(req.getParentComplaintId());
+        enforceOfficerWardAccess(child, principal);
+        enforceOfficerWardAccess(parent, principal);
         User officer = userRepository.findById(principal.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Officer account not found."));
 
@@ -1284,7 +1465,7 @@ public class ComplaintService {
                 reasonText
         ));
 
-        return ComplaintResponse.fromEntity(saved);
+        return toResponse(saved, principal, true);
     }
 
     private Complaint resolveComplaint(String idOrRef) {
@@ -1321,6 +1502,16 @@ public class ComplaintService {
         }
 
         Complaint complaint = resolveComplaint(idOrRef);
+        if (complaint.getStatus().isTerminal()) {
+            throw new BadRequestException("Cannot escalate a terminal complaint (status: " + complaint.getStatus() + ").");
+        }
+        if (isOfficer) {
+            enforceOfficerWardAccess(complaint, principal);
+        }
+        if (isSupervisor) {
+            enforceSupervisorDepartmentAccess(complaint, principal);
+        }
+
         if (complaint.getEscalatedAt() != null) {
             throw new ConflictException("Complaint #" + complaint.getReferenceId() + " has already been escalated.");
         }
@@ -1482,7 +1673,17 @@ public class ComplaintService {
         boolean isAdmin = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
         boolean isOfficer = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_OFFICER"));
         boolean isSupervisor = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_SUPERVISOR"));
-        if (isAdmin || isOfficer || isSupervisor) {
+        if (isAdmin) {
+            return;
+        }
+
+        if (isOfficer) {
+            enforceOfficerWardAccess(complaint, principal);
+            return;
+        }
+
+        if (isSupervisor) {
+            enforceSupervisorDepartmentAccess(complaint, principal);
             return;
         }
 
@@ -1501,5 +1702,157 @@ public class ComplaintService {
         if (!isOwner) {
             throw new ForbiddenException("Private record: In accordance with municipal privacy policies, you may only inspect complaints filed under your account.");
         }
+    }
+
+    public void enforceSupervisorDepartmentAccess(Complaint complaint, UserPrincipal principal) {
+        if (complaint == null) return;
+        if (principal == null) {
+            throw new ForbiddenException("Authentication required.");
+        }
+        boolean isAdmin = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        if (isAdmin || principal.hasActiveCrossDepartmentAccess()) {
+            return;
+        }
+
+        String dept = principal.getDepartment();
+        if (dept == null || dept.isBlank()) {
+            throw new ForbiddenException("Supervisor has no assigned department. Access denied.");
+        }
+
+        if (!SupervisorService.isCategoryAllowedForDepartment(complaint.getCategory(), dept, principal)) {
+            throw new ForbiddenException("Supervisors cannot access or manage complaints outside their authorized department (" + dept + ").");
+        }
+    }
+
+    public void enforceOfficerWardAccess(Complaint complaint, UserPrincipal principal) {
+        if (complaint == null || principal == null) {
+            return;
+        }
+        boolean isAdmin = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        boolean isOfficer = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_OFFICER"));
+        if (isAdmin || !isOfficer) {
+            return;
+        }
+
+        String officerWard = principal.getWard();
+        if (officerWard == null || officerWard.isBlank()) {
+            throw new ForbiddenException("Officer has no assigned ward. Access denied.");
+        }
+
+        String complaintWard = complaint.getWard();
+        if (complaintWard == null || complaintWard.isBlank() || !officerWard.trim().equalsIgnoreCase(complaintWard.trim())) {
+            if (!principal.hasActiveCrossWardAccess()) {
+                throw new ForbiddenException("Officers cannot access or manage complaints outside their assigned ward (" + officerWard.trim() + ") without authorized cross-ward permission.");
+            }
+            if (auditService != null) {
+                auditService.logAction(
+                        principal.getId(),
+                        principal.getFullName(),
+                        "OFFICER",
+                        "OFFICER_CROSS_WARD_ACCESS",
+                        "COMPLAINT",
+                        complaint.getId().toString(),
+                        "Authorized cross-ward access invoked for complaint #" + complaint.getReferenceId() + " in ward: " + (complaintWard != null ? complaintWard.trim() : "UNASSIGNED"),
+                        null,
+                        "SUCCESS"
+                );
+            }
+        }
+    }
+
+    @Transactional
+    public void softDeleteComplaint(String idOrRef, String reason, UserPrincipal principal, String ipAddress) {
+        boolean isAdmin = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        if (!isAdmin) {
+            throw new ForbiddenException("Only municipal administrators have permission to soft-delete complaint records.");
+        }
+
+        if (reason == null || reason.trim().length() < 5) {
+            throw new BadRequestException("A valid deletion audit reason of at least 5 characters is required.");
+        }
+
+        Complaint complaint = resolveComplaint(idOrRef);
+        User adminUser = userRepository.findById(principal.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Admin user not found."));
+
+        complaint.setDeletedAt(OffsetDateTime.now());
+        complaint.setDeletedBy(adminUser);
+        complaint.setDeletionReason(reason.trim());
+        complaintRepository.save(complaint);
+
+        auditService.logAction(
+                principal.getId(),
+                principal.getFullName(),
+                "ADMIN",
+                "COMPLAINT_SOFT_DELETE",
+                "COMPLAINT",
+                complaint.getId().toString(),
+                "Complaint record soft-deleted. Reason: " + reason.trim(),
+                ipAddress,
+                "SUCCESS"
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public PagedResponse<AdminDeletedComplaintResponse> getSoftDeletedComplaints(Pageable pageable, UserPrincipal principal) {
+        if (principal == null) {
+            throw new ForbiddenException("Authentication required.");
+        }
+        boolean isAdmin = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        if (!isAdmin) {
+            throw new ForbiddenException("Only municipal administrators have permission to inspect soft-deleted complaint records.");
+        }
+
+        Page<Complaint> page = complaintRepository.findSoftDeletedComplaints(pageable);
+        List<AdminDeletedComplaintResponse> content = page.getContent().stream()
+                .map(AdminDeletedComplaintResponse::fromEntity)
+                .toList();
+
+        return new PagedResponse<>(content, page.getNumber(), page.getSize(),
+                page.getTotalElements(), page.getTotalPages(), page.isLast());
+    }
+
+    @Transactional
+    public ComplaintResponse restoreComplaint(String idOrRef, String reason, UserPrincipal principal, String ipAddress) {
+        if (principal == null) {
+            throw new ForbiddenException("Authentication required.");
+        }
+        boolean isAdmin = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        if (!isAdmin) {
+            throw new ForbiddenException("Only municipal administrators have permission to restore soft-deleted complaints.");
+        }
+
+        if (reason == null || reason.trim().length() < 5) {
+            throw new BadRequestException("A valid restoration reason of at least 5 characters is required.");
+        }
+
+        UUID uuid = null;
+        try {
+            uuid = UUID.fromString(idOrRef);
+        } catch (IllegalArgumentException ignored) {}
+
+        Complaint deletedComplaint = complaintRepository.findSoftDeletedByIdOrRefNative(uuid, idOrRef)
+                .orElseThrow(() -> new ResourceNotFoundException("Soft-deleted complaint not found with identifier: " + idOrRef));
+
+        String priorReason = deletedComplaint.getDeletionReason();
+        complaintRepository.restoreSoftDeletedComplaintNative(deletedComplaint.getId());
+
+        auditService.logAction(
+                principal.getId(),
+                principal.getFullName(),
+                "ADMIN",
+                "RESTORE_COMPLAINT",
+                "COMPLAINT",
+                deletedComplaint.getId().toString(),
+                "Restored soft-deleted complaint #" + deletedComplaint.getReferenceId() +
+                        ". Prior deletion reason: " + priorReason + ". Restoration reason: " + reason.trim(),
+                ipAddress,
+                "SUCCESS"
+        );
+
+        Complaint restored = complaintRepository.findById(deletedComplaint.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Restored complaint could not be loaded: " + idOrRef));
+
+        return toResponse(restored, principal);
     }
 }

@@ -76,6 +76,7 @@ class ComplaintAdjudicationAndDuplicateTest {
         officerUser.setFullName("Ramesh Officer");
         officerUser.setEmail("ramesh.officer@chennaicorporation.gov.in");
         officerUser.setPasswordHash("$2a$10$hashed");
+        officerUser.setWard("Ward 08, Anna Nagar, Chennai");
         officerUser.setRoles(Set.of(officerRole));
         officerPrincipal = new UserPrincipal(officerUser);
 
@@ -111,6 +112,7 @@ class ComplaintAdjudicationAndDuplicateTest {
         targetComplaint.setAddress("Poonamallee High Road, Chennai");
         targetComplaint.setLatitude(BigDecimal.valueOf(13.0827));
         targetComplaint.setLongitude(BigDecimal.valueOf(80.2707));
+        targetComplaint.setWard("Ward 08, Anna Nagar, Chennai");
         targetComplaint.setVersion(0L);
     }
 
@@ -348,9 +350,11 @@ class ComplaintAdjudicationAndDuplicateTest {
         Complaint parentComplaint = new Complaint();
         parentComplaint.setId(UUID.randomUUID());
         parentComplaint.setReferenceId("CF-2026-00001");
+        parentComplaint.setWard("Ward 08, Anna Nagar, Chennai");
         parentComplaint.setTitle("Pothole on 1st avenue");
         parentComplaint.setCategory("ROADS");
         parentComplaint.setStatus(ComplaintStatus.IN_PROGRESS);
+        parentComplaint.setWard("Ward 08, Anna Nagar, Chennai");
 
         when(complaintRepository.findById(targetComplaint.getId())).thenReturn(Optional.of(targetComplaint));
         when(complaintRepository.findById(parentComplaint.getId())).thenReturn(Optional.of(parentComplaint));
@@ -402,10 +406,12 @@ class ComplaintAdjudicationAndDuplicateTest {
         Complaint rootComplaint = new Complaint();
         rootComplaint.setId(UUID.randomUUID());
         rootComplaint.setReferenceId("CF-2026-ROOT");
+        rootComplaint.setWard("Ward 08, Anna Nagar, Chennai");
 
         Complaint parentComplaint = new Complaint();
         parentComplaint.setId(UUID.randomUUID());
         parentComplaint.setReferenceId("CF-2026-CHILD1");
+        parentComplaint.setWard("Ward 08, Anna Nagar, Chennai");
         parentComplaint.setDuplicateOf(rootComplaint); // Parent is already a duplicate!
 
         when(complaintRepository.findById(targetComplaint.getId())).thenReturn(Optional.of(targetComplaint));
@@ -428,6 +434,7 @@ class ComplaintAdjudicationAndDuplicateTest {
         Complaint parentComplaint = new Complaint();
         parentComplaint.setId(UUID.randomUUID());
         parentComplaint.setReferenceId("CF-2026-PARENT");
+        parentComplaint.setWard("Ward 08, Anna Nagar, Chennai");
 
         when(complaintRepository.findById(targetComplaint.getId())).thenReturn(Optional.of(targetComplaint));
         when(complaintRepository.findById(parentComplaint.getId())).thenReturn(Optional.of(parentComplaint));
@@ -449,6 +456,7 @@ class ComplaintAdjudicationAndDuplicateTest {
         Complaint parentComplaint = new Complaint();
         parentComplaint.setId(UUID.randomUUID());
         parentComplaint.setReferenceId("CF-2026-CYCLE");
+        parentComplaint.setWard("Ward 08, Anna Nagar, Chennai");
         // Simulate targetComplaint as ancestor of parentComplaint
         parentComplaint.setDuplicateOf(targetComplaint);
 
@@ -472,6 +480,7 @@ class ComplaintAdjudicationAndDuplicateTest {
         Complaint parentComplaint = new Complaint();
         parentComplaint.setId(UUID.randomUUID());
         parentComplaint.setReferenceId("CF-2026-00001");
+        parentComplaint.setWard("Ward 08, Anna Nagar, Chennai");
 
         when(complaintRepository.findById(targetComplaint.getId())).thenReturn(Optional.of(targetComplaint));
         when(complaintRepository.findById(parentComplaint.getId())).thenReturn(Optional.of(parentComplaint));

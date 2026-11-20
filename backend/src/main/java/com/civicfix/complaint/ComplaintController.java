@@ -3,6 +3,7 @@ package com.civicfix.complaint;
 import com.civicfix.ai.dto.DuplicateCandidate;
 import com.civicfix.common.ApiResponse;
 import com.civicfix.common.PagedResponse;
+import com.civicfix.common.exception.BadRequestException;
 import com.civicfix.complaint.dto.*;
 import com.civicfix.officer.OfficerAnalyticsService;
 import com.civicfix.officer.dto.PublicTrustAnalyticsResponse;
@@ -12,6 +13,8 @@ import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -21,11 +24,16 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api/complaints")
 public class ComplaintController {
+
+    private static final Pattern SAFE_IDENTIFIER_PATTERN = Pattern.compile("^[A-Za-z0-9_-]{1,64}$");
 
     private final ComplaintService complaintService;
     private final OfficerAnalyticsService officerAnalyticsService;
@@ -107,6 +115,39 @@ public class ComplaintController {
             @AuthenticationPrincipal UserPrincipal principal) {
         ComplaintResponse response = complaintService.getComplaintById(id, principal);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping(value = "/{idOrRef}/receipt", produces = MediaType.APPLICATION_PDF_VALUE)
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<byte[]> downloadComplaintReceipt(
+            @PathVariable String idOrRef,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        if (idOrRef == null || !SAFE_IDENTIFIER_PATTERN.matcher(idOrRef.trim()).matches()) {
+            throw new BadRequestException("Invalid complaint identifier format. Alphanumeric, hyphen, and underscore characters only (max 64).");
+        }
+        String cleanIdOrRef = idOrRef.trim();
+        byte[] pdfBytes = complaintService.generateComplaintReceiptPdf(cleanIdOrRef, principal);
+        ContentDisposition contentDisposition = ContentDisposition.attachment()
+                .filename("complaint-receipt-" + cleanIdOrRef + ".pdf", StandardCharsets.UTF_8)
+                .build();
+        return ResponseEntity.ok()
+                .headers(headers -> headers.setContentDisposition(contentDisposition))
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdfBytes);
+    }
+
+    @GetMapping("/{idOrRef}/receipt/verify")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> verifyComplaintReceipt(
+            @PathVariable String idOrRef,
+            @RequestParam String signature) {
+        if (idOrRef == null || !SAFE_IDENTIFIER_PATTERN.matcher(idOrRef.trim()).matches()) {
+            throw new BadRequestException("Invalid complaint identifier format.");
+        }
+        boolean isValid = complaintService.verifyReceiptSignature(idOrRef.trim(), signature);
+        return ResponseEntity.ok(ApiResponse.success(Map.of(
+                "identifier", idOrRef.trim(),
+                "verified", isValid
+        )));
     }
 
     @GetMapping("/{id}/history")
@@ -289,5 +330,16 @@ public class ComplaintController {
         RejectResolutionRequest request = new RejectResolutionRequest(reason, version);
         ComplaintResponse response = complaintService.rejectResolution(id, request, photo, principal, httpRequest.getRemoteAddr());
         return ResponseEntity.ok(ApiResponse.success("Resolution rejected. Complaint has been reopened and escalated.", response));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> softDeleteComplaint(
+            @PathVariable String id,
+            @RequestParam(value = "reason", defaultValue = "Administrative archival") String reason,
+            @AuthenticationPrincipal UserPrincipal principal,
+            HttpServletRequest httpRequest) {
+        complaintService.softDeleteComplaint(id, reason, principal, httpRequest.getRemoteAddr());
+        return ResponseEntity.ok(ApiResponse.success("Complaint successfully soft-deleted and removed from active municipal processing.", null));
     }
 }

@@ -1,8 +1,10 @@
 package com.civicfix.auth;
 
 import com.civicfix.auth.dto.AuthUserResponse;
+import com.civicfix.auth.dto.ForgotPasswordRequest;
 import com.civicfix.auth.dto.LoginRequest;
 import com.civicfix.auth.dto.RegisterCitizenRequest;
+import com.civicfix.auth.dto.ResetPasswordRequest;
 import com.civicfix.common.ApiResponse;
 import com.civicfix.security.UserPrincipal;
 import com.civicfix.security.ratelimit.ClientIpResolver;
@@ -59,5 +61,21 @@ public class AuthController {
             @AuthenticationPrincipal UserPrincipal principal) {
         authService.logout(httpRequest, httpResponse, principal);
         return ResponseEntity.ok(ApiResponse.success("Signed out successfully.", null));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request,
+            HttpServletRequest httpRequest) {
+        String clientIp = clientIpResolver.resolveClientIp(httpRequest);
+        String message = authService.requestPasswordReset(request, clientIp);
+        return ResponseEntity.ok(ApiResponse.success(message, null));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request) {
+        String message = authService.resetPassword(request);
+        return ResponseEntity.ok(ApiResponse.success(message, null));
     }
 }

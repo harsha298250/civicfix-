@@ -39,7 +39,7 @@ EXPOSE 80
 
 # Health check to ensure Nginx is serving the SPA
 HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
-    CMD wget -qO- http://localhost:80/ || exit 1
+    CMD wget -qO- http://127.0.0.1:80/ || exit 1
 
 # Launch Nginx in foreground
 CMD ["nginx", "-g", "daemon off;"]

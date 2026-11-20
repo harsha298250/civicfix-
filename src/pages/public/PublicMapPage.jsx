@@ -108,7 +108,7 @@ export const PublicMapPage = () => {
               Tamil Nadu Infrastructure Grid
             </h1>
             <p className="text-on-surface-variant text-xs sm:text-sm max-w-2xl">
-              Public status of urban maintenance work-orders. In accordance with resident privacy policies, all personal reporter information is fully redacted.
+              Public status of urban maintenance work-orders. In accordance with resident privacy policies, low-density areas (&lt;5 reports) have exact coordinates suppressed. All personal reporter information is fully redacted.
             </p>
           </div>
 
@@ -220,13 +220,30 @@ export const PublicMapPage = () => {
                 }`}
               >
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-mono font-bold text-on-surface">Issue #{c.id}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono font-bold text-on-surface">Issue #{c.id}</span>
+                    {c.locationSuppressed ? (
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-amber-50 text-amber-800 border border-amber-200" title="Exact coordinates suppressed for resident privacy">
+                        <span className="material-symbols-outlined text-[11px]">visibility_off</span>
+                        <span>Privacy</span>
+                      </span>
+                    ) : c.aggregated && c.count > 1 ? (
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 text-primary font-medium" title="Aggregated cluster">
+                        <span className="material-symbols-outlined text-[11px]">layers</span>
+                        <span>{c.count} reports</span>
+                      </span>
+                    ) : null}
+                  </div>
                   <PriorityBadge priority={c.priority} />
                 </div>
                 <h4 className="font-title text-xs font-bold text-on-surface line-clamp-1">{c.category}</h4>
                 <p className="text-[11px] text-on-surface-variant flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[13px] text-tertiary">location_on</span>
-                  <span className="truncate">{c.ward || 'Tamil Nadu'}</span>
+                  <span className="material-symbols-outlined text-[13px] text-tertiary">
+                    {c.locationSuppressed ? 'location_disabled' : 'location_on'}
+                  </span>
+                  <span className="truncate">
+                    {c.ward || 'Tamil Nadu'} {c.locationSuppressed ? '(Coordinates suppressed)' : ''}
+                  </span>
                 </p>
                 <div className="flex items-center justify-between pt-1.5 border-t border-outline-variant/20 text-[10px]">
                   <StatusBadge status={c.status} size="sm" showIcon={false} />

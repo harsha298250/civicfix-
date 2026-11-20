@@ -1,15 +1,21 @@
 package com.civicfix.officer;
 
+import com.civicfix.audit.AuditService;
 import com.civicfix.common.exception.BadRequestException;
+import com.civicfix.common.exception.ForbiddenException;
 import com.civicfix.officer.dto.OfficerAnalyticsSummaryResponse;
 import com.civicfix.officer.dto.OfficerAnalyticsSummaryResponse.AiAdjudicationCounts;
 import com.civicfix.officer.dto.OfficerAnalyticsSummaryResponse.WardCategoryCount;
 import com.civicfix.officer.dto.OfficerTrustAnalyticsResponse;
 import com.civicfix.officer.dto.PublicTrustAnalyticsResponse;
 import com.civicfix.officer.dto.TrustScoreMetric;
+import com.civicfix.security.UserPrincipal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,9 +32,99 @@ public class OfficerAnalyticsService {
     private static final Logger log = LoggerFactory.getLogger(OfficerAnalyticsService.class);
 
     private final JdbcTemplate jdbcTemplate;
+    private final AuditService auditService;
 
     public OfficerAnalyticsService(JdbcTemplate jdbcTemplate) {
+        this(jdbcTemplate, null);
+    }
+
+    @Autowired
+    public OfficerAnalyticsService(JdbcTemplate jdbcTemplate, AuditService auditService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.auditService = auditService;
+    }
+
+    private UserPrincipal resolvePrincipalFromContext() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof UserPrincipal p) {
+            return p;
+        }
+        return null;
+    }
+
+    public String resolveAuthorizedWard(String requestedWard, UserPrincipal principal, String operationName) {
+        if (principal == null) {
+            return (requestedWard != null && !requestedWard.isBlank() && !requestedWard.equalsIgnoreCase("ALL"))
+                    ? requestedWard.trim() : null;
+        }
+
+        boolean isAdmin = principal.getAuthorities().stream().anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+        if (isAdmin) {
+            return (requestedWard != null && !requestedWard.isBlank() && !requestedWard.equalsIgnoreCase("ALL"))
+                    ? requestedWard.trim() : null;
+        }
+
+        boolean isOfficer = principal.getAuthorities().stream().anyMatch(a -> "ROLE_OFFICER".equals(a.getAuthority()));
+        if (isOfficer) {
+            String officerWard = principal.getWard();
+            if (officerWard == null || officerWard.isBlank()) {
+                throw new ForbiddenException("Officer has no assigned ward. Access denied.");
+            }
+
+            boolean requestingSpecific = requestedWard != null && !requestedWard.isBlank() && !requestedWard.equalsIgnoreCase("ALL");
+            if (requestingSpecific) {
+                if (!officerWard.trim().equalsIgnoreCase(requestedWard.trim())) {
+                    if (!principal.hasActiveCrossWardAccess()) {
+                        throw new ForbiddenException("Officers cannot access analytics outside their assigned ward (" + officerWard.trim() + ") without authorized cross-ward permission.");
+                    }
+                    if (auditService != null) {
+                        auditService.logAction(
+                                principal.getId(),
+                                principal.getFullName(),
+                                "OFFICER",
+                                "OFFICER_CROSS_WARD_ANALYTICS_ACCESS",
+                                "WARD",
+                                requestedWard.trim(),
+                                "Authorized cross-ward analytics access for " + operationName + " in ward: " + requestedWard.trim(),
+                                null,
+                                "SUCCESS"
+                        );
+                    }
+                    return requestedWard.trim();
+                } else {
+                    return officerWard.trim();
+                }
+            } else {
+                if (requestedWard != null && requestedWard.equalsIgnoreCase("ALL")) {
+                    if (!principal.hasActiveCrossWardAccess()) {
+                        throw new ForbiddenException("Officers cannot query municipal-wide analytics without authorized cross-ward permission.");
+                    }
+                    if (auditService != null) {
+                        auditService.logAction(
+                                principal.getId(),
+                                principal.getFullName(),
+                                "OFFICER",
+                                "OFFICER_CROSS_WARD_ANALYTICS_ACCESS",
+                                "WARD",
+                                "ALL",
+                                "Authorized municipal-wide analytics access for " + operationName,
+                                null,
+                                "SUCCESS"
+                        );
+                    }
+                    return null; // Municipal-wide ALL
+                }
+                return officerWard.trim();
+            }
+        }
+
+        boolean isSupervisor = principal.getAuthorities().stream().anyMatch(a -> "ROLE_SUPERVISOR".equals(a.getAuthority()));
+        if (isSupervisor) {
+            return (requestedWard != null && !requestedWard.isBlank() && !requestedWard.equalsIgnoreCase("ALL"))
+                    ? requestedWard.trim() : null;
+        }
+
+        throw new ForbiddenException("Access denied to municipal analytics.");
     }
 
     /**
@@ -36,6 +132,11 @@ public class OfficerAnalyticsService {
      * Never loads complaint entities into memory.
      */
     public OfficerAnalyticsSummaryResponse getAnalyticsSummary(String fromStr, String toStr, String ward, String category) {
+        return getAnalyticsSummary(fromStr, toStr, ward, category, resolvePrincipalFromContext());
+    }
+
+    public OfficerAnalyticsSummaryResponse getAnalyticsSummary(String fromStr, String toStr, String ward, String category, UserPrincipal principal) {
+        String effectiveWard = resolveAuthorizedWard(ward, principal, "ANALYTICS_SUMMARY");
         OffsetDateTime from = parseDateTime(fromStr, false);
         OffsetDateTime to = parseDateTime(toStr, true);
 
@@ -54,9 +155,9 @@ public class OfficerAnalyticsService {
             where.append(" AND c.created_at <= ? ");
             paramsList.add(Timestamp.from(to.toInstant()));
         }
-        if (ward != null && !ward.isBlank() && !ward.equalsIgnoreCase("ALL")) {
+        if (effectiveWard != null && !effectiveWard.isBlank() && !effectiveWard.equalsIgnoreCase("ALL")) {
             where.append(" AND LOWER(c.ward) = LOWER(?) ");
-            paramsList.add(ward.trim());
+            paramsList.add(effectiveWard.trim());
         }
         if (category != null && !category.isBlank() && !category.equalsIgnoreCase("ALL")) {
             where.append(" AND LOWER(c.category) = LOWER(?) ");
@@ -205,6 +306,12 @@ public class OfficerAnalyticsService {
      * Rule: Return null with "Not enough data (< 5 closures)" when fewer than 5 closures exist.
      */
     public OfficerTrustAnalyticsResponse getClosureTrustScores(String fromStr, String toStr, String wardFilter) {
+        return getClosureTrustScores(fromStr, toStr, wardFilter, resolvePrincipalFromContext());
+    }
+
+    public OfficerTrustAnalyticsResponse getClosureTrustScores(String fromStr, String toStr, String wardFilter, UserPrincipal principal) {
+        String effectiveWard = resolveAuthorizedWard(wardFilter, principal, "CLOSURE_TRUST_SCORES");
+
         OffsetDateTime from = parseDateTime(fromStr, false);
         OffsetDateTime to = parseDateTime(toStr, true);
 
@@ -223,9 +330,9 @@ public class OfficerAnalyticsService {
             whereBuilder.append(" AND csh.created_at <= ? ");
             paramsList.add(Timestamp.from(to.toInstant()));
         }
-        if (wardFilter != null && !wardFilter.isBlank() && !wardFilter.equalsIgnoreCase("ALL")) {
+        if (effectiveWard != null && !effectiveWard.isBlank() && !effectiveWard.equalsIgnoreCase("ALL")) {
             whereBuilder.append(" AND LOWER(c.ward) = LOWER(?) ");
-            paramsList.add(wardFilter.trim());
+            paramsList.add(effectiveWard.trim());
         }
 
         Object[] params = paramsList.toArray();

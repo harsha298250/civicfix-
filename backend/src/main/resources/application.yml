@@ -48,6 +48,18 @@ spring:
     baseline-on-migrate: true
     locations: classpath:db/migration
 
+  mail:
+    host: ${SPRING_MAIL_HOST:localhost}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SPRING_MAIL_AUTH:true}
+          starttls:
+            enable: ${SPRING_MAIL_STARTTLS:true}
+
 # Actuator configuration: restrict sensitive health/metrics
 management:
   endpoints:
@@ -82,6 +94,11 @@ civicfix:
     max-accuracy-meters: ${EVIDENCE_MAX_ACCURACY:100.0}
   cors:
     allowed-origins: ${FRONTEND_ORIGIN:http://localhost:5173}
+  mail:
+    enabled: ${CIVICFIX_MAIL_ENABLED:false}
+    from: ${CIVICFIX_MAIL_FROM:noreply@civicfix.org}
+  receipt:
+    hmac-secret: ${CIVICFIX_RECEIPT_HMAC_SECRET:civicfix_dev_receipt_hmac_secret_only}
   storage:
     provider: ${STORAGE_PROVIDER:local} # Safe local filesystem storage abstraction. S3/Blob storage can be configured when cloud credentials are provided.
     upload-dir: ${STORAGE_UPLOAD_DIR:uploads/evidence}
@@ -105,9 +122,15 @@ civicfix:
     account-login:
       capacity: ${RATE_LIMIT_ACCOUNT_LOGIN_CAPACITY:20}
       duration: ${RATE_LIMIT_ACCOUNT_LOGIN_DURATION:1h}
+    ip-login:
+      capacity: ${RATE_LIMIT_IP_LOGIN_CAPACITY:30}
+      duration: ${RATE_LIMIT_IP_LOGIN_DURATION:15m}
     register:
       capacity: ${RATE_LIMIT_REGISTER_CAPACITY:5}
       duration: ${RATE_LIMIT_REGISTER_DURATION:1h}
+    forgot-password:
+      capacity: ${RATE_LIMIT_FORGOT_PASSWORD_CAPACITY:5}
+      duration: ${RATE_LIMIT_FORGOT_PASSWORD_DURATION:15m}
     complaint-create:
       capacity: ${RATE_LIMIT_COMPLAINT_CAPACITY:10}
       duration: ${RATE_LIMIT_COMPLAINT_DURATION:1m}
@@ -117,3 +140,11 @@ civicfix:
     reverse-geocode:
       capacity: ${RATE_LIMIT_GEOCODE_CAPACITY:30}
       duration: ${RATE_LIMIT_GEOCODE_DURATION:1m}
+    nominatim:
+      enabled: ${NOMINATIM_RATE_LIMIT_ENABLED:true}
+      min-interval-ms: ${NOMINATIM_MIN_INTERVAL_MS:1000}
+      max-wait-ms: ${NOMINATIM_MAX_WAIT_MS:5000}
+      cooldown-ms: ${NOMINATIM_COOLDOWN_MS:10000}
+
+public-map:
+  minimum-group-size: ${PUBLIC_MAP_MINIMUM_GROUP_SIZE:5}

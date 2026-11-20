@@ -8,18 +8,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
-describe('ForgotPasswordPage Honest Notice Tests', () => {
+describe('ForgotPasswordPage Secure Password Recovery Tests', () => {
   const pagePath = path.join(rootDir, 'src/pages/public/ForgotPasswordPage.jsx');
   assert.ok(fs.existsSync(pagePath), 'ForgotPasswordPage.jsx must exist');
   const pageContent = fs.readFileSync(pagePath, 'utf8');
 
-  test('Page contains no form submission that claims success or fake dispatch', () => {
-    // Must contain no form element or submit handlers
-    assert.ok(!pageContent.includes('<form'), 'ForgotPasswordPage must not contain a form element');
-    assert.ok(!pageContent.includes('onSubmit'), 'ForgotPasswordPage must not have onSubmit handlers');
-    assert.ok(!pageContent.includes('handleSubmit'), 'ForgotPasswordPage must not define handleSubmit');
-    assert.ok(!pageContent.includes('setDispatched'), 'ForgotPasswordPage must not have dispatched state');
-    assert.ok(!pageContent.includes('showToast'), 'ForgotPasswordPage must not show fake success/info toasts');
+  test('Page contains form submission that calls authService.forgotPassword', () => {
+    assert.ok(pageContent.includes('<form'), 'ForgotPasswordPage must contain a form element');
+    assert.ok(pageContent.includes('onSubmit={handleSubmit}'), 'ForgotPasswordPage must have onSubmit handler');
+    assert.ok(pageContent.includes('authService.forgotPassword'), 'ForgotPasswordPage must call authService.forgotPassword');
+    assert.ok(pageContent.includes('type="email"'), 'ForgotPasswordPage must contain email input');
   });
 
   test('Page contains no invented protocol claims or fake security keywords', () => {
@@ -27,26 +25,31 @@ describe('ForgotPasswordPage Honest Notice Tests', () => {
     assert.ok(!pageContent.includes('RFC-7519'), 'Must not claim RFC-7519');
     assert.ok(!pageContent.toLowerCase().includes('zero-knowledge'), 'Must not claim Zero-Knowledge protocol');
     assert.ok(!pageContent.toLowerCase().includes('passkey'), 'Must not claim single-use cryptographic passkeys');
-    assert.ok(!pageContent.includes('recovery link generated'), 'Must not claim recovery link was generated');
   });
 
-  test('Page displays honest notice and directs users to system administrator', () => {
+  test('Page displays generic non-enumerating confirmation on submission', () => {
     assert.ok(
-      pageContent.includes('Password reset via automated email is not available in this version'),
-      'Must contain honest notice about unavailable automated email reset'
+      pageContent.includes('If an account with that email exists') ||
+      pageContent.includes('If an account exists with this email'),
+      'Must contain generic non-enumerating confirmation message'
     );
     assert.ok(
-      pageContent.includes('contact the system administrator'),
-      'Must instruct users to contact the system administrator'
+      pageContent.includes('do not reveal whether an email is registered') ||
+      pageContent.includes('instructions have been sent'),
+      'Must protect against email enumeration'
     );
   });
 
-  test('Route /forgot-password remains registered and linked from LoginPage', () => {
+  test('Route /forgot-password and /reset-password are registered in App.jsx', () => {
     const appPath = path.join(rootDir, 'src/App.jsx');
     const appContent = fs.readFileSync(appPath, 'utf8');
     assert.ok(
       appContent.includes('path="/forgot-password"'),
       'App.jsx must retain /forgot-password route'
+    );
+    assert.ok(
+      appContent.includes('path="/reset-password"'),
+      'App.jsx must retain /reset-password route'
     );
 
     const loginPath = path.join(rootDir, 'src/pages/public/LoginPage.jsx');
@@ -55,6 +58,16 @@ describe('ForgotPasswordPage Honest Notice Tests', () => {
       loginContent.includes('to="/forgot-password"'),
       'LoginPage.jsx must link to /forgot-password'
     );
+  });
+
+  test('ResetPasswordPage exists and validates token and password constraints', () => {
+    const resetPath = path.join(rootDir, 'src/pages/public/ResetPasswordPage.jsx');
+    assert.ok(fs.existsSync(resetPath), 'ResetPasswordPage.jsx must exist');
+    const resetContent = fs.readFileSync(resetPath, 'utf8');
+    assert.ok(resetContent.includes('authService.resetPassword'), 'Must invoke authService.resetPassword');
+    assert.ok(resetContent.includes('token'), 'Must handle reset token');
+    assert.ok(resetContent.includes('password'), 'Must capture new password');
+    assert.ok(resetContent.includes('confirmPassword'), 'Must validate confirmation password');
   });
 
   test('Locale dictionaries provide English and Tamil translations for password assistance', () => {

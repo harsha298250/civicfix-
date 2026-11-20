@@ -30,6 +30,8 @@ civicfix:
   cors:
     allowed-origins: ${FRONTEND_ORIGIN}
   seed-demo: false
+  receipt:
+    hmac-secret: ${CIVICFIX_RECEIPT_HMAC_SECRET:}
   security:
     allow-seed-accounts: ${ALLOW_SEED_ACCOUNTS:false}
     trusted-proxy-enabled: ${TRUSTED_PROXY_ENABLED:true}

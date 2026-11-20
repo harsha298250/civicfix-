@@ -51,6 +51,11 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.UNAUTHORIZED, "Invalid credentials. Please verify your email or phone and password.", req);
     }
 
+    @ExceptionHandler(AuthenticationServiceUnavailableException.class)
+    public ResponseEntity<Map<String, Object>> handleAuthServiceUnavailable(AuthenticationServiceUnavailableException ex, WebRequest req) {
+        return buildResponse(HttpStatus.SERVICE_UNAVAILABLE, "Authentication service is temporarily unavailable. Please try again shortly.", req);
+    }
+
     @ExceptionHandler(RateLimitExceededException.class)
     public ResponseEntity<Map<String, Object>> handleRateLimitExceeded(RateLimitExceededException ex, WebRequest req) {
         long retryAfter = Math.max(1, ex.getRetryAfterSeconds());

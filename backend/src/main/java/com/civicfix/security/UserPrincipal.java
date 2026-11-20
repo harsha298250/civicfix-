@@ -5,6 +5,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -19,6 +20,9 @@ public class UserPrincipal implements UserDetails {
     private final String accountStatus;
     private final String department;
     private final String ward;
+    private final boolean crossWardAccess;
+    private final OffsetDateTime crossWardExpiresAt;
+    private final boolean crossDepartmentAccess;
     private final Collection<? extends GrantedAuthority> authorities;
 
     public UserPrincipal(User user) {
@@ -30,6 +34,9 @@ public class UserPrincipal implements UserDetails {
         this.accountStatus = user.getAccountStatus();
         this.department = user.getDepartment();
         this.ward = user.getWard();
+        this.crossWardAccess = user.isCrossWardAccess();
+        this.crossWardExpiresAt = user.getCrossWardExpiresAt();
+        this.crossDepartmentAccess = user.isCrossDepartmentAccess();
         this.authorities = user.getRoles().stream()
                 .map(role -> new SimpleGrantedAuthority(role.getName().toSecurityRole()))
                 .collect(Collectors.toSet());
@@ -57,6 +64,32 @@ public class UserPrincipal implements UserDetails {
 
     public String getWard() {
         return ward;
+    }
+
+    public boolean isCrossWardAccess() {
+        return crossWardAccess;
+    }
+
+    public OffsetDateTime getCrossWardExpiresAt() {
+        return crossWardExpiresAt;
+    }
+
+    public boolean hasActiveCrossWardAccess() {
+        if (!crossWardAccess) {
+            return false;
+        }
+        if (crossWardExpiresAt != null && crossWardExpiresAt.isBefore(OffsetDateTime.now())) {
+            return false;
+        }
+        return true;
+    }
+
+    public boolean isCrossDepartmentAccess() {
+        return crossDepartmentAccess;
+    }
+
+    public boolean hasActiveCrossDepartmentAccess() {
+        return crossDepartmentAccess;
     }
 
     @Override
@@ -92,5 +125,18 @@ public class UserPrincipal implements UserDetails {
     @Override
     public boolean isEnabled() {
         return "ACTIVE".equalsIgnoreCase(accountStatus);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        UserPrincipal that = (UserPrincipal) o;
+        return java.util.Objects.equals(id, that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hashCode(id);
     }
 }

@@ -111,7 +111,7 @@ class ProductionSafetyGuardTest {
     }
 
     @Test
-    @DisplayName("Prod Safety: Leaves seed accounts active when ALLOW_SEED_ACCOUNTS is explicitly true")
+    @DisplayName("Prod Safety: Rejects startup when ALLOW_SEED_ACCOUNTS is true in production")
     void retainsSeedAccountsWhenAllowSeedAccountsIsTrue() {
         Map<UUID, User> store = new HashMap<>();
         List<User> savedUsers = new ArrayList<>();
@@ -132,9 +132,8 @@ class ProductionSafetyGuardTest {
                 true
         );
 
-        int disabledCount = guard.enforceSeedAccountPolicy();
-        assertEquals(0, disabledCount);
-        assertEquals(0, savedUsers.size());
+        IllegalStateException ex = assertThrows(IllegalStateException.class, guard::enforceSeedAccountPolicy);
+        assertTrue(ex.getMessage().contains("ALLOW_SEED_ACCOUNTS cannot be enabled in the 'prod' profile"));
     }
 
     @Test
@@ -151,5 +150,31 @@ class ProductionSafetyGuardTest {
 
         UserPrincipal principal = new UserPrincipal(disabledUser);
         assertFalse(principal.isEnabled(), "A user with status DISABLED must have isEnabled() == false");
+    }
+
+    @Test
+    @DisplayName("Prod Safety: Startup fails when HMAC secret is dev default or empty in prod profile")
+    void refusesStartupWhenHmacSecretIsDevDefaultOrEmptyInProd() {
+        UserRepository fakeRepo = createFakeUserRepository(new HashMap<>(), new ArrayList<>());
+
+        ProductionSafetyGuard guardDefault = new ProductionSafetyGuard(
+                fakeRepo, "ProdSecurePass123!", false, null, "civicfix_dev_receipt_hmac_secret_only");
+        IllegalStateException ex1 = assertThrows(IllegalStateException.class, guardDefault::validateReceiptHmacConfiguration);
+        assertTrue(ex1.getMessage().contains("CIVICFIX_RECEIPT_HMAC_SECRET"));
+
+        ProductionSafetyGuard guardEmpty = new ProductionSafetyGuard(
+                fakeRepo, "ProdSecurePass123!", false, null, "   ");
+        IllegalStateException ex2 = assertThrows(IllegalStateException.class, guardEmpty::validateReceiptHmacConfiguration);
+        assertTrue(ex2.getMessage().contains("CIVICFIX_RECEIPT_HMAC_SECRET"));
+    }
+
+    @Test
+    @DisplayName("Prod Safety: Startup succeeds when HMAC secret is secure and unique")
+    void acceptsStartupWhenHmacSecretIsSecure() {
+        UserRepository fakeRepo = createFakeUserRepository(new HashMap<>(), new ArrayList<>());
+
+        ProductionSafetyGuard guard = new ProductionSafetyGuard(
+                fakeRepo, "ProdSecurePass123!", false, null, "prod_super_secret_hmac_key_2026_xyz");
+        assertDoesNotThrow(guard::validateReceiptHmacConfiguration);
     }
 }

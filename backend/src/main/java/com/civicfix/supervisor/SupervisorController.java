@@ -1,6 +1,6 @@
 package com.civicfix.supervisor;
 
-import com.civicfix.admin.dto.AdminUserResponse;
+import com.civicfix.supervisor.dto.SupervisorWorkerResponse;
 import com.civicfix.common.ApiResponse;
 import com.civicfix.common.PagedResponse;
 import com.civicfix.complaint.dto.ComplaintResponse;
@@ -55,8 +55,10 @@ public class SupervisorController {
 
     @GetMapping("/workers")
     @PreAuthorize("hasAnyRole('SUPERVISOR', 'ADMIN')")
-    public ResponseEntity<ApiResponse<java.util.List<AdminUserResponse>>> getActiveWorkers() {
-        java.util.List<AdminUserResponse> workers = supervisorService.getActiveWorkers();
+    public ResponseEntity<ApiResponse<java.util.List<SupervisorWorkerResponse>>> getActiveWorkers(
+            @RequestParam(required = false) String department,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        java.util.List<SupervisorWorkerResponse> workers = supervisorService.getActiveWorkers(principal, department);
         return ResponseEntity.ok(ApiResponse.success(workers));
     }
 }

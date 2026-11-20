@@ -217,6 +217,14 @@ export const authService = {
       }
       throw new Error('Cannot reach the server. Nothing was saved.');
     }
+  },
+
+  forgotPassword: async (email) => {
+    return await apiClient.auth.forgotPassword(email);
+  },
+
+  resetPassword: async (token, newPassword) => {
+    return await apiClient.auth.resetPassword({ token, newPassword });
   }
 };
 

@@ -50,6 +50,14 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             return true;
         }
 
+        // 1b. Password Reset Request: 5 per IP per 15 minutes
+        if ("POST".equalsIgnoreCase(method) && "/api/auth/forgot-password".equals(path)) {
+            String ip = clientIpResolver.resolveClientIp(request);
+            String key = "forgot_password:" + ip;
+            checkRateLimit(key, properties.getForgotPassword(), "Password reset request limit exceeded. Please wait before trying again.", path, ip);
+            return true;
+        }
+
         // 2. Reverse Geocode: 30 per IP per minute
         if ("GET".equalsIgnoreCase(method) && "/api/gis/reverse-geocode".equals(path)) {
             String ip = clientIpResolver.resolveClientIp(request);

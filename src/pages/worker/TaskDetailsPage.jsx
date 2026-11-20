@@ -311,6 +311,17 @@ export const TaskDetailsPage = () => {
           </div>
         </div>
 
+        {/* Resident Privacy & Municipal Contact Protocol */}
+        <div className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-on-surface">
+          <span className="material-symbols-outlined text-amber-600 text-lg shrink-0 mt-0.5">shield</span>
+          <div className="space-y-0.5">
+            <span className="font-semibold text-amber-700 dark:text-amber-400 block">Resident Privacy Protection</span>
+            <p className="text-on-surface-variant text-[11px] leading-relaxed">
+              In accordance with Municipal Data Protection Guidelines, resident personal contact details (phone and email) are confidential and omitted from technician dispatch feeds. If site access requires contacting the resident, please coordinate through your dispatching officer.
+            </p>
+          </div>
+        </div>
+
         {/* Narrative & Description */}
         <div className="space-y-2 text-xs">
           <span className="font-bold text-tertiary uppercase tracking-wider block">Task Specification & Hazard Context</span>

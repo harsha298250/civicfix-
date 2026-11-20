@@ -55,6 +55,8 @@ class SupervisorServiceTest {
         supervisorUser.setId(supervisorId);
         supervisorUser.setFullName("Sarah Jenkins");
         supervisorUser.setEmail("sarah.jenkins@metro.gov");
+        supervisorUser.setDepartment("Municipal Operations Command");
+        supervisorUser.setCrossDepartmentAccess(true);
         supervisorUser.setRoles(Set.of(new Role(RoleName.SUPERVISOR)));
         supervisorPrincipal = new UserPrincipal(supervisorUser);
 

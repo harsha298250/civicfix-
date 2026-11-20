@@ -2,6 +2,7 @@ package com.civicfix.complaint;
 
 import com.civicfix.user.User;
 import jakarta.persistence.*;
+import org.hibernate.annotations.SQLRestriction;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -10,6 +11,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "complaints")
+@SQLRestriction("deleted_at IS NULL")
 public class Complaint {
 
     @Id
@@ -158,6 +160,16 @@ public class Complaint {
 
     @Column(name = "final_priority_source", length = 50)
     private String finalPrioritySource;
+
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "deleted_by")
+    private User deletedBy;
+
+    @Column(name = "deletion_reason", columnDefinition = "TEXT")
+    private String deletionReason;
 
     @PrePersist
     protected void onCreate() {
@@ -541,5 +553,33 @@ public class Complaint {
 
     public void setFinalPrioritySource(String finalPrioritySource) {
         this.finalPrioritySource = finalPrioritySource;
+    }
+
+    public OffsetDateTime getDeletedAt() {
+        return deletedAt;
+    }
+
+    public void setDeletedAt(OffsetDateTime deletedAt) {
+        this.deletedAt = deletedAt;
+    }
+
+    public User getDeletedBy() {
+        return deletedBy;
+    }
+
+    public void setDeletedBy(User deletedBy) {
+        this.deletedBy = deletedBy;
+    }
+
+    public String getDeletionReason() {
+        return deletionReason;
+    }
+
+    public void setDeletionReason(String deletionReason) {
+        this.deletionReason = deletionReason;
+    }
+
+    public boolean isDeleted() {
+        return deletedAt != null;
     }
 }

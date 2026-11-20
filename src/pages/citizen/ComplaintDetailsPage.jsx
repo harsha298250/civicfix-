@@ -259,6 +259,29 @@ export const ComplaintDetailsPage = () => {
     showToast(`Copied #${ref} to clipboard!`, 'info');
   };
 
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const handleDownloadPdfReceipt = async () => {
+    if (!complaint) return;
+    setDownloadingPdf(true);
+    try {
+      const blob = await complaintService.downloadReceipt(complaint.id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `complaint-receipt-${complaint.referenceId || complaint.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      showToast('Official PDF receipt downloaded successfully.', 'success');
+    } catch (err) {
+      showToast(err.message || 'Failed to generate PDF receipt.', 'error');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
   const currentEffectiveStatus = complaint.status;
 
   // Stepper steps
@@ -325,6 +348,17 @@ export const ComplaintDetailsPage = () => {
               >
                 <span className="material-symbols-outlined text-[14px]">content_copy</span>
                 <span>Copy</span>
+              </button>
+              <button
+                onClick={handleDownloadPdfReceipt}
+                disabled={downloadingPdf}
+                className="inline-flex items-center gap-1.5 text-xs text-primary font-semibold px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 transition-all shadow-xs disabled:opacity-50"
+                title="Download Official Submission Receipt (PDF)"
+              >
+                <span className="material-symbols-outlined text-[15px]">
+                  {downloadingPdf ? 'progress_activity' : 'picture_as_pdf'}
+                </span>
+                <span>{downloadingPdf ? 'Generating...' : 'Receipt (PDF)'}</span>
               </button>
               <span className="text-outline-variant">•</span>
               <span className="text-xs text-on-surface-variant flex items-center gap-1">

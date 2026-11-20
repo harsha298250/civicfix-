@@ -67,6 +67,7 @@ services:
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost,http://localhost:80,http://localhost:5173}
       STORAGE_UPLOAD_DIR: /app/uploads/evidence
       ALLOW_SEED_ACCOUNTS: ${ALLOW_SEED_ACCOUNTS:-true}
+      CIVICFIX_RECEIPT_HMAC_SECRET: ${CIVICFIX_RECEIPT_HMAC_SECRET:-civicfix_dev_receipt_hmac_secret_only}
       TRUSTED_PROXY_ENABLED: ${TRUSTED_PROXY_ENABLED:-true}
       AI_VISION_ENABLED: ${AI_VISION_ENABLED:-false}
       AI_VISION_PROVIDER: ${AI_VISION_PROVIDER:-gemini}

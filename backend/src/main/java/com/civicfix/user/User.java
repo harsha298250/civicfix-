@@ -38,6 +38,15 @@ public class User {
     @Column(name = "trust_score")
     private Integer trustScore = 90;
 
+    @Column(name = "cross_ward_access", nullable = false)
+    private boolean crossWardAccess = false;
+
+    @Column(name = "cross_ward_expires_at")
+    private OffsetDateTime crossWardExpiresAt;
+
+    @Column(name = "cross_department_access", nullable = false)
+    private boolean crossDepartmentAccess = false;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
         name = "user_roles",
@@ -135,6 +144,30 @@ public class User {
 
     public void setTrustScore(Integer trustScore) {
         this.trustScore = trustScore;
+    }
+
+    public boolean isCrossWardAccess() {
+        return crossWardAccess;
+    }
+
+    public void setCrossWardAccess(boolean crossWardAccess) {
+        this.crossWardAccess = crossWardAccess;
+    }
+
+    public OffsetDateTime getCrossWardExpiresAt() {
+        return crossWardExpiresAt;
+    }
+
+    public void setCrossWardExpiresAt(OffsetDateTime crossWardExpiresAt) {
+        this.crossWardExpiresAt = crossWardExpiresAt;
+    }
+
+    public boolean isCrossDepartmentAccess() {
+        return crossDepartmentAccess;
+    }
+
+    public void setCrossDepartmentAccess(boolean crossDepartmentAccess) {
+        this.crossDepartmentAccess = crossDepartmentAccess;
     }
 
     public Set<Role> getRoles() {
