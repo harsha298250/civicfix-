@@ -17,9 +17,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -83,7 +87,7 @@ public class VisionTriageAsyncService {
             return;
         }
 
-        // 2. Verify photos
+        // 2. Verify and filter valid photos (up to 3 non-WebP candidates)
         List<ComplaintPhoto> photos = complaintPhotoRepository.findByComplaintIdOrderByCreatedAtAsc(complaintId);
         if (photos == null || photos.isEmpty()) {
             complaintRepository.updateVisionStatus(complaintId, "SKIPPED", "No photo attached", OffsetDateTime.now());
@@ -91,31 +95,55 @@ public class VisionTriageAsyncService {
             return;
         }
 
-        ComplaintPhoto photo = photos.get(0);
-        String fileName = photo.getFileName() != null ? photo.getFileName().toLowerCase() : "";
-        String photoUrl = photo.getPhotoUrl() != null ? photo.getPhotoUrl().toLowerCase() : "";
-        String contentType = photo.getContentType() != null ? photo.getContentType().toLowerCase() : "";
+        List<ComplaintPhoto> candidatePhotos = new ArrayList<>();
+        boolean encounteredWebp = false;
+        boolean encounteredOversize = false;
+        boolean encounteredUnsupported = false;
 
-        // Check WebP - explicit skip to prevent unstripped EXIF/GPS leakage
-        boolean isWebp = fileName.endsWith(".webp") || photoUrl.endsWith(".webp") || "image/webp".equals(contentType);
-        if (isWebp) {
-            complaintRepository.updateVisionStatus(complaintId, "SKIPPED", "WebP image format skipped to prevent unstripped EXIF metadata leakage", OffsetDateTime.now());
-            log.info("Vision triage status: SKIPPED (reason: WebP image format) for complaint ID [{}]", complaintId);
-            return;
+        for (ComplaintPhoto p : photos) {
+            String pName = p.getFileName() != null ? p.getFileName().toLowerCase() : "";
+            String pUrl = p.getPhotoUrl() != null ? p.getPhotoUrl().toLowerCase() : "";
+            String pType = p.getContentType() != null ? p.getContentType().toLowerCase() : "";
+
+            boolean isWebp = pName.endsWith(".webp") || pUrl.endsWith(".webp") || "image/webp".equals(pType);
+            if (isWebp) {
+                encounteredWebp = true;
+                continue;
+            }
+
+            boolean isJpegOrPng = pName.endsWith(".jpg") || pName.endsWith(".jpeg") || pName.endsWith(".png") ||
+                                  pUrl.endsWith(".jpg") || pUrl.endsWith(".jpeg") || pUrl.endsWith(".png") ||
+                                  "image/jpeg".equals(pType) || "image/jpg".equals(pType) || "image/png".equals(pType);
+            if (!isJpegOrPng) {
+                encounteredUnsupported = true;
+                continue;
+            }
+
+            if (p.getFileSize() != null && p.getFileSize() > MAX_PHOTO_BYTES) {
+                encounteredOversize = true;
+                continue;
+            }
+
+            candidatePhotos.add(p);
+            if (candidatePhotos.size() == 3) {
+                break;
+            }
         }
 
-        boolean isJpegOrPng = fileName.endsWith(".jpg") || fileName.endsWith(".jpeg") || fileName.endsWith(".png") ||
-                              photoUrl.endsWith(".jpg") || photoUrl.endsWith(".jpeg") || photoUrl.endsWith(".png") ||
-                              "image/jpeg".equals(contentType) || "image/jpg".equals(contentType) || "image/png".equals(contentType);
-        if (!isJpegOrPng) {
-            complaintRepository.updateVisionStatus(complaintId, "SKIPPED", "Unsupported image format for vision triage", OffsetDateTime.now());
-            log.info("Vision triage status: SKIPPED (reason: Unsupported image format) for complaint ID [{}]", complaintId);
-            return;
-        }
-
-        if (photo.getFileSize() != null && photo.getFileSize() > MAX_PHOTO_BYTES) {
-            complaintRepository.updateVisionStatus(complaintId, "SKIPPED", "Photo exceeds maximum 4 MB size limit for vision triage", OffsetDateTime.now());
-            log.info("Vision triage status: SKIPPED (reason: Photo exceeds 4 MB) for complaint ID [{}]", complaintId);
+        if (candidatePhotos.isEmpty()) {
+            if (encounteredWebp) {
+                complaintRepository.updateVisionStatus(complaintId, "SKIPPED", "WebP image format skipped to prevent unstripped EXIF metadata leakage", OffsetDateTime.now());
+                log.info("Vision triage status: SKIPPED (reason: WebP image format) for complaint ID [{}]", complaintId);
+            } else if (encounteredOversize) {
+                complaintRepository.updateVisionStatus(complaintId, "SKIPPED", "Photo exceeds maximum 4 MB size limit for vision triage", OffsetDateTime.now());
+                log.info("Vision triage status: SKIPPED (reason: Photo exceeds 4 MB) for complaint ID [{}]", complaintId);
+            } else if (encounteredUnsupported) {
+                complaintRepository.updateVisionStatus(complaintId, "SKIPPED", "Unsupported image format for vision triage", OffsetDateTime.now());
+                log.info("Vision triage status: SKIPPED (reason: Unsupported image format) for complaint ID [{}]", complaintId);
+            } else {
+                complaintRepository.updateVisionStatus(complaintId, "SKIPPED", "No eligible photos found for vision triage", OffsetDateTime.now());
+                log.info("Vision triage status: SKIPPED (reason: No eligible photos) for complaint ID [{}]", complaintId);
+            }
             return;
         }
 
@@ -142,50 +170,138 @@ public class VisionTriageAsyncService {
             }
         }
 
-        // 5. Read image bytes
-        byte[] imageBytes;
-        try {
-            String storedFilename = extractFilename(photo.getPhotoUrl());
-            Resource resource = storageService.loadFileAsResource(storedFilename, "complaints/" + complaintId);
-            if (!resource.exists() || !resource.isReadable()) {
-                complaintRepository.updateVisionStatus(complaintId, "FAILED", "Could not read stored photo from disk", OffsetDateTime.now());
-                log.warn("Vision triage status: FAILED (reason: Could not read photo from disk) for complaint ID [{}]", complaintId);
-                return;
+        // 5. Read image bytes and analyze up to 3 candidate photos
+        VisionTriageProvider provider = selectProvider();
+        List<VisionTriageOutput> outputs = new ArrayList<>();
+        String lastErrorReason = "Could not process photo";
+
+        for (ComplaintPhoto photo : candidatePhotos) {
+            String fileName = photo.getFileName() != null ? photo.getFileName().toLowerCase() : "";
+            String photoUrl = photo.getPhotoUrl() != null ? photo.getPhotoUrl().toLowerCase() : "";
+            String contentType = photo.getContentType() != null ? photo.getContentType().toLowerCase() : "";
+
+            byte[] imageBytes;
+            try {
+                String storedFilename = extractFilename(photo.getPhotoUrl());
+                Resource resource = storageService.loadFileAsResource(storedFilename, "complaints/" + complaintId);
+                if (!resource.exists() || !resource.isReadable()) {
+                    log.warn("Photo resource missing or unreadable for complaint ID [{}]: {}", complaintId, storedFilename);
+                    lastErrorReason = "Could not read stored photo from disk";
+                    continue;
+                }
+                imageBytes = resource.getInputStream().readAllBytes();
+                if (imageBytes.length > MAX_PHOTO_BYTES) {
+                    log.info("Photo bytes exceed 4 MB for photo [{}] of complaint [{}]", storedFilename, complaintId);
+                    lastErrorReason = "Photo bytes exceed 4 MB";
+                    continue;
+                }
+            } catch (Exception e) {
+                lastErrorReason = "Error loading photo file: " + e.getMessage();
+                log.warn("Error reading photo file for complaint ID [{}]: {}", complaintId, e.getMessage());
+                continue;
             }
-            imageBytes = resource.getInputStream().readAllBytes();
-            if (imageBytes.length > MAX_PHOTO_BYTES) {
-                complaintRepository.updateVisionStatus(complaintId, "SKIPPED", "Photo bytes exceed 4 MB", OffsetDateTime.now());
-                log.info("Vision triage status: SKIPPED (reason: Photo bytes exceed 4 MB) for complaint ID [{}]", complaintId);
-                return;
+
+            String mimeType = (fileName.endsWith(".png") || photoUrl.endsWith(".png") || "image/png".equals(contentType))
+                    ? "image/png"
+                    : "image/jpeg";
+
+            try {
+                VisionTriageOutput out = provider.analyze(imageBytes, mimeType);
+                if (out != null) {
+                    outputs.add(out);
+                }
+            } catch (Exception e) {
+                String err = e.getMessage() != null && !e.getMessage().isBlank() ? e.getMessage() : e.getClass().getSimpleName();
+                if (err.length() > 300) {
+                    err = err.substring(0, 300);
+                }
+                lastErrorReason = err;
+                log.warn("Vision triage photo analysis failed: {} for complaint ID [{}]", err, complaintId);
             }
-        } catch (Exception e) {
-            complaintRepository.updateVisionStatus(complaintId, "FAILED", "Error loading photo file: " + e.getMessage(), OffsetDateTime.now());
-            log.warn("Vision triage status: FAILED (reason: Error reading photo file) for complaint ID [{}]", complaintId);
+        }
+
+        if (outputs.isEmpty()) {
+            if (lastErrorReason.length() > 300) {
+                lastErrorReason = lastErrorReason.substring(0, 300);
+            }
+            complaintRepository.updateVisionStatus(complaintId, "FAILED", lastErrorReason, OffsetDateTime.now());
+            log.warn("Vision triage status: FAILED (reason: {}) for complaint ID [{}]", lastErrorReason, complaintId);
             return;
         }
 
-        // 6. Select provider
-        VisionTriageProvider provider = selectProvider();
-        String mimeType = (fileName.endsWith(".png") || photoUrl.endsWith(".png") || "image/png".equals(contentType))
-                ? "image/png"
-                : "image/jpeg";
+        // 6. Aggregate multi-photo consensus
+        String visionCat;
+        int maxSeverity;
+        BigDecimal avgConfidence;
+        String compositeReason;
 
-        VisionTriageOutput output;
-        try {
-            output = provider.analyze(imageBytes, mimeType);
-        } catch (Exception e) {
-            String errorReason = e.getMessage() != null && !e.getMessage().isBlank() ? e.getMessage() : e.getClass().getSimpleName();
-            if (errorReason.length() > 300) {
-                errorReason = errorReason.substring(0, 300);
+        if (outputs.size() == 1) {
+            VisionTriageOutput single = outputs.get(0);
+            visionCat = single.getCategory();
+            maxSeverity = single.getSeverity();
+            avgConfidence = single.getConfidence();
+            compositeReason = single.getReason();
+        } else {
+            // Find plurality category among non-UNKNOWN
+            java.util.Map<String, Long> categoryCounts = new java.util.HashMap<>();
+            java.util.Map<String, BigDecimal> categoryMaxConf = new java.util.HashMap<>();
+            for (VisionTriageOutput out : outputs) {
+                String cat = out.getCategory();
+                if (cat != null && !cat.isBlank() && !cat.equalsIgnoreCase("UNKNOWN")) {
+                    categoryCounts.put(cat, categoryCounts.getOrDefault(cat, 0L) + 1L);
+                    BigDecimal currentMax = categoryMaxConf.get(cat);
+                    if (currentMax == null || (out.getConfidence() != null && out.getConfidence().compareTo(currentMax) > 0)) {
+                        categoryMaxConf.put(cat, out.getConfidence() != null ? out.getConfidence() : BigDecimal.ZERO);
+                    }
+                }
             }
-            complaintRepository.updateVisionStatus(complaintId, "FAILED", errorReason, OffsetDateTime.now());
-            log.warn("Vision triage status: FAILED (reason: {}) for complaint ID [{}]", errorReason, complaintId);
-            return;
+
+            if (categoryCounts.isEmpty()) {
+                visionCat = "UNKNOWN";
+            } else {
+                visionCat = categoryCounts.entrySet().stream()
+                        .max((e1, e2) -> {
+                            int countCmp = e1.getValue().compareTo(e2.getValue());
+                            if (countCmp != 0) return countCmp;
+                            BigDecimal c1 = categoryMaxConf.getOrDefault(e1.getKey(), BigDecimal.ZERO);
+                            BigDecimal c2 = categoryMaxConf.getOrDefault(e2.getKey(), BigDecimal.ZERO);
+                            return c1.compareTo(c2);
+                        })
+                        .map(java.util.Map.Entry::getKey)
+                        .orElse("UNKNOWN");
+            }
+
+            // Severity: maximum severity observed across all photos (safety elevation)
+            maxSeverity = outputs.stream().mapToInt(VisionTriageOutput::getSeverity).max().orElse(1);
+
+            // Confidence: average confidence across valid outputs
+            BigDecimal sumConf = BigDecimal.ZERO;
+            int confCount = 0;
+            for (VisionTriageOutput out : outputs) {
+                if (out.getConfidence() != null) {
+                    sumConf = sumConf.add(out.getConfidence());
+                    confCount++;
+                }
+            }
+            avgConfidence = confCount > 0
+                    ? sumConf.divide(BigDecimal.valueOf(confCount), 2, java.math.RoundingMode.HALF_UP)
+                    : BigDecimal.valueOf(0.50);
+
+            // Reason: multi-photo consensus summary
+            StringBuilder sb = new StringBuilder();
+            sb.append("Multi-photo consensus (").append(outputs.size()).append(" photos): ");
+            for (int i = 0; i < outputs.size(); i++) {
+                if (i > 0) sb.append("; ");
+                sb.append("[P").append(i + 1).append(": ").append(outputs.get(i).getReason()).append("]");
+            }
+            compositeReason = sb.toString();
+            if (compositeReason.length() > 500) {
+                compositeReason = compositeReason.substring(0, 497) + "...";
+            }
         }
 
         // 7. Calculate disagreement
         boolean disagreement = false;
-        String visionCat = output.getCategory();
         if (visionCat != null && !visionCat.equalsIgnoreCase("UNKNOWN") && complaint.getAiDetectedCategory() != null) {
             if (!visionCat.equalsIgnoreCase(complaint.getAiDetectedCategory())) {
                 disagreement = true;
@@ -195,7 +311,7 @@ public class VisionTriageAsyncService {
         // 8. Calculate priority elevation (severity 5 elevates by at most one level, never lowers)
         ComplaintPriority elevatedPriority = complaint.getAiRecommendedPriority();
         String prioritySource = "RULE_ENGINE";
-        if (output.getSeverity() == 5 && complaint.getAiRecommendedPriority() != null) {
+        if (maxSeverity == 5 && complaint.getAiRecommendedPriority() != null) {
             switch (complaint.getAiRecommendedPriority()) {
                 case LOW -> elevatedPriority = ComplaintPriority.MEDIUM;
                 case MEDIUM -> elevatedPriority = ComplaintPriority.HIGH;
@@ -211,19 +327,20 @@ public class VisionTriageAsyncService {
         complaintRepository.updateVisionSuccess(
                 complaintId,
                 visionCat,
-                output.getSeverity(),
-                output.getConfidence(),
-                output.getReason(),
+                maxSeverity,
+                avgConfidence,
+                compositeReason,
                 provider.getModelName(),
                 "OK",
+                com.civicfix.ai.prompt.PromptRegistry.DEFAULT_VERSION,
                 OffsetDateTime.now(),
                 disagreement,
                 prioritySource,
                 elevatedPriority
         );
 
-        log.info("Vision triage status: OK for complaint ID [{}] (provider: {}, model: {}, disagreement: {})",
-                complaintId, provider.getProviderName(), provider.getModelName(), disagreement);
+        log.info("Vision triage status: OK for complaint ID [{}] (provider: {}, model: {}, photosAnalyzed: {}, disagreement: {})",
+                complaintId, provider.getProviderName(), provider.getModelName(), outputs.size(), disagreement);
     }
 
     private VisionTriageProvider selectProvider() {

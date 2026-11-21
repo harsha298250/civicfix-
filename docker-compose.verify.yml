@@ -1,0 +1,25 @@
+﻿services:
+  postgres:
+    container_name: civicfix_verify_postgres
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - verify_postgres_data:/var/lib/postgresql/data
+
+  backend:
+    container_name: civicfix_verify_backend
+    ports:
+      - "127.0.0.1:8082:8080"
+    volumes:
+      - verify_uploads_data:/app/uploads
+
+  frontend:
+    container_name: civicfix_verify_frontend
+    ports:
+      - "8081:80"
+
+volumes:
+  verify_postgres_data:
+    name: civicfix_verify_postgres_data
+  verify_uploads_data:
+    name: civicfix_verify_uploads_data

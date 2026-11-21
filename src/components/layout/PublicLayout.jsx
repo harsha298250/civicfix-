@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { useTranslation } from '../../context/LanguageContext';
 import LanguageToggle from '../common/LanguageToggle';
 import InstallPwaButton from '../common/InstallPwaButton';
+import SkipToContent from '../common/SkipToContent';
 
 export const PublicLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useApp();
+  const { t } = useTranslation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Smooth scroll to section if on landing page, or navigate to /#section if on another page
@@ -28,6 +31,7 @@ export const PublicLayout = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-surface font-sans text-on-surface">
+      <SkipToContent />
       {/* Toast Notification */}
       {toast && (
         <div className="fixed top-4 right-4 z-50 bg-[#151D26] text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 border border-secondary/30 animate-fade-in">
@@ -54,25 +58,25 @@ export const PublicLayout = () => {
             <button
               type="button"
               onClick={(e) => handleNavClick('how-it-works', e)}
-              className="hover:text-primary transition-colors font-medium text-left"
+              className="hover:text-primary transition-colors font-medium text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
             >
-              How It Works
+              {t('nav.howItWorks')}
             </button>
             <button
               type="button"
               onClick={(e) => handleNavClick('features', e)}
-              className="hover:text-primary transition-colors font-medium text-left"
+              className="hover:text-primary transition-colors font-medium text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
             >
-              Features
+              {t('nav.features')}
             </button>
-            <Link to="/map" className="hover:text-primary transition-colors flex items-center gap-1 font-medium">
+            <Link to="/map" className="hover:text-primary transition-colors flex items-center gap-1 font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">
               <span className="material-symbols-outlined text-[16px]">map</span>
-              <span>Live City Map</span>
+              <span>{t('nav.liveCityMap')}</span>
             </Link>
             <button
               type="button"
               onClick={(e) => handleNavClick('impact', e)}
-              className="hover:text-primary transition-colors font-medium text-left"
+              className="hover:text-primary transition-colors font-medium text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
             >
               Impact
             </button>
@@ -85,21 +89,21 @@ export const PublicLayout = () => {
 
             <Link
               to="/login"
-              className="hidden sm:inline-flex items-center justify-center h-9 px-4 rounded-lg font-label-md text-label-md text-on-surface hover:bg-surface-container transition-colors"
+              className="hidden sm:inline-flex items-center justify-center h-9 px-4 rounded-lg font-label-md text-label-md text-on-surface hover:bg-surface-container transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
-              Sign In
+              {t('auth.signInButton')}
             </Link>
             <Link
               to="/citizen/complaints/new"
-              className="inline-flex items-center gap-1.5 bg-primary-container text-white hover:bg-primary h-9 px-4 rounded-lg font-label-md text-label-md shadow-sm transition-all hover:shadow"
+              className="inline-flex items-center gap-1.5 bg-primary-container text-white hover:bg-primary h-9 px-4 rounded-lg font-label-md text-label-md shadow-sm transition-all hover:shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
             >
               <span className="material-symbols-outlined text-[18px]">add_location_alt</span>
-              <span>Report an Issue</span>
+              <span>{t('citizenDashboard.reportNewDefect')}</span>
             </Link>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container"
-              aria-label="Toggle Menu"
+              className="md:hidden p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              aria-label={t('accessibility.toggleNavigation')}
             >
               <span className="material-symbols-outlined text-[24px]">
                 {mobileMenuOpen ? 'close' : 'menu'}
@@ -116,14 +120,14 @@ export const PublicLayout = () => {
               onClick={(e) => handleNavClick('how-it-works', e)}
               className="py-2 text-left text-on-surface font-medium hover:text-primary"
             >
-              How It Works
+              {t('nav.howItWorks')}
             </button>
             <button
               type="button"
               onClick={(e) => handleNavClick('features', e)}
               className="py-2 text-left text-on-surface font-medium hover:text-primary"
             >
-              Features
+              {t('nav.features')}
             </button>
             <Link
               to="/map"
@@ -131,7 +135,7 @@ export const PublicLayout = () => {
               className="py-2 text-primary font-medium flex items-center gap-1.5"
             >
               <span className="material-symbols-outlined text-[18px]">map</span>
-              <span>Live City Issue Map</span>
+              <span>{t('nav.liveCityMap')}</span>
             </Link>
             <button
               type="button"
@@ -141,14 +145,14 @@ export const PublicLayout = () => {
               Impact & Metrics
             </button>
             <div className="border-t border-outline-variant/30 my-1" />
-            <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="py-2 text-on-surface font-medium">Sign In</Link>
-            <Link to="/register" onClick={() => setMobileMenuOpen(false)} className="py-2 text-primary font-medium">Citizen Registration</Link>
+            <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="py-2 text-on-surface font-medium">{t('auth.signInButton')}</Link>
+            <Link to="/register" onClick={() => setMobileMenuOpen(false)} className="py-2 text-primary font-medium">{t('auth.registerLink')}</Link>
           </div>
         )}
       </header>
 
       {/* Main Outlet */}
-      <main className="flex-1 w-full">
+      <main id="main-content" tabIndex="-1" className="flex-1 w-full focus:outline-none">
         <Outlet />
       </main>
 

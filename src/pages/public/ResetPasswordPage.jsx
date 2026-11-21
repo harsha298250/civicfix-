@@ -98,7 +98,7 @@ export const ResetPasswordPage = () => {
         </div>
 
         {errorMessage && (
-          <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-xs text-red-800">
+          <div role="alert" aria-live="assertive" className="p-3.5 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-xs text-red-800">
             <span className="material-symbols-outlined text-red-600 text-[18px] shrink-0 mt-0.5">error</span>
             <div className="space-y-1">
               <span className="block font-semibold">Password Reset Failed</span>

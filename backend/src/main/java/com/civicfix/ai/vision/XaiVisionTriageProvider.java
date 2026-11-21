@@ -1,5 +1,6 @@
 package com.civicfix.ai.vision;
 
+import com.civicfix.ai.prompt.PromptRegistry;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -14,6 +15,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.Map;
 
 /**
  * xAI (Grok) multimodal vision triage provider calling the official /v1/chat/completions endpoint.
@@ -37,15 +39,21 @@ public class XaiVisionTriageProvider implements VisionTriageProvider {
 
     private final VisionTriageProperties properties;
     private final HttpClient httpClient;
+    private final PromptRegistry promptRegistry;
 
     @org.springframework.beans.factory.annotation.Autowired
-    public XaiVisionTriageProvider(VisionTriageProperties properties) {
-        this(properties, HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build());
+    public XaiVisionTriageProvider(VisionTriageProperties properties, @org.springframework.beans.factory.annotation.Autowired(required = false) PromptRegistry promptRegistry) {
+        this(properties, HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build(), promptRegistry);
     }
 
     public XaiVisionTriageProvider(VisionTriageProperties properties, HttpClient httpClient) {
+        this(properties, httpClient, new PromptRegistry());
+    }
+
+    public XaiVisionTriageProvider(VisionTriageProperties properties, HttpClient httpClient, PromptRegistry promptRegistry) {
         this.properties = properties;
         this.httpClient = httpClient;
+        this.promptRegistry = promptRegistry != null ? promptRegistry : new PromptRegistry();
     }
 
     @Override
@@ -60,6 +68,10 @@ public class XaiVisionTriageProvider implements VisionTriageProvider {
 
     @Override
     public VisionTriageOutput analyze(byte[] imageBytes, String mimeType) throws Exception {
+        return analyze(imageBytes, mimeType, PromptRegistry.DEFAULT_VERSION, PromptRegistry.DEFAULT_LANGUAGE, null);
+    }
+
+    public VisionTriageOutput analyze(byte[] imageBytes, String mimeType, String promptVersion, String language, String context) throws Exception {
         String apiKey = properties.getXaiApiKey();
         if (apiKey == null || apiKey.trim().isEmpty()) {
             throw new IllegalStateException("xAI API key is not configured.");
@@ -67,6 +79,13 @@ public class XaiVisionTriageProvider implements VisionTriageProvider {
 
         String base64Image = Base64.getEncoder().encodeToString(imageBytes);
         String dataUrl = "data:" + (mimeType != null ? mimeType : "image/jpeg") + ";base64," + base64Image;
+
+        String promptText = promptRegistry.renderPrompt(
+                PromptRegistry.TEMPLATE_VISION_DEFECT,
+                promptVersion,
+                language,
+                context != null ? Map.of("context", context) : Map.of()
+        );
 
         // Build OpenAI-compatible chat completion payload for Grok vision
         ObjectNode rootNode = MAPPER.createObjectNode();
@@ -81,7 +100,7 @@ public class XaiVisionTriageProvider implements VisionTriageProvider {
         // Text part
         ObjectNode textPart = contentArray.addObject();
         textPart.put("type", "text");
-        textPart.put("text", FIXED_PROMPT);
+        textPart.put("text", promptText);
 
         // Image part
         ObjectNode imagePart = contentArray.addObject();

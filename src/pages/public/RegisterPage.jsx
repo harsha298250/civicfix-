@@ -206,7 +206,12 @@ export const RegisterPage = () => {
 
           {/* Error Message */}
           {errorMsg && !duplicateAccountNotice && (
-            <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2 animate-fade-in">
+            <div
+              id="register-error-alert"
+              role="alert"
+              aria-live="assertive"
+              className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2 animate-fade-in"
+            >
               <span className="material-symbols-outlined text-[18px] shrink-0 mt-0.5">error</span>
               <p className="leading-relaxed">{errorMsg}</p>
             </div>

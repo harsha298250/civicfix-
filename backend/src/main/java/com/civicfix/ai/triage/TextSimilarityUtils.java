@@ -95,4 +95,52 @@ public final class TextSimilarityUtils {
 
         return (jaccard * 0.70) + (levenshtein * 0.30);
     }
+
+    /**
+     * Cross-Lingual Concept Lexicon bridging Tamil Unicode terms and English municipal concepts.
+     */
+    public static final Map<String, List<String>> CROSS_LINGUAL_CONCEPTS = Map.of(
+            "POTHOLE", List.of(
+                    "pothole", "potholes", "crater", "fissure", "asphalt", "road cut", "pavement",
+                    "குழி", "பள்ளம்", "சாலை சேதம்", "தார் சாலை", "ரோடு"
+            ),
+            "WATER_LEAK", List.of(
+                    "pipe burst", "pipe leak", "water pipe", "water leak", "pipeline", "drinking water", "water supply",
+                    "குடிநீர்", "குழாய் உடைப்பு", "தண்ணீர் கசிவு", "குழாய்", "தண்ணீர்"
+            ),
+            "SEWAGE_OVERFLOW", List.of(
+                    "sewage", "sewer", "drainage", "clogged drain", "drain overflow", "storm drain",
+                    "கழிவுநீர்", "சாக்கடை", "சாக்கடை அடைப்பு", "வடிகால்", "மழைநீர் வடிகால்"
+            ),
+            "STREET_LIGHT", List.of(
+                    "street light", "streetlight", "lamppost", "light pole", "bulb", "dark street",
+                    "தெருவிளக்கு", "தெரு விளக்கு", "மின்விளக்கு", "விளக்கு", "இருட்டாக உள்ளது"
+            ),
+            "GARBAGE_DUMP", List.of(
+                    "garbage", "waste", "trash", "dump", "dustbin", "uncollected", "stench",
+                    "குப்பை", "குப்பை தொட்டி", "துர்நாற்றம்", "கழிவு", "குப்பை மேடு"
+            ),
+            "FALLEN_TREE", List.of(
+                    "fallen tree", "tree", "branch", "overhanging branch",
+                    "மரம்", "விழுந்த மரம்", "மரக்கிளை", "கிளை முறிந்தது"
+            )
+    );
+
+    /**
+     * Evaluate whether two bilingual texts share an identical municipal concept.
+     */
+    public static boolean hasSharedConcept(String textA, String textB) {
+        if (textA == null || textB == null) return false;
+        String a = textA.toLowerCase();
+        String b = textB.toLowerCase();
+
+        for (Map.Entry<String, List<String>> entry : CROSS_LINGUAL_CONCEPTS.entrySet()) {
+            boolean aHas = entry.getValue().stream().anyMatch(a::contains);
+            boolean bHas = entry.getValue().stream().anyMatch(b::contains);
+            if (aHas && bHas) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

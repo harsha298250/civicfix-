@@ -20,7 +20,7 @@ export default function LanguageToggle({ className = '', variant = 'pill' }) {
         onClick={handleToggle}
         aria-label="Toggle language between English and Tamil"
         data-testid="language-toggle"
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 ${
           isTamil
             ? 'bg-primary-container text-white border-primary shadow-xs'
             : 'bg-surface-container-low text-on-surface hover:bg-surface-container border-outline-variant/40'
@@ -45,7 +45,7 @@ export default function LanguageToggle({ className = '', variant = 'pill' }) {
         onClick={() => changeLanguage('en')}
         data-testid="lang-en"
         aria-pressed={language === 'en'}
-        className={`px-2.5 py-1 rounded-full transition-all flex items-center gap-1 ${
+        className={`px-2.5 py-1 rounded-full transition-all flex items-center gap-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 ${
           language === 'en'
             ? 'bg-surface-container-lowest text-primary shadow-xs font-bold'
             : 'text-on-surface-variant hover:text-on-surface'
@@ -58,7 +58,7 @@ export default function LanguageToggle({ className = '', variant = 'pill' }) {
         onClick={() => changeLanguage('ta')}
         data-testid="lang-ta"
         aria-pressed={language === 'ta'}
-        className={`px-2.5 py-1 rounded-full transition-all flex items-center gap-1 ${
+        className={`px-2.5 py-1 rounded-full transition-all flex items-center gap-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 ${
           language === 'ta'
             ? 'bg-primary-container text-white shadow-xs font-bold'
             : 'text-on-surface-variant hover:text-on-surface'

@@ -34,69 +34,101 @@ describe('AuthService Server-Authoritative Tests', () => {
   });
 
   test('With backend stopped, login fails with clear server unreachable error and saves nothing', async () => {
-    // Backend is not running on port 8080 during unit tests
-    await assert.rejects(
-      async () => {
-        await authService.login('alex.m@citizen.org', 'CivicSecure#2026!');
-      },
-      (err) => {
-        assert.ok(err instanceof Error);
-        assert.match(err.message, /Cannot reach the server\. Nothing was saved\./);
-        return true;
-      },
-      'Login must reject with clear message when backend is unreachable'
-    );
+    const originalFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = async () => {
+        const err = new TypeError('fetch failed');
+        err.cause = { code: 'ECONNREFUSED' };
+        throw err;
+      };
 
-    // Verify nothing was saved in session or storage
-    assert.equal(authService.getCurrentUser(), null, 'Current user must remain null when login fails');
-    assert.equal(localStorage.getItem('civicfix_current_user_v1'), null, 'No user should be saved in localStorage');
+      await assert.rejects(
+        async () => {
+          await authService.login('alex.m@citizen.org', 'CivicSecure#2026!');
+        },
+        (err) => {
+          assert.ok(err instanceof Error);
+          assert.match(err.message, /Cannot reach the server\. Nothing was saved\./);
+          return true;
+        },
+        'Login must reject with clear message when backend is unreachable'
+      );
+
+      // Verify nothing was saved in session or storage
+      assert.equal(authService.getCurrentUser(), null, 'Current user must remain null when login fails');
+      assert.equal(localStorage.getItem('civicfix_current_user_v1'), null, 'No user should be saved in localStorage');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 
   test('With backend stopped, registerCitizen fails with clear server unreachable error and saves nothing', async () => {
-    const uniqueEmail = `test.citizen.${Date.now()}@chennaicivic.in`;
+    const originalFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = async () => {
+        const err = new TypeError('fetch failed');
+        err.cause = { code: 'ECONNREFUSED' };
+        throw err;
+      };
 
-    await assert.rejects(
-      async () => {
-        await authService.registerCitizen({
-          name: 'Kavitha R',
-          email: uniqueEmail,
-          phone: '+91 98401 99999',
-          ward: 'Ward 08',
-          password: 'SecurePass#2026'
-        });
-      },
-      (err) => {
-        assert.ok(err instanceof Error);
-        assert.match(err.message, /Cannot reach the server\. Nothing was saved\./);
-        return true;
-      },
-      'Registration must reject with clear message when backend is unreachable'
-    );
+      const uniqueEmail = `test.citizen.${Date.now()}@chennaicivic.in`;
 
-    // Verify nothing was saved
-    assert.equal(authService.getCurrentUser(), null, 'No session should be active after failed registration');
-    assert.equal(localStorage.getItem('civicfix_current_user_v1'), null, 'No user record should be created in localStorage');
+      await assert.rejects(
+        async () => {
+          await authService.registerCitizen({
+            name: 'Kavitha R',
+            email: uniqueEmail,
+            phone: '+91 98401 99999',
+            ward: 'Ward 08',
+            password: 'SecurePass#2026'
+          });
+        },
+        (err) => {
+          assert.ok(err instanceof Error);
+          assert.match(err.message, /Cannot reach the server\. Nothing was saved\./);
+          return true;
+        },
+        'Registration must reject with clear message when backend is unreachable'
+      );
+
+      // Verify nothing was saved
+      assert.equal(authService.getCurrentUser(), null, 'No session should be active after failed registration');
+      assert.equal(localStorage.getItem('civicfix_current_user_v1'), null, 'No user record should be created in localStorage');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 
   test('checkSession rejects and does not treat cached user as logged in when server is unreachable', async () => {
-    // Simulate legacy cached user in memory
-    authService.setCurrentUser(INITIAL_USERS[0]);
-    assert.ok(authService.getCurrentUser());
+    const originalFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = async () => {
+        const err = new TypeError('fetch failed');
+        err.cause = { code: 'ECONNREFUSED' };
+        throw err;
+      };
 
-    await assert.rejects(
-      async () => {
-        await authService.checkSession();
-      },
-      (err) => {
-        assert.ok(err.isServerUnreachable);
-        assert.match(err.message, /Cannot reach the server/);
-        return true;
-      },
-      'checkSession must reject when server cannot be reached'
-    );
+      // Simulate legacy cached user in memory
+      authService.setCurrentUser(INITIAL_USERS[0]);
+      assert.ok(authService.getCurrentUser());
 
-    // Active user must be cleared (never treat cached user as logged in)
-    assert.equal(authService.getCurrentUser(), null, 'Session must be cleared on server unreachable');
+      await assert.rejects(
+        async () => {
+          await authService.checkSession();
+        },
+        (err) => {
+          assert.ok(err.isServerUnreachable);
+          assert.match(err.message, /Cannot reach the server/);
+          return true;
+        },
+        'checkSession must reject when server cannot be reached'
+      );
+
+      // Active user must be cleared (never treat cached user as logged in)
+      assert.equal(authService.getCurrentUser(), null, 'Session must be cleared on server unreachable');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 
   test('When backend confirms login, user is returned and session is set', async () => {

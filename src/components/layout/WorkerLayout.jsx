@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { useTranslation } from '../../context/LanguageContext';
 import LanguageToggle from '../common/LanguageToggle';
 import { DemoRoleSwitcher } from '../common/DemoRoleSwitcher';
+import SkipToContent from '../common/SkipToContent';
 import { COMPLAINT_STATUS } from '../../constants/statusConstants';
 
 export const WorkerLayout = () => {
   const { currentUser, complaints, unreadCount, toast, logout } = useApp();
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -23,42 +26,43 @@ export const WorkerLayout = () => {
   const activeTaskId = myAssignedTasks.find(c => c.status === COMPLAINT_STATUS.IN_PROGRESS)?.id || myAssignedTasks[0]?.id || null;
 
   const navItems = [
-    { label: 'My Dashboard', path: '/worker/dashboard', icon: 'dashboard' },
+    { label: t('nav.workerDashboard'), path: '/worker/dashboard', icon: 'dashboard' },
     {
-      label: 'Assigned Tasks',
+      label: t('nav.assignedTasks'),
       path: '/worker/tasks',
       icon: 'assignment',
       badge: myAssignedTasks.length > 0 ? myAssignedTasks.length : null
     },
     {
-      label: 'Task Details',
+      label: t('nav.taskDetails'),
       path: activeTaskId ? `/worker/tasks/${activeTaskId}` : '/worker/tasks',
       icon: 'manage_search'
     },
     {
-      label: 'Update Progress / Blocker',
+      label: t('nav.updateProgress'),
       path: activeTaskId ? `/worker/tasks/${activeTaskId}/progress` : '/worker/tasks',
       icon: 'pending_actions',
       badge: activeTaskCount > 0 ? `${activeTaskCount} Active` : null,
       badgeColor: 'bg-primary-container text-white'
     },
     {
-      label: 'Submit Repair Evidence',
+      label: t('nav.submitEvidence'),
       path: activeTaskId ? `/worker/tasks/${activeTaskId}/evidence` : '/worker/tasks',
       icon: 'fact_check'
     },
     {
-      label: 'Notifications',
+      label: t('nav.notifications'),
       path: '/worker/notifications',
       icon: 'notifications',
       badge: unreadCount > 0 ? unreadCount : null,
       badgeColor: 'bg-error text-white'
     },
-    { label: 'My Profile & Equipment', path: '/worker/profile', icon: 'badge' }
+    { label: t('nav.myProfileEquipment'), path: '/worker/profile', icon: 'badge' }
   ];
 
   return (
     <div className="min-h-screen bg-background font-sans text-on-surface flex">
+      <SkipToContent />
       {/* Toast Notification */}
       {toast && (
         <div className="fixed top-4 right-4 z-50 bg-[#151D26] text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 border border-secondary/30 animate-fade-in">
@@ -159,10 +163,10 @@ export const WorkerLayout = () => {
               logout();
               navigate('/login');
             }}
-            className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-white/5 hover:bg-error/20 hover:text-error text-gray-400 text-xs font-semibold transition-colors"
+            className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-white/5 hover:bg-error/20 hover:text-error text-gray-400 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <span className="material-symbols-outlined text-[16px]">logout</span>
-            <span>Sign Out</span>
+            <span>{t('common.logout')}</span>
           </button>
         </div>
       </aside>
@@ -174,15 +178,16 @@ export const WorkerLayout = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileSidebarOpen(true)}
-              className="md:hidden p-2 rounded-lg hover:bg-surface-container text-on-surface-variant"
+              className="md:hidden p-2 rounded-lg hover:bg-surface-container text-on-surface-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              aria-label={t('accessibility.toggleNavigation')}
             >
               <span className="material-symbols-outlined text-[24px]">menu</span>
             </button>
             <div>
               <h2 className="font-headline-sm text-headline-sm text-on-surface font-bold">
-                Field Operations
+                {t('worker.dashboardTitle')}
               </h2>
-              <p className="text-[11px] text-tertiary">Municipal Field Work Orders & Repair Evidence</p>
+              <p className="text-[11px] text-tertiary">{t('worker.dashboardSubtitle')}</p>
             </div>
           </div>
 
@@ -196,7 +201,7 @@ export const WorkerLayout = () => {
 
             <Link
               to="/worker/notifications"
-              className="relative p-2 rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors"
+              className="relative p-2 rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               title="Notifications"
             >
               <span className="material-symbols-outlined text-[22px]">notifications</span>
@@ -205,7 +210,7 @@ export const WorkerLayout = () => {
 
             <Link
               to="/worker/profile"
-              className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold"
+              className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               {currentUser?.avatar || 'MC'}
             </Link>
@@ -213,7 +218,7 @@ export const WorkerLayout = () => {
         </header>
 
         {/* Dynamic Page Content */}
-        <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
+        <main id="main-content" tabIndex="-1" className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto focus:outline-none">
           <Outlet />
         </main>
       </div>

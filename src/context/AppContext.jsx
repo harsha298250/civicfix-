@@ -113,6 +113,66 @@ export const AppProvider = ({ children }) => {
     }
   }, [currentUser?.id, currentUser?.role]);
 
+  // Phase 2.3.5: Visibility-aware polite notification polling
+  useEffect(() => {
+    if (!currentUser) return;
+
+    let pollTimer = null;
+    let lastPollTime = Date.now();
+    const NOTIFICATION_POLL_INTERVAL_MS = 60000;
+
+    const doPoll = async () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        return; // Pause polling when tab is hidden
+      }
+      try {
+        await refreshUnreadCount();
+        lastPollTime = Date.now();
+      } catch (err) {
+        // Ignore background polling glitches
+      }
+    };
+
+    const startPolling = () => {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(doPoll, NOTIFICATION_POLL_INTERVAL_MS);
+    };
+
+    const stopPolling = () => {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (typeof document === 'undefined') return;
+      if (document.visibilityState === 'visible') {
+        if (Date.now() - lastPollTime >= NOTIFICATION_POLL_INTERVAL_MS) {
+          doPoll();
+        }
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+
+    if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+      startPolling();
+    }
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    return () => {
+      stopPolling();
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+    };
+  }, [currentUser?.id]);
+
   const switchRole = (role) => {
     if (!isDemoModeEnabled()) {
       throw new Error('Demo mode is disabled. Role switching is not permitted.');

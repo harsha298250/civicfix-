@@ -171,6 +171,10 @@ export const apiClient = {
       method: 'POST',
       body: { workerId, notes }
     }),
+    bulkAssign: (payload) => apiRequest('/complaints/bulk-assign', {
+      method: 'POST',
+      body: payload
+    }),
     updateStatus: (id, payload) => apiRequest(`/complaints/${encodeURIComponent(id)}/status`, {
       method: 'POST',
       body: payload
@@ -189,6 +193,10 @@ export const apiClient = {
     }),
     getEvidence: (id) => apiRequest(`/complaints/${encodeURIComponent(id)}/evidence`),
     adjudicateAiTriage: (id, payload) => apiRequest(`/complaints/${encodeURIComponent(id)}/ai/adjudicate`, {
+      method: 'POST',
+      body: payload
+    }),
+    suggestCategory: (payload) => apiRequest('/complaints/suggest-category', {
       method: 'POST',
       body: payload
     }),
@@ -271,6 +279,14 @@ export const apiClient = {
       method: 'POST',
       body: payload
     }),
+    extendSla: (id, payload) => apiRequest(`/supervisor/complaints/${encodeURIComponent(id)}/extend-sla`, {
+      method: 'POST',
+      body: payload
+    }),
+    deEscalate: (id, payload) => apiRequest(`/supervisor/complaints/${encodeURIComponent(id)}/de-escalate`, {
+      method: 'POST',
+      body: payload
+    }),
     getWorkers: () => apiRequest('/supervisor/workers')
   },
 
@@ -281,7 +297,22 @@ export const apiClient = {
 
   // GIS Endpoints
   gis: {
-    reverseGeocode: (lat, lng) => apiRequest(`/gis/reverse-geocode?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`)
+    reverseGeocode: (lat, lng) => apiRequest(`/gis/reverse-geocode?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`),
+    getBoundariesState: () => apiRequest('/gis/boundaries/state'),
+    getBoundariesZones: () => apiRequest('/gis/boundaries/zones'),
+    validateLocation: (payload) => apiRequest('/gis/validate-location', {
+      method: 'POST',
+      body: payload
+    })
+  },
+
+  // Citizen Account Management (Phase 2.3.1)
+  citizen: {
+    exportAccountData: () => apiRequest('/citizen/account/export'),
+    deleteAccount: (password) => apiRequest('/citizen/account/delete', {
+      method: 'POST',
+      body: { password }
+    })
   },
 
   // Notification Endpoints (Phase 5)

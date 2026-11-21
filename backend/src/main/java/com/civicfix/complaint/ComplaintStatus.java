@@ -10,9 +10,10 @@ public enum ComplaintStatus {
     RESOLVED,
     REWORK_REQUESTED,
     REOPENED,
-    REJECTED;
+    REJECTED,
+    CLOSED;
 
     public boolean isTerminal() {
-        return this == RESOLVED || this == REJECTED;
+        return this == RESOLVED || this == REJECTED || this == CLOSED;
     }
 }

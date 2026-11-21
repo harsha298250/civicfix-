@@ -99,6 +99,22 @@ export const officerService = {
   },
 
   /**
+   * Bulk dispatch multiple complaints to field technician via POST /api/complaints/bulk-assign
+   */
+  bulkAssignWorkers: async (complaintIds, workerId, notes = '') => {
+    if (!complaintIds || !Array.isArray(complaintIds) || complaintIds.length === 0) {
+      throw new Error('At least one complaint ID is required for bulk assignment');
+    }
+    const validUuid = resolveWorkerUuid(workerId);
+    const res = await apiClient.complaints.bulkAssign({
+      complaintIds,
+      workerId: validUuid,
+      notes
+    });
+    return res?.data || res;
+  },
+
+  /**
    * Reject / Clarify complaint intake via POST /api/complaints/{id}/status
    */
   rejectComplaint: async (complaintId, reason) => {

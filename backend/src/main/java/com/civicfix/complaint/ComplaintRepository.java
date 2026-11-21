@@ -25,6 +25,8 @@ public interface ComplaintRepository extends JpaRepository<Complaint, UUID> {
     // Citizen: own complaints only
     Page<Complaint> findByCitizenIdOrderByCreatedAtDesc(UUID citizenId, Pageable pageable);
 
+    List<Complaint> findByCitizenIdOrderByCreatedAtDesc(UUID citizenId);
+
     @Query("SELECT c FROM Complaint c WHERE c.citizen.id = :citizenId AND " +
            "c.latitude IS NOT NULL AND c.longitude IS NOT NULL AND " +
            "c.latitude BETWEEN :minLat AND :maxLat AND " +
@@ -169,7 +171,7 @@ public interface ComplaintRepository extends JpaRepository<Complaint, UUID> {
     @Query("UPDATE Complaint c SET c.escalatedAt = :now, c.updatedAt = :now WHERE c.id = :id AND c.escalatedAt IS NULL")
     int markEscalated(@Param("id") UUID id, @Param("now") OffsetDateTime now);
 
-    @Query("SELECT c.id FROM Complaint c WHERE c.slaDueAt IS NOT NULL AND c.slaDueAt < :now AND c.escalatedAt IS NULL AND c.status NOT IN (com.civicfix.complaint.ComplaintStatus.RESOLVED, com.civicfix.complaint.ComplaintStatus.REJECTED, com.civicfix.complaint.ComplaintStatus.PENDING_CITIZEN_CONFIRMATION) ORDER BY c.slaDueAt ASC")
+    @Query("SELECT c.id FROM Complaint c WHERE c.slaDueAt IS NOT NULL AND c.slaDueAt < :now AND c.escalatedAt IS NULL AND c.status NOT IN (com.civicfix.complaint.ComplaintStatus.RESOLVED, com.civicfix.complaint.ComplaintStatus.REJECTED, com.civicfix.complaint.ComplaintStatus.PENDING_CITIZEN_CONFIRMATION, com.civicfix.complaint.ComplaintStatus.CLOSED) ORDER BY c.slaDueAt ASC")
     List<UUID> findOverdueComplaintIdsForEscalation(@Param("now") OffsetDateTime now, Pageable pageable);
 
     @Query("SELECT c.id FROM Complaint c WHERE c.status = com.civicfix.complaint.ComplaintStatus.PENDING_CITIZEN_CONFIRMATION AND c.pendingConfirmationAt IS NOT NULL AND c.pendingConfirmationAt <= :cutoff ORDER BY c.pendingConfirmationAt ASC")
@@ -200,6 +202,7 @@ public interface ComplaintRepository extends JpaRepository<Complaint, UUID> {
            "c.visionReason = :visionReason, " +
            "c.visionModel = :visionModel, " +
            "c.visionStatus = :visionStatus, " +
+           "c.visionPromptVersion = :visionPromptVersion, " +
            "c.visionAt = :now, " +
            "c.disagreement = :disagreement, " +
            "c.finalPrioritySource = :finalPrioritySource, " +
@@ -213,6 +216,7 @@ public interface ComplaintRepository extends JpaRepository<Complaint, UUID> {
             @Param("visionReason") String visionReason,
             @Param("visionModel") String visionModel,
             @Param("visionStatus") String visionStatus,
+            @Param("visionPromptVersion") String visionPromptVersion,
             @Param("now") OffsetDateTime now,
             @Param("disagreement") boolean disagreement,
             @Param("finalPrioritySource") String finalPrioritySource,

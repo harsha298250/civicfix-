@@ -1,20 +1,28 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { useTranslation } from '../../context/LanguageContext';
 import { workerService } from '../../services/workerService.js';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriorityBadge } from '../../components/common/PriorityBadge';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
+import EmptyState from '../../components/common/EmptyState';
+import SkeletonLoader from '../../components/common/SkeletonLoader';
 import { COMPLAINT_STATUS } from '../../constants/statusConstants';
 
 export const AssignedTasksPage = () => {
-  const { currentUser } = useApp();
+  const { currentUser, showToast } = useApp();
+  const { t } = useTranslation();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isUnauthorized, setIsUnauthorized] = useState(false);
   const [filter, setFilter] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Offline outbox state
+  const [offlineOutboxCount, setOfflineOutboxCount] = useState(0);
+  const [isSyncingOutbox, setIsSyncingOutbox] = useState(false);
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
@@ -38,6 +46,47 @@ export const AssignedTasksPage = () => {
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
+
+  const refreshOutboxCount = useCallback(async () => {
+    try {
+      const count = await workerService.getOfflineOutboxCount();
+      setOfflineOutboxCount(count);
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshOutboxCount();
+    const cleanup = workerService.initOfflineSyncListener(async (res) => {
+      await refreshOutboxCount();
+      if (res?.syncedCount > 0) {
+        showToast(t('worker.offlineSyncSuccess', { count: res.syncedCount }), 'success');
+        fetchTasks();
+      }
+    });
+    return cleanup;
+  }, [refreshOutboxCount, fetchTasks, showToast, t]);
+
+  const handleManualSync = async () => {
+    setIsSyncingOutbox(true);
+    try {
+      const res = await workerService.syncOfflineEvidence();
+      await refreshOutboxCount();
+      if (res.syncedCount > 0) {
+        showToast(t('worker.offlineSyncSuccess', { count: res.syncedCount }), 'success');
+        fetchTasks();
+      } else if (res.total === 0) {
+        showToast(t('worker.offlineSyncNone'), 'info');
+      } else {
+        showToast(t('worker.offlineSyncPartial', { success: res.syncedCount, failed: res.failedCount }), 'error');
+      }
+    } catch (err) {
+      showToast(err.message || 'Offline sync failed.', 'error');
+    } finally {
+      setIsSyncingOutbox(false);
+    }
+  };
 
   const filtered = tasks.filter(t => {
     const term = searchTerm.toLowerCase();
@@ -73,7 +122,7 @@ export const AssignedTasksPage = () => {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <h1 className="font-headline-lg text-2xl sm:text-3xl font-extrabold text-on-surface tracking-tight">
-              Assigned Work Orders & Dispatches
+              {t('worker.myTasksTitle')}
             </h1>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
@@ -90,7 +139,7 @@ export const AssignedTasksPage = () => {
             type="button"
             onClick={fetchTasks}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container text-on-surface text-xs font-semibold border border-outline-variant/30 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-container-high hover:bg-surface-container text-on-surface text-xs font-semibold border border-outline-variant/30 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             title="Refresh from PostgreSQL backend"
           >
             <span className={`material-symbols-outlined text-[16px] ${loading ? 'animate-spin' : ''}`}>
@@ -101,6 +150,29 @@ export const AssignedTasksPage = () => {
         </div>
       </div>
 
+      {/* Offline Outbox Alert Banner */}
+      {offlineOutboxCount > 0 && (
+        <div role="status" className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-amber-600 text-lg" aria-hidden="true">cloud_off</span>
+            <span>
+              <strong>{t('worker.offlinePendingTitle', { count: offlineOutboxCount })}</strong> — {t('worker.offlinePendingDesc')}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleManualSync}
+            disabled={isSyncingOutbox}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-xl text-xs shadow-sm transition-colors disabled:opacity-50 self-start sm:self-auto"
+          >
+            <span className={`material-symbols-outlined text-sm ${isSyncingOutbox ? 'animate-spin' : ''}`} aria-hidden="true">
+              sync
+            </span>
+            {isSyncingOutbox ? t('worker.offlineSyncing') : t('worker.offlineSyncNow')}
+          </button>
+        </div>
+      )}
+
       {/* Search and Status Filters */}
       <div className="bg-surface-container-lowest p-4 rounded-2xl shadow-sm border border-outline-variant/30 flex flex-col md:flex-row gap-3 items-center justify-between">
         <div className="relative flex-1 w-full">
@@ -109,7 +181,7 @@ export const AssignedTasksPage = () => {
           </span>
           <input
             type="text"
-            placeholder="Search work order #CF-2026-..., title, category, or location..."
+            placeholder={t('worker.searchTasksPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-4 py-2 bg-surface-container-low rounded-xl text-xs text-on-surface placeholder:text-outline border border-transparent focus:border-primary-container focus:bg-surface-container-lowest focus:outline-none transition-all"
@@ -117,17 +189,22 @@ export const AssignedTasksPage = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5 bg-surface-container-low p-1 rounded-xl text-xs w-full md:w-auto">
-          {['ALL', 'ASSIGNED', 'IN_PROGRESS', 'RESOLUTION_SUBMITTED'].map(tab => (
+          {[
+            { id: 'ALL', label: t('worker.tabAll') },
+            { id: 'ASSIGNED', label: t('worker.tabPending') },
+            { id: 'IN_PROGRESS', label: t('worker.tabInProgress') },
+            { id: 'RESOLUTION_SUBMITTED', label: t('worker.tabCompleted') }
+          ].map(tab => (
             <button
-              key={tab}
-              onClick={() => setFilter(tab)}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                filter === tab
+              key={tab.id}
+              onClick={() => setFilter(tab.id)}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                filter === tab.id
                   ? 'bg-primary-container text-white shadow-sm'
                   : 'text-tertiary hover:text-on-surface'
               }`}
             >
-              {tab === 'ALL' ? 'All Tasks' : tab.replace(/_/g, ' ')}
+              {tab.label}
             </button>
           ))}
         </div>
@@ -176,50 +253,24 @@ export const AssignedTasksPage = () => {
 
       {/* Loading Skeleton */}
       {loading && !error && (
-        <div className="space-y-3">
-          {[1, 2, 3].map(n => (
-            <div
-              key={n}
-              className="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/30 animate-pulse space-y-3"
-            >
-              <div className="flex items-center gap-3">
-                <div className="h-5 w-24 bg-surface-container rounded"></div>
-                <div className="h-5 w-20 bg-surface-container rounded-full"></div>
-                <div className="h-5 w-16 bg-surface-container rounded"></div>
-              </div>
-              <div className="h-5 w-2/3 bg-surface-container rounded"></div>
-              <div className="h-4 w-1/3 bg-surface-container rounded"></div>
-            </div>
-          ))}
-        </div>
+        <SkeletonLoader type="list" count={4} />
       )}
 
       {/* Task Cards List */}
       {!loading && !error && (
         <div className="space-y-3">
           {filtered.length === 0 ? (
-            <div className="bg-surface-container-lowest p-12 rounded-2xl border border-outline-variant/30 text-center space-y-3">
-              <span className="material-symbols-outlined text-[48px] text-tertiary">
-                {searchTerm || filter !== 'ALL' ? 'filter_list_off' : 'assignment_turned_in'}
-              </span>
-              <h3 className="text-base font-bold text-on-surface">
-                {searchTerm || filter !== 'ALL' ? 'No Matching Work Orders' : 'No Assigned Work Orders'}
-              </h3>
-              <p className="text-xs text-on-surface-variant max-w-sm mx-auto">
-                {searchTerm || filter !== 'ALL'
+            <EmptyState
+              icon={searchTerm || filter !== 'ALL' ? 'filter_list_off' : 'assignment_turned_in'}
+              title={searchTerm || filter !== 'ALL' ? 'No Matching Work Orders' : t('worker.noTasksTitle')}
+              description={
+                searchTerm || filter !== 'ALL'
                   ? 'No work orders match the current filter and search criteria.'
-                  : 'There are currently no repair orders assigned to your crew. New dispatches from Central Operations will appear here.'}
-              </p>
-              {(searchTerm || filter !== 'ALL') && (
-                <button
-                  type="button"
-                  onClick={() => { setSearchTerm(''); setFilter('ALL'); }}
-                  className="px-3.5 py-1.5 rounded-xl bg-surface-container text-xs font-semibold text-on-surface hover:bg-surface-container-high transition-colors"
-                >
-                  Clear Filters
-                </button>
-              )}
-            </div>
+                  : t('worker.noTasksDesc')
+              }
+              actionText={searchTerm || filter !== 'ALL' ? 'Clear Filters' : undefined}
+              onAction={() => { setSearchTerm(''); setFilter('ALL'); }}
+            />
           ) : (
             filtered.map(t => (
               <div

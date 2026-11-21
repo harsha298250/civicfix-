@@ -31,6 +31,8 @@ import com.civicfix.complaint.event.ComplaintEventType;
 
 import com.civicfix.ai.dto.DuplicateCandidate;
 import com.civicfix.ai.vision.VisionTriageProperties;
+import com.civicfix.gis.GisService;
+import com.civicfix.gis.dto.WardValidationResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,6 +71,7 @@ public class ComplaintService {
     private final SlaService slaService;
     private final SlaEscalationService slaEscalationService;
     private final VisionTriageProperties visionProperties;
+    private GisService gisService;
 
     @org.springframework.beans.factory.annotation.Value("${civicfix.evidence.max-distance-meters:100.0}")
     private double maxDistanceMeters = 100.0;
@@ -158,7 +161,8 @@ public class ComplaintService {
                             @Autowired(required = false) ApplicationEventPublisher eventPublisher,
                             @Autowired(required = false) SlaService slaService,
                             @Autowired(required = false) SlaEscalationService slaEscalationService,
-                            @Autowired(required = false) VisionTriageProperties visionProperties) {
+                            @Autowired(required = false) VisionTriageProperties visionProperties,
+                            @Autowired(required = false) GisService gisService) {
         this.complaintRepository = complaintRepository;
         this.historyRepository = historyRepository;
         this.evidenceRepository = evidenceRepository;
@@ -171,6 +175,26 @@ public class ComplaintService {
         this.slaService = slaService;
         this.slaEscalationService = slaEscalationService;
         this.visionProperties = visionProperties;
+        this.gisService = gisService;
+    }
+
+    public ComplaintService(ComplaintRepository complaintRepository,
+                            ComplaintStatusHistoryRepository historyRepository,
+                            ResolutionEvidenceRepository evidenceRepository,
+                            ComplaintPhotoRepository complaintPhotoRepository,
+                            UserRepository userRepository,
+                            AuditService auditService,
+                            StorageService storageService,
+                            AiTriageService aiTriageService,
+                            ApplicationEventPublisher eventPublisher,
+                            SlaService slaService,
+                            SlaEscalationService slaEscalationService,
+                            VisionTriageProperties visionProperties) {
+        this(complaintRepository, historyRepository, evidenceRepository, complaintPhotoRepository, userRepository, auditService, storageService, aiTriageService, eventPublisher, slaService, slaEscalationService, visionProperties, null);
+    }
+
+    public void setGisService(GisService gisService) {
+        this.gisService = gisService;
     }
 
     private void publishEvent(ComplaintEvent event) {
@@ -226,6 +250,26 @@ public class ComplaintService {
         complaint.setVisionConsent(consent);
         complaint.setVisionStatus("NOT_RUN");
         complaint.setFinalPrioritySource("RULE_ENGINE");
+
+        // Spatial boundary validation (Sub-Phase 2.4.6)
+        if (gisService != null && complaint.getLatitude() != null && complaint.getLongitude() != null) {
+            try {
+                WardValidationResult wardResult = gisService.validateWardContainment(
+                        complaint.getLatitude(),
+                        complaint.getLongitude(),
+                        complaint.getWard()
+                );
+                if (wardResult != null) {
+                    complaint.setWardValidationStatus(wardResult.getStatus());
+                    complaint.setWardBoundarySource(wardResult.getBoundarySource());
+                    if (wardResult.getDistanceMeters() != null) {
+                        complaint.setWardBoundaryDistanceMeters(BigDecimal.valueOf(wardResult.getDistanceMeters()));
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("Spatial boundary evaluation failed gracefully: {}", ex.getMessage());
+            }
+        }
 
         // Advisory automated triage evaluation (non-destructive)
         if (aiTriageService != null) {
@@ -735,6 +779,142 @@ public class ComplaintService {
         ));
 
         return toResponse(saved, principal);
+    }
+
+    @Transactional
+    public BulkAssignResponse bulkAssignWorkers(BulkAssignRequest req, UserPrincipal principal, String ipAddress) {
+        boolean canAssign = principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_OFFICER") || a.getAuthority().equals("ROLE_ADMIN"));
+        if (!canAssign) {
+            throw new ForbiddenException("Only municipal officers and administrators can dispatch and assign repair orders.");
+        }
+
+        if (req == null || req.getComplaintIds() == null || req.getComplaintIds().isEmpty()) {
+            throw new BadRequestException("At least one complaint ID is required for bulk assignment.");
+        }
+        if (req.getWorkerId() == null) {
+            throw new BadRequestException("Target field worker ID is required.");
+        }
+
+        User officer = userRepository.findById(principal.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Officer account not found."));
+
+        User worker = userRepository.findById(req.getWorkerId())
+                .orElseThrow(() -> new ResourceNotFoundException("Target field worker not found."));
+
+        if (!worker.hasRole(RoleName.WORKER)) {
+            throw new BadRequestException("Assigned user must hold the WORKER persona.");
+        }
+        if (!"ACTIVE".equalsIgnoreCase(worker.getAccountStatus())) {
+            throw new BadRequestException("Selected field worker account is not active.");
+        }
+
+        List<String> uniqueIds = req.getComplaintIds().stream().distinct().toList();
+        List<BulkAssignResponse.BulkItemResult> results = new ArrayList<>();
+        int successCount = 0;
+        int failureCount = 0;
+
+        for (String idOrRef : uniqueIds) {
+            try {
+                Complaint complaint = resolveComplaint(idOrRef);
+
+                enforceOfficerWardAccess(complaint, principal);
+
+                ComplaintStatus currentStatus = complaint.getStatus();
+                if (currentStatus.isTerminal()) {
+                    results.add(new BulkAssignResponse.BulkItemResult(
+                            complaint.getId().toString(),
+                            complaint.getReferenceId(),
+                            false,
+                            "Cannot assign worker to terminal complaint (status: " + currentStatus + ")."
+                    ));
+                    failureCount++;
+                    continue;
+                }
+
+                if (currentStatus == ComplaintStatus.RESOLUTION_SUBMITTED || currentStatus == ComplaintStatus.PENDING_CITIZEN_CONFIRMATION) {
+                    results.add(new BulkAssignResponse.BulkItemResult(
+                            complaint.getId().toString(),
+                            complaint.getReferenceId(),
+                            false,
+                            "Complaint is pending resolution verification or citizen confirmation."
+                    ));
+                    failureCount++;
+                    continue;
+                }
+
+                complaint.setAssignedOfficer(officer);
+                complaint.setAssignedWorker(worker);
+
+                ComplaintStatus previousStatus = complaint.getStatus();
+                if (previousStatus == ComplaintStatus.SUBMITTED || previousStatus == ComplaintStatus.UNDER_REVIEW || previousStatus == ComplaintStatus.REOPENED) {
+                    complaint.setStatus(ComplaintStatus.ASSIGNED);
+                    complaint.addStatusHistory(previousStatus, ComplaintStatus.ASSIGNED, officer,
+                            req.getNotes() != null && !req.getNotes().isBlank()
+                                    ? req.getNotes().trim()
+                                    : "Batch dispatched to technician " + worker.getFullName());
+                }
+
+                Complaint saved = complaintRepository.save(complaint);
+                complaintRepository.flush();
+
+                auditService.logAction(
+                        officer.getId(),
+                        officer.getFullName(),
+                        "OFFICER",
+                        "ASSIGN_WORKER",
+                        "COMPLAINT",
+                        saved.getId().toString(),
+                        "Batch assigned worker " + worker.getFullName() + " to complaint #" + saved.getReferenceId(),
+                        ipAddress,
+                        "SUCCESS"
+                );
+
+                publishEvent(new ComplaintEvent(
+                        ComplaintEventType.WORKER_ASSIGNED,
+                        saved,
+                        officer,
+                        previousStatus,
+                        saved.getStatus(),
+                        req.getNotes() != null && !req.getNotes().isBlank() ? req.getNotes().trim() : "Batch dispatched to technician " + worker.getFullName()
+                ));
+
+                results.add(new BulkAssignResponse.BulkItemResult(
+                        saved.getId().toString(),
+                        saved.getReferenceId(),
+                        true,
+                        "Successfully dispatched to " + worker.getFullName()
+                ));
+                successCount++;
+            } catch (ForbiddenException fe) {
+                results.add(new BulkAssignResponse.BulkItemResult(
+                        idOrRef,
+                        null,
+                        false,
+                        fe.getMessage()
+                ));
+                failureCount++;
+            } catch (ResourceNotFoundException rnfe) {
+                results.add(new BulkAssignResponse.BulkItemResult(
+                        idOrRef,
+                        null,
+                        false,
+                        "Complaint not found: " + idOrRef
+                ));
+                failureCount++;
+            } catch (Exception ex) {
+                log.error("Error bulk-assigning complaint {}: {}", idOrRef, ex.getMessage(), ex);
+                results.add(new BulkAssignResponse.BulkItemResult(
+                        idOrRef,
+                        null,
+                        false,
+                        "Failed to assign: " + ex.getMessage()
+                ));
+                failureCount++;
+            }
+        }
+
+        return new BulkAssignResponse(uniqueIds.size(), successCount, failureCount, results);
     }
 
     @Transactional
@@ -1291,6 +1471,7 @@ public class ComplaintService {
                     complaint.setPriority(complaint.getAiRecommendedPriority());
                 }
                 complaint.setAiAdjudicationStatus("ACCEPTED");
+                complaint.setFinalPrioritySource("AI_ADJUDICATED");
                 historyNote = "AI Triage Accepted: Adopted category [" + complaint.getCategory() +
                         "] and priority [" + complaint.getPriority() + "]. " +
                         (req.getNotes() != null && !req.getNotes().isBlank() ? "Officer notes: " + req.getNotes().trim() : "");
@@ -1310,6 +1491,7 @@ public class ComplaintService {
                     complaint.setPriority(req.getPriority());
                 }
                 complaint.setAiAdjudicationStatus("OVERRIDDEN");
+                complaint.setFinalPrioritySource("OFFICER_OVERRIDE");
                 historyNote = "AI Triage Overridden: Updated category to [" + complaint.getCategory() +
                         "] and priority to [" + complaint.getPriority() + "]. " +
                         (req.getNotes() != null && !req.getNotes().isBlank() ? "Reason: " + req.getNotes().trim() : "");

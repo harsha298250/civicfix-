@@ -1,6 +1,9 @@
 package com.civicfix.complaint;
 
+import com.civicfix.ai.AiTriageService;
 import com.civicfix.ai.dto.DuplicateCandidate;
+import com.civicfix.ai.dto.SuggestCategoryRequest;
+import com.civicfix.ai.dto.SuggestCategoryResponse;
 import com.civicfix.common.ApiResponse;
 import com.civicfix.common.PagedResponse;
 import com.civicfix.common.exception.BadRequestException;
@@ -37,10 +40,33 @@ public class ComplaintController {
 
     private final ComplaintService complaintService;
     private final OfficerAnalyticsService officerAnalyticsService;
+    private final AiTriageService aiTriageService;
 
-    public ComplaintController(ComplaintService complaintService, OfficerAnalyticsService officerAnalyticsService) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public ComplaintController(ComplaintService complaintService,
+                               OfficerAnalyticsService officerAnalyticsService,
+                               @org.springframework.beans.factory.annotation.Autowired(required = false) AiTriageService aiTriageService) {
         this.complaintService = complaintService;
         this.officerAnalyticsService = officerAnalyticsService;
+        this.aiTriageService = aiTriageService;
+    }
+
+    public ComplaintController(ComplaintService complaintService, OfficerAnalyticsService officerAnalyticsService) {
+        this(complaintService, officerAnalyticsService, null);
+    }
+
+    @PostMapping("/suggest-category")
+    public ResponseEntity<ApiResponse<SuggestCategoryResponse>> suggestCategory(
+            @RequestBody SuggestCategoryRequest request) {
+        if (aiTriageService == null) {
+            return ResponseEntity.ok(ApiResponse.success(
+                    new SuggestCategoryResponse("ROADS", 50.0, "AI triage service not configured.", List.of())
+            ));
+        }
+        String text = request != null ? request.getText() : "";
+        String lang = request != null ? request.getLanguage() : "en";
+        SuggestCategoryResponse response = aiTriageService.suggestCategory(text, lang);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/public/trust")
@@ -168,6 +194,19 @@ public class ComplaintController {
             HttpServletRequest httpRequest) {
         ComplaintResponse response = complaintService.assignWorker(id, request, principal, httpRequest.getRemoteAddr());
         return ResponseEntity.ok(ApiResponse.success("Work order dispatched to technician.", response));
+    }
+
+    @PostMapping("/bulk-assign")
+    @PreAuthorize("hasAnyRole('OFFICER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<BulkAssignResponse>> bulkAssignWorkers(
+            @Valid @RequestBody BulkAssignRequest request,
+            @AuthenticationPrincipal UserPrincipal principal,
+            HttpServletRequest httpRequest) {
+        BulkAssignResponse response = complaintService.bulkAssignWorkers(request, principal, httpRequest.getRemoteAddr());
+        return ResponseEntity.ok(ApiResponse.success(
+                "Batch assignment completed: " + response.getSuccessCount() + " succeeded, " + response.getFailureCount() + " failed.",
+                response
+        ));
     }
 
     @PostMapping("/{id}/status")

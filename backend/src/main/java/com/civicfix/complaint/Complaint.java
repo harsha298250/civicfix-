@@ -152,6 +152,9 @@ public class Complaint {
     @Column(name = "vision_status", length = 30, nullable = false)
     private String visionStatus = "NOT_RUN";
 
+    @Column(name = "vision_prompt_version", length = 50)
+    private String visionPromptVersion = "v1.1.0";
+
     @Column(name = "vision_at")
     private OffsetDateTime visionAt;
 
@@ -160,6 +163,15 @@ public class Complaint {
 
     @Column(name = "final_priority_source", length = 50)
     private String finalPrioritySource;
+
+    @Column(name = "ward_validation_status", length = 50, nullable = false)
+    private String wardValidationStatus = "NOT_EVALUATED";
+
+    @Column(name = "ward_boundary_source", length = 150)
+    private String wardBoundarySource;
+
+    @Column(name = "ward_boundary_distance_meters", precision = 10, scale = 2)
+    private BigDecimal wardBoundaryDistanceMeters;
 
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
@@ -581,5 +593,37 @@ public class Complaint {
 
     public boolean isDeleted() {
         return deletedAt != null;
+    }
+
+    public String getWardValidationStatus() {
+        return wardValidationStatus;
+    }
+
+    public void setWardValidationStatus(String wardValidationStatus) {
+        this.wardValidationStatus = wardValidationStatus != null ? wardValidationStatus : "NOT_EVALUATED";
+    }
+
+    public String getWardBoundarySource() {
+        return wardBoundarySource;
+    }
+
+    public void setWardBoundarySource(String wardBoundarySource) {
+        this.wardBoundarySource = wardBoundarySource;
+    }
+
+    public BigDecimal getWardBoundaryDistanceMeters() {
+        return wardBoundaryDistanceMeters;
+    }
+
+    public void setWardBoundaryDistanceMeters(BigDecimal wardBoundaryDistanceMeters) {
+        this.wardBoundaryDistanceMeters = wardBoundaryDistanceMeters;
+    }
+
+    public String getVisionPromptVersion() {
+        return visionPromptVersion;
+    }
+
+    public void setVisionPromptVersion(String visionPromptVersion) {
+        this.visionPromptVersion = visionPromptVersion != null ? visionPromptVersion : "v1.1.0";
     }
 }

@@ -304,51 +304,84 @@ describe('ComplaintService Integration Tests (Sprint 3, Step 2)', () => {
   });
 
   test('create throws clear error when backend is stopped and saves nothing to storage', async () => {
-    await assert.rejects(
-      async () => {
-        await complaintService.create({
-          title: 'Damaged storm drain',
-          description: 'Broken drain grating on 4th Main Road.',
-          category: 'Water & Sanitation Leakage',
-          categoryId: 'water'
-        });
-      },
-      (err) => {
-        assert.ok(err instanceof Error);
-        assert.match(err.message, /Cannot reach the server\. Nothing was saved\./);
-        return true;
-      },
-      'create must reject with clear message when backend is unreachable'
-    );
+    const originalFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = async () => {
+        const err = new TypeError('fetch failed');
+        err.cause = { code: 'ECONNREFUSED' };
+        throw err;
+      };
 
-    // Verify localStorage has no new complaint saved
-    assert.equal(localStorage.getItem('civicfix_complaints_v2'), null, 'Nothing must be stored in localStorage');
+      await assert.rejects(
+        async () => {
+          await complaintService.create({
+            title: 'Damaged storm drain',
+            description: 'Broken drain grating on 4th Main Road.',
+            category: 'Water & Sanitation Leakage',
+            categoryId: 'water'
+          });
+        },
+        (err) => {
+          assert.ok(err instanceof Error);
+          assert.match(err.message, /Cannot reach the server\. Nothing was saved\./);
+          return true;
+        },
+        'create must reject with clear message when backend is unreachable'
+      );
+
+      // Verify localStorage has no new complaint saved
+      assert.equal(localStorage.getItem('civicfix_complaints_v2'), null, 'Nothing must be stored in localStorage');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 
   test('updateStatus throws clear error when backend is unreachable and saves nothing', async () => {
-    await assert.rejects(
-      async () => {
-        await complaintService.updateStatus('CF-2026-11111', 'IN_PROGRESS', { notes: 'Started work' });
-      },
-      (err) => {
-        assert.ok(err instanceof Error);
-        assert.match(err.message, /Cannot reach the server\. Nothing was saved\./);
-        return true;
-      }
-    );
+    const originalFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = async () => {
+        const err = new TypeError('fetch failed');
+        err.cause = { code: 'ECONNREFUSED' };
+        throw err;
+      };
+
+      await assert.rejects(
+        async () => {
+          await complaintService.updateStatus('CF-2026-11111', 'IN_PROGRESS', { notes: 'Started work' });
+        },
+        (err) => {
+          assert.ok(err instanceof Error);
+          assert.match(err.message, /Cannot reach the server\. Nothing was saved\./);
+          return true;
+        }
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 
   test('assignWorker throws clear error when backend is unreachable and saves nothing', async () => {
-    await assert.rejects(
-      async () => {
-        await complaintService.assignWorker('CF-2026-11111', { id: '00000000-0000-0000-0000-000000000003', name: 'Marcus Chen' });
-      },
-      (err) => {
-        assert.ok(err instanceof Error);
-        assert.match(err.message, /Cannot reach the server\. Nothing was saved\./);
-        return true;
-      }
-    );
+    const originalFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = async () => {
+        const err = new TypeError('fetch failed');
+        err.cause = { code: 'ECONNREFUSED' };
+        throw err;
+      };
+
+      await assert.rejects(
+        async () => {
+          await complaintService.assignWorker('CF-2026-11111', { id: '00000000-0000-0000-0000-000000000003', name: 'Marcus Chen' });
+        },
+        (err) => {
+          assert.ok(err instanceof Error);
+          assert.match(err.message, /Cannot reach the server\. Nothing was saved\./);
+          return true;
+        }
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });
 

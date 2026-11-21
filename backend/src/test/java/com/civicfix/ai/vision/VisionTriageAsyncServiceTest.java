@@ -121,9 +121,9 @@ class VisionTriageAsyncServiceTest {
                         lastSuccessReason = (String) args[4];
                         lastSuccessModel = (String) args[5];
                         lastUpdatedStatus = (String) args[6];
-                        lastSuccessDisagreement = (Boolean) args[8];
-                        lastSuccessPrioritySource = (String) args[9];
-                        lastSuccessPriority = (ComplaintPriority) args[10];
+                        lastSuccessDisagreement = (Boolean) args[9];
+                        lastSuccessPrioritySource = (String) args[10];
+                        lastSuccessPriority = (ComplaintPriority) args[11];
                         return 1;
                     }
                     if ("cleanupStuckRunningRows".equals(name)) {

@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { useTranslation } from '../../context/LanguageContext';
 import LanguageToggle from '../common/LanguageToggle';
 import { DemoRoleSwitcher } from '../common/DemoRoleSwitcher';
+import SkipToContent from '../common/SkipToContent';
 import { COMPLAINT_STATUS } from '../../constants/statusConstants';
 
 export const OfficerLayout = () => {
   const { currentUser, complaints, unreadCount, toast, logout } = useApp();
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -21,36 +24,36 @@ export const OfficerLayout = () => {
   ).length;
 
   const navItems = [
-    { label: 'Overview', path: '/officer/dashboard', icon: 'dashboard' },
+    { label: t('nav.overview'), path: '/officer/dashboard', icon: 'dashboard' },
     {
-      label: 'Complaint Queue',
+      label: t('nav.complaintQueue'),
       path: '/officer/complaints',
       icon: 'inbox',
       badge: pendingQueueCount > 0 ? pendingQueueCount : null
     },
     {
-      label: 'Review & Assignment',
+      label: t('nav.reviewAssignment'),
       path: '/officer/complaints/CF-2026-00124/review',
       icon: 'assignment_turned_in'
     },
-    { label: 'Worker Assignments', path: '/officer/assignments', icon: 'assignment_ind' },
+    { label: t('nav.workerAssignments'), path: '/officer/assignments', icon: 'assignment_ind' },
     {
-      label: 'Resolution Verification',
+      label: t('nav.resolutionVerification'),
       path: '/officer/verifications',
       icon: 'verified',
       badge: verificationQueueCount > 0 ? `${verificationQueueCount} Ready` : null,
       badgeColor: 'bg-secondary text-white'
     },
-    { label: 'Live Issue Map', path: '/officer/map', icon: 'map' },
-    { label: 'Operational Analytics', path: '/officer/analytics', icon: 'monitoring' },
+    { label: t('nav.liveIssueMap'), path: '/officer/map', icon: 'map' },
+    { label: t('nav.operationalAnalytics'), path: '/officer/analytics', icon: 'monitoring' },
     {
-      label: 'Notifications',
+      label: t('nav.notifications'),
       path: '/officer/notifications',
       icon: 'notifications',
       badge: unreadCount > 0 ? unreadCount : null,
       badgeColor: 'bg-error text-white'
     },
-    { label: 'Profile & Settings', path: '/officer/profile', icon: 'badge' }
+    { label: t('nav.profileSettings'), path: '/officer/profile', icon: 'badge' }
   ];
 
   const handleSearchSubmit = (e) => {
@@ -62,6 +65,7 @@ export const OfficerLayout = () => {
 
   return (
     <div className="min-h-screen bg-surface font-sans text-on-surface flex">
+      <SkipToContent />
       {/* Toast Notification */}
       {toast && (
         <div className="fixed top-4 right-4 z-50 bg-[#151D26] text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 border border-secondary/30 animate-fade-in">
@@ -164,10 +168,10 @@ export const OfficerLayout = () => {
               logout();
               navigate('/login');
             }}
-            className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-white/5 hover:bg-error/20 hover:text-error text-gray-400 text-xs font-semibold transition-colors"
+            className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-white/5 hover:bg-error/20 hover:text-error text-gray-400 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <span className="material-symbols-outlined text-[16px]">logout</span>
-            <span>Sign Out</span>
+            <span>{t('common.logout')}</span>
           </button>
         </div>
       </aside>
@@ -179,7 +183,8 @@ export const OfficerLayout = () => {
           <div className="flex items-center gap-3 flex-1 max-w-lg">
             <button
               onClick={() => setMobileSidebarOpen(true)}
-              className="md:hidden p-2 rounded-lg hover:bg-surface-container text-on-surface-variant"
+              className="md:hidden p-2 rounded-lg hover:bg-surface-container text-on-surface-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              aria-label={t('accessibility.toggleNavigation')}
             >
               <span className="material-symbols-outlined text-[24px]">menu</span>
             </button>
@@ -189,7 +194,7 @@ export const OfficerLayout = () => {
               </span>
               <input
                 type="text"
-                placeholder="Search ticket IDs (e.g. #CF-2026-00124), wards, tags..."
+                placeholder={t('officer.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full h-9 pl-9 pr-4 rounded-lg bg-surface-container-low text-on-surface placeholder:text-outline text-body-sm focus:outline-none focus:bg-surface-container-lowest border border-transparent focus:border-primary-container transition-all"
@@ -233,7 +238,7 @@ export const OfficerLayout = () => {
         </header>
 
         {/* Dynamic Page Content */}
-        <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
+        <main id="main-content" tabIndex="-1" className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto focus:outline-none">
           <Outlet />
         </main>
       </div>

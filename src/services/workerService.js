@@ -1,5 +1,6 @@
 import { apiClient } from './apiClient.js';
 import { mapBackendComplaintToFrontend } from './complaintService.js';
+import offlineStorage from '../utils/offlineStorage.js';
 
 /**
  * CivicFix AI — Dedicated Field Worker Service Module (Sprint 3, Step 4A)
@@ -213,8 +214,139 @@ export const workerService = {
       formData.append('deviceReported', 'true');
     }
 
-    await apiClient.complaints.submitEvidence(cleanId, formData);
-    return workerService.getTaskDetail(cleanId);
+    // Check offline status first
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      await offlineStorage.enqueueEvidence({
+        taskId: cleanId,
+        notes,
+        files,
+        latitude,
+        longitude,
+        accuracy,
+        locationNote,
+        deviceReported
+      });
+      return {
+        offlineQueued: true,
+        taskId: cleanId,
+        message: 'Evidence saved locally in offline outbox. Will sync automatically when connection returns.'
+      };
+    }
+
+    try {
+      await apiClient.complaints.submitEvidence(cleanId, formData);
+      return workerService.getTaskDetail(cleanId);
+    } catch (err) {
+      const isConnectionError =
+        err.status === 0 ||
+        (err.message && (err.message.includes('Cannot connect to CivicFix backend') || err.message.includes('fetch') || err.message.includes('Failed to parse URL'))) ||
+        err.code === 'ECONNREFUSED';
+
+      if (isConnectionError) {
+        await offlineStorage.enqueueEvidence({
+          taskId: cleanId,
+          notes,
+          files,
+          latitude,
+          longitude,
+          accuracy,
+          locationNote,
+          deviceReported
+        });
+        return {
+          offlineQueued: true,
+          taskId: cleanId,
+          message: 'Network connection lost. Evidence saved in offline outbox and queued for sync.'
+        };
+      }
+      throw err;
+    }
+  },
+
+  /**
+   * Synchronize all locally queued offline evidence submissions to the backend.
+   * Reconstructs FormDatas from stored base64 payloads and submits to apiClient.
+   * 
+   * @returns {Promise<{total: number, syncedCount: number, failedCount: number}>}
+   */
+  syncOfflineEvidence: async () => {
+    const pending = await offlineStorage.getPendingEvidence();
+    if (!pending || pending.length === 0) {
+      return { total: 0, syncedCount: 0, failedCount: 0 };
+    }
+
+    let syncedCount = 0;
+    let failedCount = 0;
+
+    for (const item of pending) {
+      try {
+        await offlineStorage.updateEvidenceStatus(item.id, 'SYNCING');
+        const formData = new FormData();
+        formData.append('notes', item.notes || '');
+
+        if (Array.isArray(item.files)) {
+          for (const f of item.files) {
+            const fileObj = offlineStorage.dataUrlToFile(f.dataUrl, f.name || 'repair_photo.jpg', f.type || 'image/jpeg');
+            formData.append('files', fileObj);
+          }
+        }
+
+        if (item.latitude !== null && item.latitude !== undefined) {
+          formData.append('latitude', String(item.latitude));
+        }
+        if (item.longitude !== null && item.longitude !== undefined) {
+          formData.append('longitude', String(item.longitude));
+        }
+        if (item.accuracy !== null && item.accuracy !== undefined) {
+          formData.append('accuracy', String(item.accuracy));
+        }
+        if (item.locationNote) {
+          formData.append('locationNote', String(item.locationNote));
+        }
+        if (item.deviceReported) {
+          formData.append('deviceReported', 'true');
+        }
+
+        await apiClient.complaints.submitEvidence(item.taskId, formData);
+        await offlineStorage.removeEvidence(item.id);
+        syncedCount++;
+      } catch (err) {
+        console.error(`Failed to sync offline evidence item ${item.id}:`, err);
+        await offlineStorage.updateEvidenceStatus(item.id, 'FAILED', err.message);
+        failedCount++;
+      }
+    }
+
+    return { total: pending.length, syncedCount, failedCount };
+  },
+
+  /**
+   * Retrieve total number of pending evidence submissions stored offline.
+   * 
+   * @returns {Promise<number>}
+   */
+  getOfflineOutboxCount: async () => {
+    return offlineStorage.getQueuedCount();
+  },
+
+  /**
+   * Initialize browser online event listener for automatic background sync.
+   * 
+   * @param {Function} [onSyncComplete]
+   * @returns {Function} Cleanup remover function
+   */
+  initOfflineSyncListener: (onSyncComplete) => {
+    if (typeof window === 'undefined') return () => {};
+    const handler = async () => {
+      try {
+        const result = await workerService.syncOfflineEvidence();
+        if (onSyncComplete) onSyncComplete(result);
+      } catch (err) {
+        console.error('Auto sync error on online event:', err);
+      }
+    };
+    window.addEventListener('online', handler);
+    return () => window.removeEventListener('online', handler);
   },
 
   /**

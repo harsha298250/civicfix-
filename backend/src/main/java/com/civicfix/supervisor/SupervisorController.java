@@ -5,6 +5,8 @@ import com.civicfix.common.ApiResponse;
 import com.civicfix.common.PagedResponse;
 import com.civicfix.complaint.dto.ComplaintResponse;
 import com.civicfix.security.UserPrincipal;
+import com.civicfix.supervisor.dto.DeEscalateRequest;
+import com.civicfix.supervisor.dto.ExtendSlaRequest;
 import com.civicfix.supervisor.dto.ReassignWorkerRequest;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -51,6 +53,28 @@ public class SupervisorController {
             HttpServletRequest httpRequest) {
         ComplaintResponse response = supervisorService.reassignWorker(id, request, principal, httpRequest.getRemoteAddr());
         return ResponseEntity.ok(ApiResponse.success("Worker reassigned successfully.", response));
+    }
+
+    @PostMapping("/complaints/{id}/extend-sla")
+    @PreAuthorize("hasAnyRole('SUPERVISOR', 'ADMIN')")
+    public ResponseEntity<ApiResponse<ComplaintResponse>> extendSla(
+            @PathVariable String id,
+            @Valid @RequestBody ExtendSlaRequest request,
+            @AuthenticationPrincipal UserPrincipal principal,
+            HttpServletRequest httpRequest) {
+        ComplaintResponse response = supervisorService.extendSla(id, request, principal, httpRequest.getRemoteAddr());
+        return ResponseEntity.ok(ApiResponse.success("SLA deadline extended successfully.", response));
+    }
+
+    @PostMapping("/complaints/{id}/de-escalate")
+    @PreAuthorize("hasAnyRole('SUPERVISOR', 'ADMIN')")
+    public ResponseEntity<ApiResponse<ComplaintResponse>> deEscalate(
+            @PathVariable String id,
+            @Valid @RequestBody DeEscalateRequest request,
+            @AuthenticationPrincipal UserPrincipal principal,
+            HttpServletRequest httpRequest) {
+        ComplaintResponse response = supervisorService.deEscalate(id, request, principal, httpRequest.getRemoteAddr());
+        return ResponseEntity.ok(ApiResponse.success("Complaint de-escalated successfully.", response));
     }
 
     @GetMapping("/workers")

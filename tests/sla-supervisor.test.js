@@ -154,6 +154,89 @@ test.describe('SLA Tracking & Supervisor Integration Tests', () => {
     }
   });
 
+  test.it('apiClient.supervisor.extendSla sends POST /api/supervisor/complaints/:id/extend-sla with payload', async () => {
+    let capturedUrl = null;
+    let capturedOptions = null;
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url, options) => {
+      capturedUrl = url;
+      capturedOptions = options;
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({
+          success: true,
+          message: 'SLA deadline extended successfully.',
+          data: {
+            id: 'complaint-789',
+            referenceId: 'CF-2026-99999',
+            slaDueAt: '2026-11-25T10:00:00Z'
+          }
+        })
+      };
+    };
+
+    try {
+      const res = await apiClient.supervisor.extendSla('complaint-789', {
+        additionalHours: 48,
+        reason: 'Heavy monsoon road closure preventing asphalt curing',
+        version: 1
+      });
+      assert.ok(capturedUrl.includes('/api/supervisor/complaints/complaint-789/extend-sla'));
+      assert.equal(capturedOptions.method, 'POST');
+      const body = JSON.parse(capturedOptions.body);
+      assert.equal(body.additionalHours, 48);
+      assert.equal(body.reason, 'Heavy monsoon road closure preventing asphalt curing');
+      assert.ok(res.data.slaDueAt);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test.it('apiClient.supervisor.deEscalate sends POST /api/supervisor/complaints/:id/de-escalate with payload', async () => {
+    let capturedUrl = null;
+    let capturedOptions = null;
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url, options) => {
+      capturedUrl = url;
+      capturedOptions = options;
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({
+          success: true,
+          message: 'Complaint de-escalated successfully.',
+          data: {
+            id: 'complaint-789',
+            referenceId: 'CF-2026-99999',
+            escalatedAt: null,
+            slaDueAt: '2026-11-23T10:00:00Z'
+          }
+        })
+      };
+    };
+
+    try {
+      const res = await apiClient.supervisor.deEscalate('complaint-789', {
+        reason: 'Site inspection confirmed hazard contained by barrier',
+        additionalHours: 24,
+        version: 1
+      });
+      assert.ok(capturedUrl.includes('/api/supervisor/complaints/complaint-789/de-escalate'));
+      assert.equal(capturedOptions.method, 'POST');
+      const body = JSON.parse(capturedOptions.body);
+      assert.equal(body.reason, 'Site inspection confirmed hazard contained by barrier');
+      assert.equal(body.additionalHours, 24);
+      assert.equal(res.data.escalatedAt, null);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   test.it('SLA states evaluate strictly against server response contract', () => {
     const validStates = ['NOT_SET', 'ON_TRACK', 'DUE_SOON', 'OVERDUE', 'STOPPED'];
     for (const state of validStates) {

@@ -61,6 +61,16 @@ public class DeterministicTriageEngine implements TriageProvider {
 
     private CategoryMatch classifyCategory(String combinedLower, String categoryHint) {
         Map<String, Integer> categoryScores = new HashMap<>();
+        Map<String, List<String>> categoryMatchedTokens = new HashMap<>();
+
+        // Tokenize into words for bounded typo tolerance
+        String[] words = combinedLower.split("[\\s,\\.!?;:()\"'\\-]+");
+        Set<String> tokenSet = new HashSet<>();
+        for (String w : words) {
+            if (!w.isBlank()) {
+                tokenSet.add(w);
+            }
+        }
 
         for (Map.Entry<String, List<String>> entry : CivicLexicon.CATEGORY_KEYWORDS.entrySet()) {
             String cat = entry.getKey();
@@ -70,10 +80,20 @@ public class DeterministicTriageEngine implements TriageProvider {
                 if (combinedLower.contains(kw)) {
                     score += kw.contains(" ") ? 3 : 2; // Multi-word phrases give higher specificity
                     matchedTokens.add(kw);
+                } else if (kw.length() > 5 && !kw.contains(" ")) {
+                    // Bounded Levenshtein matching on tokens > 5 chars with edit distance <= 1
+                    for (String token : tokenSet) {
+                        if (Math.abs(token.length() - kw.length()) <= 1 && levenshteinDistance(token, kw) <= 1) {
+                            score += 2;
+                            matchedTokens.add(kw);
+                            break;
+                        }
+                    }
                 }
             }
             if (score > 0) {
                 categoryScores.put(cat, score);
+                categoryMatchedTokens.put(cat, matchedTokens);
             }
         }
 
@@ -93,18 +113,35 @@ public class DeterministicTriageEngine implements TriageProvider {
             }
         }
 
-        List<String> matchedTokens = CivicLexicon.CATEGORY_KEYWORDS.get(topCategory).stream()
-                .filter(combinedLower::contains)
-                .toList();
-
+        List<String> matchedTokens = categoryMatchedTokens.getOrDefault(topCategory, Collections.emptyList());
         return new CategoryMatch(topCategory, maxScore, matchedTokens, false);
+    }
+
+    public static int levenshteinDistance(String a, String b) {
+        if (a == null || b == null) return Integer.MAX_VALUE;
+        int[] dp = new int[b.length() + 1];
+        for (int j = 0; j <= b.length(); j++) dp[j] = j;
+        for (int i = 1; i <= a.length(); i++) {
+            int prev = dp[0];
+            dp[0] = i;
+            for (int j = 1; j <= b.length(); j++) {
+                int temp = dp[j];
+                if (a.charAt(i - 1) == b.charAt(j - 1)) {
+                    dp[j] = prev;
+                } else {
+                    dp[j] = 1 + Math.min(prev, Math.min(dp[j - 1], dp[j]));
+                }
+                prev = temp;
+            }
+        }
+        return dp[b.length()];
     }
 
     private HazardEvaluation evaluateHazards(String combinedLower, ComplaintPriority priorityHint) {
         // Critical Hazards check
         for (CivicLexicon.HazardRule rule : CivicLexicon.CRITICAL_HAZARDS) {
             for (String trigger : rule.triggers()) {
-                if (combinedLower.contains(trigger)) {
+                if (combinedLower.contains(trigger) && !isNegated(combinedLower, trigger)) {
                     return new HazardEvaluation(
                             ComplaintPriority.CRITICAL,
                             "P1 - Critical Hazard: Life Safety Risk",
@@ -118,7 +155,7 @@ public class DeterministicTriageEngine implements TriageProvider {
         // High Hazards check
         for (CivicLexicon.HazardRule rule : CivicLexicon.HIGH_HAZARDS) {
             for (String trigger : rule.triggers()) {
-                if (combinedLower.contains(trigger)) {
+                if (combinedLower.contains(trigger) && !isNegated(combinedLower, trigger)) {
                     return new HazardEvaluation(
                             ComplaintPriority.HIGH,
                             "P2 - Elevated Hazard: Infrastructure Risk",
@@ -132,7 +169,7 @@ public class DeterministicTriageEngine implements TriageProvider {
         // Medium Hazards check
         for (CivicLexicon.HazardRule rule : CivicLexicon.MEDIUM_HAZARDS) {
             for (String trigger : rule.triggers()) {
-                if (combinedLower.contains(trigger)) {
+                if (combinedLower.contains(trigger) && !isNegated(combinedLower, trigger)) {
                     return new HazardEvaluation(
                             ComplaintPriority.MEDIUM,
                             "P3 - Standard Triage: Operational Defect",
@@ -198,6 +235,18 @@ public class DeterministicTriageEngine implements TriageProvider {
         // Clamp between 50.00 and 92.50 (transparently avoiding fabricated 99.9% claims)
         double clamped = Math.max(50.00, Math.min(92.50, score));
         return BigDecimal.valueOf(clamped).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private boolean isNegated(String text, String trigger) {
+        int idx = text.indexOf(trigger);
+        if (idx <= 0) {
+            return false;
+        }
+        int lookbackStart = Math.max(0, idx - 40);
+        String prefix = text.substring(lookbackStart, idx).trim().toLowerCase();
+        return prefix.endsWith("not") || prefix.endsWith("no") || prefix.endsWith("not a") ||
+               prefix.endsWith("not an") || prefix.endsWith("without") || prefix.endsWith("no longer") ||
+               prefix.endsWith("isn't") || prefix.endsWith("is not") || prefix.endsWith("neither");
     }
 
     private boolean isValidCategory(String cat) {

@@ -1,4 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { compressAndNormalizeImage } from '../../utils/imageUtils.js';
+
+export { compressAndNormalizeImage };
 
 const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -67,7 +70,7 @@ export const ImageUploadManager = ({
   }, []);
 
   // Process selected files from input
-  const processFiles = (fileList) => {
+  const processFiles = async (fileList) => {
     setValidationError('');
     if (!fileList || fileList.length === 0) return;
 
@@ -96,17 +99,10 @@ export const ImageUploadManager = ({
         continue;
       }
 
-      const previewUrl = URL.createObjectURL(file);
+      const compressedItem = await compressAndNormalizeImage(file);
       newPhotos.push({
         id: `img_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-        file,
-        name: file.name,
-        sizeBytes: file.size,
-        sizeFormatted: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
-        type: file.type,
-        url: previewUrl,
-        isLocal: true,
-        source: 'User Upload (Local File)'
+        ...compressedItem
       });
     }
 
@@ -314,6 +310,17 @@ export const ImageUploadManager = ({
           <p className="text-xs text-on-surface-variant mt-0.5">{helperText}</p>
         </div>
         <span className="text-[11px] font-mono text-tertiary">Max {MAX_FILE_SIZE_MB}MB per image</span>
+      </div>
+
+      {/* Privacy Notice Banner */}
+      <div className="p-3 bg-amber-50/90 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/40 rounded-xl flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-200" role="note" aria-label="Privacy Notice">
+        <span className="material-symbols-outlined text-[18px] text-amber-700 dark:text-amber-400 shrink-0 mt-0.5">privacy_tip</span>
+        <div>
+          <span className="font-semibold">Privacy & Citizen Protection:</span>
+          <span className="ml-1 text-amber-800 dark:text-amber-300">
+            Please frame photos to capture only the public defect. Avoid photographing people&apos;s faces, identifiable private property, or vehicle registration numbers. Uploads are stripped of sensitive metadata and processed according to Tamil Nadu Data Protection standards.
+          </span>
+        </div>
       </div>
 
       {/* Validation alert */}

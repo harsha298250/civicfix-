@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { useTranslation } from '../../context/LanguageContext';
 import { adminService } from '../../services/adminService';
 import LanguageToggle from '../common/LanguageToggle';
 import { DemoRoleSwitcher } from '../common/DemoRoleSwitcher';
+import SkipToContent from '../common/SkipToContent';
 
 export const AdminLayout = () => {
   const { currentUser, unreadCount, toast, logout } = useApp();
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -27,30 +30,31 @@ export const AdminLayout = () => {
   }, [location.pathname]);
 
   const navItems = [
-    { label: 'Overview', path: '/admin/dashboard', icon: 'dashboard' },
+    { label: t('nav.overview'), path: '/admin/dashboard', icon: 'dashboard' },
     {
-      label: 'User Directory & Approvals',
+      label: t('nav.userDirectory'),
       path: '/admin/users',
       icon: 'group',
       badge: pendingCount > 0 ? `${pendingCount} Pending` : null,
       badgeColor: 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
     },
-    { label: 'Roles & RBAC Matrix', path: '/admin/roles', icon: 'verified_user' },
-    { label: 'Platform Analytics', path: '/admin/activity', icon: 'analytics' },
-    { label: 'Audit Event Ledger', path: '/admin/audit-logs', icon: 'receipt_long' },
-    { label: 'System Settings', path: '/admin/settings', icon: 'settings' },
+    { label: t('nav.rolesMatrix'), path: '/admin/roles', icon: 'verified_user' },
+    { label: t('nav.platformAnalytics'), path: '/admin/activity', icon: 'analytics' },
+    { label: t('nav.auditLedger'), path: '/admin/audit-logs', icon: 'receipt_long' },
+    { label: t('nav.systemSettings'), path: '/admin/settings', icon: 'settings' },
     {
-      label: 'Notifications & Alerts',
+      label: t('nav.notifications'),
       path: '/admin/notifications',
       icon: 'notifications_active',
       badge: unreadCount > 0 ? unreadCount : null,
       badgeColor: 'bg-error text-white'
     },
-    { label: 'My Profile', path: '/admin/profile', icon: 'account_circle' }
+    { label: t('nav.myProfile'), path: '/admin/profile', icon: 'account_circle' }
   ];
 
   return (
     <div className="min-h-screen bg-surface font-sans text-on-surface flex">
+      <SkipToContent />
       {/* Toast Notification */}
       {toast && (
         <div className="fixed top-4 right-4 z-50 bg-[#151D26] text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 border border-secondary/30 animate-fade-in">
@@ -141,10 +145,10 @@ export const AdminLayout = () => {
               logout();
               navigate('/login');
             }}
-            className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-white/5 hover:bg-error/20 hover:text-error text-gray-400 text-xs font-semibold transition-colors"
+            className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-white/5 hover:bg-error/20 hover:text-error text-gray-400 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <span className="material-symbols-outlined text-[16px]">logout</span>
-            <span>Sign Out</span>
+            <span>{t('common.logout')}</span>
           </button>
         </div>
       </aside>
@@ -176,7 +180,8 @@ export const AdminLayout = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileSidebarOpen(true)}
-              className="md:hidden p-2 rounded-lg hover:bg-surface-container text-on-surface-variant"
+              className="md:hidden p-2 rounded-lg hover:bg-surface-container text-on-surface-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              aria-label={t('accessibility.toggleNavigation')}
             >
               <span className="material-symbols-outlined text-[24px]">menu</span>
             </button>
@@ -184,7 +189,7 @@ export const AdminLayout = () => {
               <span className="font-headline-sm text-headline-sm text-on-surface font-bold tracking-tight">
                 CivicFix
               </span>
-              <span className="text-[11px] text-on-surface-variant">Platform Governance & Administration</span>
+              <span className="text-[11px] text-on-surface-variant">{t('admin.dashboardSubtitle')}</span>
             </div>
           </div>
 
@@ -193,15 +198,15 @@ export const AdminLayout = () => {
 
             <Link
               to="/admin/users/new"
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-container text-white text-xs font-semibold shadow-sm hover:bg-primary transition-all"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-container text-white text-xs font-semibold shadow-sm hover:bg-primary transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary"
             >
               <span className="material-symbols-outlined text-[16px]">person_add</span>
-              <span>Create Staff</span>
+              <span>{t('admin.createStaffButton')}</span>
             </Link>
 
             <Link
               to="/admin/notifications"
-              className="relative p-2 rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors"
+              className="relative p-2 rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               title="Notifications"
             >
               <span className="material-symbols-outlined text-[22px]">notifications</span>
@@ -210,7 +215,7 @@ export const AdminLayout = () => {
 
             <Link
               to="/admin/profile"
-              className="flex items-center gap-2.5 pl-2 py-1 rounded-lg hover:bg-surface-container transition-colors"
+              className="flex items-center gap-2.5 pl-2 py-1 rounded-lg hover:bg-surface-container transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold">
                 {currentUser?.avatar || 'PS'}
@@ -228,7 +233,7 @@ export const AdminLayout = () => {
         </header>
 
         {/* Dynamic Page Content */}
-        <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
+        <main id="main-content" tabIndex="-1" className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto focus:outline-none">
           <Outlet />
         </main>
       </div>

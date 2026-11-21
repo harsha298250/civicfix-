@@ -66,5 +66,122 @@ public final class GeoUtils {
         }
         return true;
     }
+
+    /**
+     * Standard Ray-Casting Point-in-Polygon (PIP) containment algorithm.
+     * Evaluates whether geographic point (lat, lng) lies strictly within the exterior ring.
+     * GeoJSON coordinates format: [longitude, latitude].
+     *
+     * @param lat Query point latitude in degrees
+     * @param lng Query point longitude in degrees
+     * @param ring List of coordinate pairs [[lon, lat], [lon, lat], ...]
+     * @return true if point is inside polygon ring, false otherwise
+     */
+    public static boolean isPointInPolygon(double lat, double lng, java.util.List<java.util.List<Double>> ring) {
+        if (ring == null || ring.size() < 3) {
+            return false;
+        }
+        boolean inside = false;
+        int n = ring.size();
+        for (int i = 0, j = n - 1; i < n; j = i++) {
+            java.util.List<Double> p1 = ring.get(i);
+            java.util.List<Double> p2 = ring.get(j);
+            if (p1 == null || p1.size() < 2 || p2 == null || p2.size() < 2) {
+                continue;
+            }
+            double xi = p1.get(0); // lon
+            double yi = p1.get(1); // lat
+            double xj = p2.get(0); // lon
+            double yj = p2.get(1); // lat
+
+            boolean intersect = ((yi > lat) != (yj > lat))
+                    && (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+            if (intersect) {
+                inside = !inside;
+            }
+        }
+        return inside;
+    }
+
+    /**
+     * Overload for double array coordinates [[lon, lat], ...].
+     */
+    public static boolean isPointInPolygon(double lat, double lng, double[][] ring) {
+        if (ring == null || ring.length < 3) {
+            return false;
+        }
+        boolean inside = false;
+        int n = ring.length;
+        for (int i = 0, j = n - 1; i < n; j = i++) {
+            double xi = ring[i][0]; // lon
+            double yi = ring[i][1]; // lat
+            double xj = ring[j][0]; // lon
+            double yj = ring[j][1]; // lat
+
+            boolean intersect = ((yi > lat) != (yj > lat))
+                    && (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+            if (intersect) {
+                inside = !inside;
+            }
+        }
+        return inside;
+    }
+
+    /**
+     * Compute geodesic distance in meters from point (lat, lng) to the nearest segment
+     * of a polygon exterior ring.
+     */
+    public static double distanceToPolygonBoundaryMeters(double lat, double lng, java.util.List<java.util.List<Double>> ring) {
+        if (ring == null || ring.size() < 2) {
+            return 0.0;
+        }
+        double minDistance = Double.MAX_VALUE;
+        int n = ring.size();
+        for (int i = 0, j = n - 1; i < n; j = i++) {
+            java.util.List<Double> p1 = ring.get(i);
+            java.util.List<Double> p2 = ring.get(j);
+            if (p1 == null || p1.size() < 2 || p2 == null || p2.size() < 2) {
+                continue;
+            }
+            double segDist = distanceToSegmentMeters(lat, lng, p1.get(1), p1.get(0), p2.get(1), p2.get(0));
+            if (segDist < minDistance) {
+                minDistance = segDist;
+            }
+        }
+        return minDistance == Double.MAX_VALUE ? 0.0 : minDistance;
+    }
+
+    /**
+     * Compute geodesic distance in meters from point P to line segment AB.
+     */
+    public static double distanceToSegmentMeters(double pLat, double pLon, double aLat, double aLon, double bLat, double bLon) {
+        double meanLat = Math.toRadians((aLat + bLat) / 2.0);
+        double cosLat = Math.cos(meanLat);
+
+        double ax = aLon * cosLat;
+        double ay = aLat;
+        double bx = bLon * cosLat;
+        double by = bLat;
+        double px = pLon * cosLat;
+        double py = pLat;
+
+        double dx = bx - ax;
+        double dy = by - ay;
+        double lenSq = dx * dx + dy * dy;
+
+        double t = 0.0;
+        if (lenSq > 0.0) {
+            t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
+            if (t < 0.0) {
+                t = 0.0;
+            } else if (t > 1.0) {
+                t = 1.0;
+            }
+        }
+
+        double projLat = aLat + t * (bLat - aLat);
+        double projLon = aLon + t * (bLon - aLon);
+        return haversineDistance(pLat, pLon, projLat, projLon);
+    }
 }
 

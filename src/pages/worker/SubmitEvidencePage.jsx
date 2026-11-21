@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { workerService } from '../../services/workerService';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
@@ -11,6 +12,7 @@ export const SubmitEvidencePage = () => {
   const { taskId } = useParams();
   const navigate = useNavigate();
   const { showToast, currentUser } = useApp();
+  const { t } = useLanguage();
 
   const [task, setTask] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -18,6 +20,10 @@ export const SubmitEvidencePage = () => {
 
   const [notes, setNotes] = useState('');
   const [photoObjects, setPhotoObjects] = useState([]);
+  
+  // Offline sync outbox state
+  const [offlineOutboxCount, setOfflineOutboxCount] = useState(0);
+  const [isSyncingOutbox, setIsSyncingOutbox] = useState(false);
   
   // Location check state
   const [attachGps, setAttachGps] = useState(true);
@@ -58,6 +64,47 @@ export const SubmitEvidencePage = () => {
   useEffect(() => {
     fetchTaskDetail();
   }, [taskId]);
+
+  const refreshOutboxCount = async () => {
+    try {
+      const count = await workerService.getOfflineOutboxCount();
+      setOfflineOutboxCount(count);
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    refreshOutboxCount();
+    const cleanup = workerService.initOfflineSyncListener(async (res) => {
+      await refreshOutboxCount();
+      if (res?.syncedCount > 0) {
+        showToast(t('worker.offlineSyncSuccess', { count: res.syncedCount }), 'success');
+        fetchTaskDetail();
+      }
+    });
+    return cleanup;
+  }, []);
+
+  const handleManualSync = async () => {
+    setIsSyncingOutbox(true);
+    try {
+      const res = await workerService.syncOfflineEvidence();
+      await refreshOutboxCount();
+      if (res.syncedCount > 0) {
+        showToast(t('worker.offlineSyncSuccess', { count: res.syncedCount }), 'success');
+        fetchTaskDetail();
+      } else if (res.total === 0) {
+        showToast(t('worker.offlineSyncNone'), 'info');
+      } else {
+        showToast(t('worker.offlineSyncPartial', { success: res.syncedCount, failed: res.failedCount }), 'error');
+      }
+    } catch (err) {
+      showToast(err.message || 'Offline sync failed.', 'error');
+    } finally {
+      setIsSyncingOutbox(false);
+    }
+  };
 
   // Request browser geolocation on mount
   useEffect(() => {
@@ -190,6 +237,13 @@ export const SubmitEvidencePage = () => {
 
       setSubmitStep('Registering resolution evidence & queueing for municipal officer audit...');
       const updatedTask = await workerService.submitEvidence(task.id, payload);
+      if (updatedTask?.offlineQueued) {
+        await refreshOutboxCount();
+        showToast(t('worker.offlineSavedOffline'), 'info');
+        setSubmitStep('');
+        setSubmitting(false);
+        return;
+      }
       setTask(updatedTask);
       showToast('Repair evidence submitted! Work order queued for Municipal Officer verification.', 'success');
     } catch (err) {
@@ -306,6 +360,29 @@ export const SubmitEvidencePage = () => {
           { label: 'Evidence Submission' }
         ]}
       />
+
+      {/* Offline Outbox Alert Banner */}
+      {offlineOutboxCount > 0 && (
+        <div role="status" className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-amber-600 text-lg" aria-hidden="true">cloud_off</span>
+            <span>
+              <strong>{t('worker.offlinePendingTitle', { count: offlineOutboxCount })}</strong> — {t('worker.offlinePendingDesc')}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleManualSync}
+            disabled={isSyncingOutbox}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-xl text-xs shadow-sm transition-colors disabled:opacity-50 self-start sm:self-auto"
+          >
+            <span className={`material-symbols-outlined text-sm ${isSyncingOutbox ? 'animate-spin' : ''}`} aria-hidden="true">
+              sync
+            </span>
+            {isSyncingOutbox ? t('worker.offlineSyncing') : t('worker.offlineSyncNow')}
+          </button>
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

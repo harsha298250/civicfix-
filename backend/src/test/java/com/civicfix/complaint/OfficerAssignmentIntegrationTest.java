@@ -2,6 +2,7 @@ package com.civicfix.complaint;
 
 import com.civicfix.auth.dto.LoginRequest;
 import com.civicfix.complaint.dto.AssignComplaintRequest;
+import com.civicfix.complaint.dto.BulkAssignRequest;
 import com.civicfix.complaint.dto.ConfirmResolutionRequest;
 import com.civicfix.complaint.dto.CreateComplaintRequest;
 import com.civicfix.storage.TestImageHelper;
@@ -479,5 +480,78 @@ class OfficerAssignmentIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(directResolveReq)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Officer successfully bulk-assigns multiple eligible complaints to a technician")
+    void testBulkAssign_Success() throws Exception {
+        MockHttpSession citizenSession = loginAs(CITIZEN_EMAIL, DEFAULT_PASSWORD);
+        MockHttpSession officerSession = loginAs(OFFICER_EMAIL, DEFAULT_PASSWORD);
+
+        String id1 = createTestComplaint(citizenSession, "Pothole for bulk assign 1");
+        String id2 = createTestComplaint(citizenSession, "Pothole for bulk assign 2");
+
+        BulkAssignRequest bulkReq = new BulkAssignRequest(
+                java.util.List.of(id1, id2),
+                MARCUS_CHEN_ID,
+                "Batch dispatched for immediate surface compaction"
+        );
+
+        mockMvc.perform(post("/api/complaints/bulk-assign")
+                        .with(csrf())
+                        .session(officerSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(bulkReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.totalRequested").value(2))
+                .andExpect(jsonPath("$.data.successCount").value(2))
+                .andExpect(jsonPath("$.data.failureCount").value(0))
+                .andExpect(jsonPath("$.data.results", hasSize(2)));
+
+        // Verify complaint 1 is now ASSIGNED with worker Marcus Chen
+        mockMvc.perform(get("/api/complaints/" + id1)
+                        .session(officerSession))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ASSIGNED"))
+                .andExpect(jsonPath("$.data.assignedWorker.id").value(MARCUS_CHEN_ID.toString()));
+    }
+
+    @Test
+    @DisplayName("Non-officer citizen is forbidden from bulk assigning complaints")
+    void testBulkAssign_ForbiddenForCitizen() throws Exception {
+        MockHttpSession citizenSession = loginAs(CITIZEN_EMAIL, DEFAULT_PASSWORD);
+
+        BulkAssignRequest bulkReq = new BulkAssignRequest(
+                java.util.List.of(UUID.randomUUID().toString()),
+                MARCUS_CHEN_ID,
+                "Unauthorized citizen dispatch"
+        );
+
+        mockMvc.perform(post("/api/complaints/bulk-assign")
+                        .with(csrf())
+                        .session(citizenSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(bulkReq)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Bulk assign fails with HTTP 400 when complaint IDs list is empty")
+    void testBulkAssign_EmptyListBadRequest() throws Exception {
+        MockHttpSession officerSession = loginAs(OFFICER_EMAIL, DEFAULT_PASSWORD);
+
+        BulkAssignRequest bulkReq = new BulkAssignRequest(
+                java.util.Collections.emptyList(),
+                MARCUS_CHEN_ID,
+                "Empty batch"
+        );
+
+        mockMvc.perform(post("/api/complaints/bulk-assign")
+                        .with(csrf())
+                        .session(officerSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(bulkReq)))
+                .andExpect(status().isBadRequest());
     }
 }

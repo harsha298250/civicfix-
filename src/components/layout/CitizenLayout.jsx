@@ -5,6 +5,7 @@ import { useTranslation } from '../../context/LanguageContext';
 import LanguageToggle from '../common/LanguageToggle';
 import InstallPwaButton from '../common/InstallPwaButton';
 import { DemoRoleSwitcher } from '../common/DemoRoleSwitcher';
+import SkipToContent from '../common/SkipToContent';
 
 export const CitizenLayout = () => {
   const { currentUser, unreadCount, toast, logout } = useApp();
@@ -26,6 +27,7 @@ export const CitizenLayout = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background font-sans text-on-surface">
+      <SkipToContent />
       {/* Toast Notification */}
       {toast && (
         <div className="fixed top-4 right-4 z-50 bg-[#151D26] text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 border border-secondary/30 animate-fade-in">
@@ -198,7 +200,7 @@ export const CitizenLayout = () => {
       </header>
 
       {/* Main Outlet */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <main id="main-content" tabIndex="-1" className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 focus:outline-none">
         <Outlet />
       </main>
 

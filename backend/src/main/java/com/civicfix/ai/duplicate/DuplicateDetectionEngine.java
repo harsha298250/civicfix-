@@ -104,36 +104,51 @@ public class DuplicateDetectionEngine {
 
             String candidateText = c.getTitle() + " " + c.getDescription();
             double textSim = TextSimilarityUtils.computeCombinedSimilarity(targetText, candidateText);
+            boolean conceptMatch = TextSimilarityUtils.hasSharedConcept(targetText, candidateText);
 
             boolean categoryMatch = category != null && c.getCategory() != null &&
                     category.equalsIgnoreCase(c.getCategory());
 
-            // Inclusion criteria:
-            // 1. High text similarity (>= 0.60) regardless of distance within 150m
-            // 2. Or same category + very close proximity (<= 75m) + moderate text similarity (>= 0.35)
-            // 3. Or coordinate-unavailable in same ward with very high text similarity (>= 0.70)
+            // Multi-tiered Cross-Lingual & Spatial Inclusion Criteria:
+            // 1. Monolingual high text similarity (>= 0.55) within 150m
+            // 2. Co-located sub-50m spatial duplicate with same category or shared concept
+            // 3. Proximity 50m-100m with category match AND (conceptMatch OR textSim >= 0.25)
+            // 4. Coordinate-unavailable in same ward with very high text similarity (>= 0.70)
             boolean isCandidate = false;
+            double effectiveSimilarity = textSim;
+            String matchBasis = "text match";
+
             if (distanceMeters != null) {
                 if (textSim >= 0.55) {
                     isCandidate = true;
-                } else if (categoryMatch && distanceMeters <= 75.0 && textSim >= 0.25) {
+                    effectiveSimilarity = textSim;
+                    matchBasis = "lexical match";
+                } else if (distanceMeters <= 50.0 && (categoryMatch || conceptMatch)) {
                     isCandidate = true;
+                    effectiveSimilarity = Math.max(textSim, conceptMatch ? 0.75 : 0.65);
+                    matchBasis = conceptMatch ? "cross-lingual concept match" : "co-located category match";
+                } else if (distanceMeters <= 100.0 && categoryMatch && (conceptMatch || textSim >= 0.25)) {
+                    isCandidate = true;
+                    effectiveSimilarity = Math.max(textSim, conceptMatch ? 0.65 : 0.45);
+                    matchBasis = conceptMatch ? "cross-lingual concept match" : "proximity match";
                 }
-            } else if (textSim >= 0.70) {
+            } else if (textSim >= 0.70 || (conceptMatch && categoryMatch)) {
                 isCandidate = true;
+                effectiveSimilarity = Math.max(textSim, 0.70);
+                matchBasis = conceptMatch ? "ward concept match" : "ward text match";
             }
 
             if (isCandidate) {
                 Double roundedDist = distanceMeters != null ? (double) Math.round(distanceMeters * 10.0) / 10.0 : null;
-                double roundedSim = Math.round(textSim * 100.0) / 100.0;
+                double roundedSim = Math.round(effectiveSimilarity * 100.0) / 100.0;
 
                 String explanationText;
                 if (roundedDist != null) {
-                    explanationText = String.format("Proximity: %.1fm away, %.0f%% text match in %s",
-                            roundedDist, roundedSim * 100, c.getCategory() != null ? c.getCategory() : "General");
+                    explanationText = String.format("Proximity: %.1fm away, %.0f%% match (%s) in %s",
+                            roundedDist, roundedSim * 100, matchBasis, c.getCategory() != null ? c.getCategory() : "General");
                 } else {
-                    explanationText = String.format("Same ward (%s), %.0f%% text match in %s",
-                            c.getWard() != null ? c.getWard() : "N/A", roundedSim * 100, c.getCategory() != null ? c.getCategory() : "General");
+                    explanationText = String.format("Same ward (%s), %.0f%% match (%s) in %s",
+                            c.getWard() != null ? c.getWard() : "N/A", roundedSim * 100, matchBasis, c.getCategory() != null ? c.getCategory() : "General");
                 }
 
                 candidates.add(new DuplicateCandidate(

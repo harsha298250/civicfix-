@@ -2,6 +2,7 @@ package com.civicfix.ai;
 
 import com.civicfix.ai.dto.AiTriageResult;
 import com.civicfix.ai.dto.DuplicateCandidate;
+import com.civicfix.ai.dto.SuggestCategoryResponse;
 import com.civicfix.ai.duplicate.DuplicateDetectionEngine;
 import com.civicfix.ai.triage.DeterministicTriageEngine;
 import com.civicfix.complaint.Complaint;
@@ -108,6 +109,23 @@ public class AiTriageService {
                 complaint.getCategory(),
                 complaint.getTitle(),
                 complaint.getDescription()
+        );
+    }
+
+    /**
+     * Fast live category suggestion based on title/description text input.
+     * Non-destructive and purely advisory for the citizen report intake form.
+     */
+    public SuggestCategoryResponse suggestCategory(String text, String language) {
+        if (text == null || text.isBlank()) {
+            return new SuggestCategoryResponse("ROADS", 50.0, "No text provided for evaluation.", List.of());
+        }
+        AiTriageResult result = triageEngine.evaluate(text, "", null, null);
+        return new SuggestCategoryResponse(
+                result.getDetectedCategory(),
+                result.getConfidence() != null ? result.getConfidence().doubleValue() : 50.0,
+                result.getExplanation(),
+                result.getRuleMatches()
         );
     }
 }

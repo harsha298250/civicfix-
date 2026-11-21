@@ -1,5 +1,6 @@
 package com.civicfix.ai.vision;
 
+import com.civicfix.ai.prompt.PromptRegistry;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -14,6 +15,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.Map;
 
 /**
  * Google Gemini multimodal vision triage provider calling the official v1beta REST API.
@@ -37,15 +39,21 @@ public class GeminiVisionTriageProvider implements VisionTriageProvider {
 
     private final VisionTriageProperties properties;
     private final HttpClient httpClient;
+    private final PromptRegistry promptRegistry;
 
     @org.springframework.beans.factory.annotation.Autowired
-    public GeminiVisionTriageProvider(VisionTriageProperties properties) {
-        this(properties, HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build());
+    public GeminiVisionTriageProvider(VisionTriageProperties properties, @org.springframework.beans.factory.annotation.Autowired(required = false) PromptRegistry promptRegistry) {
+        this(properties, HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build(), promptRegistry);
     }
 
     public GeminiVisionTriageProvider(VisionTriageProperties properties, HttpClient httpClient) {
+        this(properties, httpClient, new PromptRegistry());
+    }
+
+    public GeminiVisionTriageProvider(VisionTriageProperties properties, HttpClient httpClient, PromptRegistry promptRegistry) {
         this.properties = properties;
         this.httpClient = httpClient;
+        this.promptRegistry = promptRegistry != null ? promptRegistry : new PromptRegistry();
     }
 
     @Override
@@ -60,12 +68,23 @@ public class GeminiVisionTriageProvider implements VisionTriageProvider {
 
     @Override
     public VisionTriageOutput analyze(byte[] imageBytes, String mimeType) throws Exception {
+        return analyze(imageBytes, mimeType, PromptRegistry.DEFAULT_VERSION, PromptRegistry.DEFAULT_LANGUAGE, null);
+    }
+
+    public VisionTriageOutput analyze(byte[] imageBytes, String mimeType, String promptVersion, String language, String context) throws Exception {
         String apiKey = properties.getGoogleApiKey();
         if (apiKey == null || apiKey.trim().isEmpty()) {
             throw new IllegalStateException("Google Gemini API key is not configured.");
         }
 
         String base64Image = Base64.getEncoder().encodeToString(imageBytes);
+
+        String promptText = promptRegistry.renderPrompt(
+                PromptRegistry.TEMPLATE_VISION_DEFECT,
+                promptVersion,
+                language,
+                context != null ? Map.of("context", context) : Map.of()
+        );
 
         // Build Gemini v1beta payload
         ObjectNode rootNode = MAPPER.createObjectNode();
@@ -74,7 +93,7 @@ public class GeminiVisionTriageProvider implements VisionTriageProvider {
         ArrayNode partsArray = contentObj.putArray("parts");
 
         // Part 1: Text prompt
-        partsArray.addObject().put("text", FIXED_PROMPT);
+        partsArray.addObject().put("text", promptText);
 
         // Part 2: Inline base64 image data
         ObjectNode inlineData = partsArray.addObject().putObject("inline_data");

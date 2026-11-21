@@ -130,7 +130,12 @@ export const LoginPage = () => {
 
           {/* Error Message */}
           {errorMsg && (
-            <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2 animate-fade-in">
+            <div
+              id="login-error-alert"
+              role="alert"
+              aria-live="assertive"
+              className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2 animate-fade-in"
+            >
               <span className="material-symbols-outlined text-[18px] shrink-0 mt-0.5">error</span>
               <p className="leading-relaxed">{errorMsg}</p>
             </div>
@@ -140,7 +145,10 @@ export const LoginPage = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-[#18232F] uppercase tracking-wider">
+                <label
+                  htmlFor="login-identifier"
+                  className="block text-xs font-semibold text-[#18232F] uppercase tracking-wider"
+                >
                   {t('auth.emailLabel')} *
                 </label>
                 {contactType === 'PHONE' && (
@@ -159,8 +167,11 @@ export const LoginPage = () => {
                   {contactType === 'PHONE' ? 'smartphone' : 'alternate_email'}
                 </span>
                 <input
+                  id="login-identifier"
                   type={contactType === 'PHONE' ? 'tel' : 'text'}
                   required
+                  aria-describedby={errorMsg ? 'login-error-alert login-identifier-hint' : 'login-identifier-hint'}
+                  aria-invalid={!!errorMsg}
                   placeholder={t('auth.emailPlaceholder')}
                   value={identifier}
                   onChange={(e) => {
@@ -170,19 +181,22 @@ export const LoginPage = () => {
                   className="w-full pl-9 pr-3.5 py-2.5 text-sm bg-slate-50 border border-[#E2E7ED] rounded-xl text-[#18232F] focus:outline-none focus:ring-2 focus:ring-[#137A70] focus:bg-white transition-all font-sans"
                 />
               </div>
-              <p className="text-[11px] text-[#667384] mt-1">
+              <p id="login-identifier-hint" className="text-[11px] text-[#667384] mt-1">
                 Accepts registered email or standard 10-digit Indian mobile (+91).
               </p>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-[#18232F] uppercase tracking-wider">
+                <label
+                  htmlFor="login-password"
+                  className="block text-xs font-semibold text-[#18232F] uppercase tracking-wider"
+                >
                   {t('auth.passwordLabel')} *
                 </label>
                 <Link
                   to="/forgot-password"
-                  className="text-xs font-medium text-[#137A70] hover:underline"
+                  className="text-xs font-medium text-[#137A70] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
                 >
                   {t('auth.forgotPassword')}
                 </Link>
@@ -192,8 +206,11 @@ export const LoginPage = () => {
                   lock
                 </span>
                 <input
+                  id="login-password"
                   type={showPassword ? 'text' : 'password'}
                   required
+                  aria-describedby={errorMsg ? 'login-error-alert' : undefined}
+                  aria-invalid={!!errorMsg}
                   placeholder={t('auth.passwordPlaceholder')}
                   value={password}
                   onChange={(e) => {
@@ -205,7 +222,7 @@ export const LoginPage = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-2.5 text-[#667384] hover:text-[#18232F] p-0.5"
+                  className="absolute right-3 top-2.5 text-[#667384] hover:text-[#18232F] p-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   <span className="material-symbols-outlined text-[18px]">
@@ -218,7 +235,7 @@ export const LoginPage = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full min-h-[44px] py-2.5 bg-[#137A70] hover:bg-[#0F625B] text-white text-sm font-semibold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+              className="w-full min-h-[44px] py-2.5 bg-[#137A70] hover:bg-[#0F625B] text-white text-sm font-semibold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#137A70]"
             >
               {loading ? (
                 <>

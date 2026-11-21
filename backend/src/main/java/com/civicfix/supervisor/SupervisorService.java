@@ -12,6 +12,8 @@ import com.civicfix.complaint.ComplaintRepository;
 import com.civicfix.complaint.dto.ComplaintResponse;
 import com.civicfix.notification.NotificationService;
 import com.civicfix.security.UserPrincipal;
+import com.civicfix.supervisor.dto.DeEscalateRequest;
+import com.civicfix.supervisor.dto.ExtendSlaRequest;
 import com.civicfix.supervisor.dto.ReassignWorkerRequest;
 import com.civicfix.supervisor.dto.SupervisorWorkerResponse;
 import com.civicfix.user.RoleName;
@@ -191,6 +193,135 @@ public class SupervisorService {
         notificationService.notifyWorkerReassigned(saved, oldWorker, newWorker, actor, req.getReason().trim());
 
         return ComplaintResponse.fromEntity(saved, principal);
+    }
+
+    @Transactional
+    public ComplaintResponse extendSla(String idOrRef, ExtendSlaRequest req, UserPrincipal principal, String ipAddress) {
+        boolean isSupervisor = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_SUPERVISOR"));
+        boolean isAdmin = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        if (!isSupervisor && !isAdmin) {
+            throw new ForbiddenException("Only supervisors and administrators can extend complaint SLA deadlines.");
+        }
+
+        if (req == null || req.getAdditionalHours() == null || req.getAdditionalHours() < 1 || req.getAdditionalHours() > 720) {
+            throw new BadRequestException("Additional hours between 1 and 720 (30 days) is required.");
+        }
+        if (req.getReason() == null || req.getReason().trim().length() < 5 || req.getReason().trim().length() > 500) {
+            throw new BadRequestException("An extension reason between 5 and 500 characters is required.");
+        }
+
+        Complaint complaint = resolveComplaint(idOrRef);
+        enforceSupervisorDepartmentAccess(complaint, principal);
+
+        if (req.getVersion() != null && !req.getVersion().equals(complaint.getVersion())) {
+            throw new ConflictException("Complaint has been modified by another transaction or user. Please refresh and try again.");
+        }
+
+        if (complaint.getStatus().isTerminal()) {
+            throw new BadRequestException("Cannot extend SLA on a terminal complaint (status: " + complaint.getStatus() + ").");
+        }
+
+        User actor = userRepository.findById(principal.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Supervisor account not found."));
+
+        OffsetDateTime oldDeadline = complaint.getSlaDueAt();
+        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime baseTime = (oldDeadline != null && oldDeadline.isAfter(now)) ? oldDeadline : now;
+        OffsetDateTime newDeadline = baseTime.plusHours(req.getAdditionalHours());
+
+        complaint.setSlaDueAt(newDeadline);
+        complaint.setUpdatedAt(now);
+
+        String historyNote = "SLA deadline extended by " + req.getAdditionalHours() + "h from " +
+                (oldDeadline != null ? oldDeadline.toString() : "None") + " to " + newDeadline +
+                ". Reason: " + req.getReason().trim();
+        complaint.addStatusHistory(complaint.getStatus(), complaint.getStatus(), actor, historyNote);
+
+        Complaint saved = complaintRepository.save(complaint);
+        complaintRepository.flush();
+
+        auditService.logAction(
+                actor.getId(),
+                actor.getFullName(),
+                principal.getAuthorities().iterator().next().getAuthority(),
+                "EXTEND_SLA",
+                "COMPLAINT",
+                saved.getId().toString(),
+                "Extended SLA for complaint #" + saved.getReferenceId() + " by " + req.getAdditionalHours() + "h. Reason: " + req.getReason().trim(),
+                ipAddress,
+                "SUCCESS"
+        );
+
+        log.info("Supervisor {} extended SLA for complaint #{} by {} hours to {}",
+                actor.getEmail(), saved.getReferenceId(), req.getAdditionalHours(), newDeadline);
+
+        return ComplaintResponse.fromEntity(saved, principal, false);
+    }
+
+    @Transactional
+    public ComplaintResponse deEscalate(String idOrRef, DeEscalateRequest req, UserPrincipal principal, String ipAddress) {
+        boolean isSupervisor = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_SUPERVISOR"));
+        boolean isAdmin = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        if (!isSupervisor && !isAdmin) {
+            throw new ForbiddenException("Only supervisors and administrators can de-escalate complaints.");
+        }
+
+        if (req == null || req.getReason() == null || req.getReason().trim().length() < 5 || req.getReason().trim().length() > 500) {
+            throw new BadRequestException("A de-escalation explanation between 5 and 500 characters is required.");
+        }
+
+        Complaint complaint = resolveComplaint(idOrRef);
+        enforceSupervisorDepartmentAccess(complaint, principal);
+
+        if (req.getVersion() != null && !req.getVersion().equals(complaint.getVersion())) {
+            throw new ConflictException("Complaint has been modified by another transaction or user. Please refresh and try again.");
+        }
+
+        if (complaint.getEscalatedAt() == null) {
+            throw new BadRequestException("Complaint is not currently in an escalated state.");
+        }
+
+        User actor = userRepository.findById(principal.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Supervisor account not found."));
+
+        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime oldEscalatedAt = complaint.getEscalatedAt();
+        complaint.setEscalatedAt(null);
+
+        // Safe suppression to prevent immediate re-escalation by scheduler
+        int graceHours = (req.getAdditionalHours() != null && req.getAdditionalHours() > 0)
+                ? req.getAdditionalHours() : 24;
+        OffsetDateTime minimumSafeDeadline = now.plusHours(graceHours);
+        if (complaint.getSlaDueAt() == null || complaint.getSlaDueAt().isBefore(minimumSafeDeadline)) {
+            complaint.setSlaDueAt(minimumSafeDeadline);
+        }
+        complaint.setUpdatedAt(now);
+
+        String historyNote = "Complaint de-escalated (previously escalated at " + oldEscalatedAt +
+                "). Grace period extended to " + complaint.getSlaDueAt() + ". Explanation: " + req.getReason().trim();
+        complaint.addStatusHistory(complaint.getStatus(), complaint.getStatus(), actor, historyNote);
+
+        Complaint saved = complaintRepository.save(complaint);
+        complaintRepository.flush();
+
+        auditService.logAction(
+                actor.getId(),
+                actor.getFullName(),
+                principal.getAuthorities().iterator().next().getAuthority(),
+                "DE_ESCALATE",
+                "COMPLAINT",
+                saved.getId().toString(),
+                "De-escalated complaint #" + saved.getReferenceId() + ". Explanation: " + req.getReason().trim(),
+                ipAddress,
+                "SUCCESS"
+        );
+
+        log.info("Supervisor {} de-escalated complaint #{} with grace period to {}",
+                actor.getEmail(), saved.getReferenceId(), complaint.getSlaDueAt());
+
+        return ComplaintResponse.fromEntity(saved, principal, false);
     }
 
     @Transactional(readOnly = true)

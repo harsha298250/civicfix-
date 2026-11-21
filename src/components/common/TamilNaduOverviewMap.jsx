@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import { hasValidCoordinates } from '../../services/complaintService';
+import tamilNaduStateGeoJson from '../../data/gis/tamil_nadu_state.json';
+import chennaiGccZonesGeoJson from '../../data/gis/chennai_gcc_zones.json';
 
 const escapeHtml = (str) => {
   if (str === null || str === undefined) return '';
@@ -76,8 +78,12 @@ export const TamilNaduOverviewMap = ({
   const mapInstanceRef = useRef(null);
   const markersGroupRef = useRef(null);
   const searchMarkerRef = useRef(null);
+  const stateLayerRef = useRef(null);
+  const zonesLayerRef = useRef(null);
 
   const [tileError, setTileError] = useState(false);
+  const [showStateBoundary, setShowStateBoundary] = useState(false);
+  const [showGccZones, setShowGccZones] = useState(true);
 
   // Initialize Map
   useEffect(() => {
@@ -280,6 +286,65 @@ export const TamilNaduOverviewMap = ({
     }
   }, [searchedLocation]);
 
+  // Manage Administrative Boundary Layers
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    // 1. Tamil Nadu State Boundary Layer
+    if (showStateBoundary) {
+      if (!stateLayerRef.current && tamilNaduStateGeoJson) {
+        stateLayerRef.current = L.geoJSON(tamilNaduStateGeoJson, {
+          style: {
+            color: '#2563EB',
+            weight: 2,
+            dashArray: '6, 6',
+            fillColor: '#3B82F6',
+            fillOpacity: 0.05
+          },
+          onEachFeature: (feature, layer) => {
+            const name = feature?.properties?.stateName || 'Tamil Nadu';
+            layer.bindTooltip(`<b>${escapeHtml(name)} State Boundary</b><br/><span style="font-size:10px;color:#64748B;">Survey of India / Bharat Maps</span>`, { sticky: true });
+          }
+        });
+      }
+      if (stateLayerRef.current && !map.hasLayer(stateLayerRef.current)) {
+        stateLayerRef.current.addTo(map);
+      }
+    } else {
+      if (stateLayerRef.current && map.hasLayer(stateLayerRef.current)) {
+        map.removeLayer(stateLayerRef.current);
+      }
+    }
+
+    // 2. Chennai GCC Zones Boundary Layer
+    if (showGccZones) {
+      if (!zonesLayerRef.current && chennaiGccZonesGeoJson) {
+        zonesLayerRef.current = L.geoJSON(chennaiGccZonesGeoJson, {
+          style: () => ({
+            color: '#0D9488',
+            weight: 1.5,
+            fillColor: '#14B8A6',
+            fillOpacity: 0.10
+          }),
+          onEachFeature: (feature, layer) => {
+            const zNum = feature?.properties?.zoneNumber || '';
+            const zName = feature?.properties?.zoneName || '';
+            const wardCount = feature?.properties?.coveredWards?.length || 0;
+            layer.bindTooltip(`<b>Zone ${escapeHtml(zNum)}: ${escapeHtml(zName)}</b><br/><span style="font-size:10px;color:#64748B;">GCC Planning Division (${wardCount} wards)</span>`, { sticky: true });
+          }
+        });
+      }
+      if (zonesLayerRef.current && !map.hasLayer(zonesLayerRef.current)) {
+        zonesLayerRef.current.addTo(map);
+      }
+    } else {
+      if (zonesLayerRef.current && map.hasLayer(zonesLayerRef.current)) {
+        map.removeLayer(zonesLayerRef.current);
+      }
+    }
+  }, [showStateBoundary, showGccZones]);
+
   return (
     <div
       style={{ height: height || '100%', minHeight: '480px' }}
@@ -290,6 +355,38 @@ export const TamilNaduOverviewMap = ({
         style={{ height: '100%', width: '100%', minHeight: '480px' }}
         className="w-full h-full min-h-[480px] z-0 flex-1"
       />
+
+      {/* GIS Boundary Controls */}
+      <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-xs px-2.5 py-1.5 rounded-xl border border-[#E2E7ED] z-10 shadow-sm flex items-center gap-2 text-xs">
+        <span className="font-semibold text-slate-700 flex items-center gap-1">
+          <span className="material-symbols-outlined text-[16px] text-teal-600">layers</span>
+          <span>Boundaries:</span>
+        </span>
+        <button
+          type="button"
+          aria-pressed={showStateBoundary}
+          onClick={() => setShowStateBoundary((prev) => !prev)}
+          className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+            showStateBoundary
+              ? 'bg-blue-100 text-blue-700 border border-blue-300'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          TN State
+        </button>
+        <button
+          type="button"
+          aria-pressed={showGccZones}
+          onClick={() => setShowGccZones((prev) => !prev)}
+          className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+            showGccZones
+              ? 'bg-teal-100 text-teal-700 border border-teal-300'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          GCC Zones (15)
+        </button>
+      </div>
 
       {tileError && (
         <div className="absolute top-3 right-3 bg-amber-600/90 text-white px-3 py-1.5 rounded-lg text-xs font-semibold z-10 shadow">

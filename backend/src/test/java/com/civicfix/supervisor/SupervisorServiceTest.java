@@ -11,6 +11,8 @@ import com.civicfix.complaint.ComplaintStatus;
 import com.civicfix.complaint.dto.ComplaintResponse;
 import com.civicfix.notification.NotificationService;
 import com.civicfix.security.UserPrincipal;
+import com.civicfix.supervisor.dto.DeEscalateRequest;
+import com.civicfix.supervisor.dto.ExtendSlaRequest;
 import com.civicfix.supervisor.dto.ReassignWorkerRequest;
 import com.civicfix.user.Role;
 import com.civicfix.user.RoleName;
@@ -210,5 +212,62 @@ class SupervisorServiceTest {
         assertEquals(newWorker.getId().toString(), response.getAssignedWorker().get("id"));
         assertTrue(auditLogged.get(), "Audit log must be written for reassignment");
         assertTrue(notificationSent.get(), "Notifications must be dispatched for worker reassignment");
+    }
+
+    @Test
+    @DisplayName("SLA extension fails when non-supervisor attempts it")
+    void testExtendSla_NonSupervisorForbidden() {
+        ExtendSlaRequest req = new ExtendSlaRequest(24, "Weather delay hold");
+        assertThrows(ForbiddenException.class, () ->
+                supervisorService.extendSla(testComplaint.getId().toString(), req, citizenPrincipal, "127.0.0.1"));
+    }
+
+    @Test
+    @DisplayName("SLA extension fails with invalid hours or reason")
+    void testExtendSla_ValidationErrors() {
+        assertThrows(BadRequestException.class, () ->
+                supervisorService.extendSla(testComplaint.getId().toString(), new ExtendSlaRequest(0, "Weather delay hold"), supervisorPrincipal, "127.0.0.1"));
+
+        assertThrows(BadRequestException.class, () ->
+                supervisorService.extendSla(testComplaint.getId().toString(), new ExtendSlaRequest(24, "no"), supervisorPrincipal, "127.0.0.1"));
+    }
+
+    @Test
+    @DisplayName("Successful SLA extension updates slaDueAt and writes audit log")
+    void testExtendSla_Success() {
+        ExtendSlaRequest req = new ExtendSlaRequest(48, "Material supply chain delay");
+        req.setVersion(1L);
+
+        ComplaintResponse response = supervisorService.extendSla(testComplaint.getId().toString(), req, supervisorPrincipal, "127.0.0.1");
+
+        assertNotNull(response);
+        assertNotNull(testComplaint.getSlaDueAt());
+        assertTrue(auditLogged.get(), "Audit log must be written for SLA extension");
+    }
+
+    @Test
+    @DisplayName("De-escalation fails on non-escalated complaint")
+    void testDeEscalate_NotEscalatedFails() {
+        testComplaint.setEscalatedAt(null);
+        DeEscalateRequest req = new DeEscalateRequest("False alarm on queue");
+
+        assertThrows(BadRequestException.class, () ->
+                supervisorService.deEscalate(testComplaint.getId().toString(), req, supervisorPrincipal, "127.0.0.1"));
+    }
+
+    @Test
+    @DisplayName("Successful de-escalation clears escalatedAt, sets minimum grace window and writes audit log")
+    void testDeEscalate_Success() {
+        testComplaint.setEscalatedAt(java.time.OffsetDateTime.now().minusHours(2));
+        DeEscalateRequest req = new DeEscalateRequest("Issue investigated and verified under control", 48);
+        req.setVersion(1L);
+
+        ComplaintResponse response = supervisorService.deEscalate(testComplaint.getId().toString(), req, supervisorPrincipal, "127.0.0.1");
+
+        assertNotNull(response);
+        assertNull(testComplaint.getEscalatedAt(), "EscalatedAt must be cleared on de-escalation");
+        assertNotNull(testComplaint.getSlaDueAt(), "SlaDueAt must be safe in the future to prevent re-escalation");
+        assertTrue(testComplaint.getSlaDueAt().isAfter(java.time.OffsetDateTime.now().plusHours(24)));
+        assertTrue(auditLogged.get(), "Audit log must be written for de-escalation");
     }
 }

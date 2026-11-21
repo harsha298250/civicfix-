@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from '../../context/LanguageContext';
 import { complaintService } from '../../services/complaintService';
 import { officerService } from '../../services/officerService';
 import { StatusBadge } from '../../components/common/StatusBadge';
@@ -15,6 +16,7 @@ import { CATEGORIES } from '../../constants/statusConstants';
  * Directly backed by GET /api/complaints/public/map
  */
 export const PublicMapPage = () => {
+  const { t } = useTranslation();
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -105,10 +107,13 @@ export const PublicMapPage = () => {
               <span>Sanitized Public GIS Explorer</span>
             </div>
             <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-on-surface tracking-tight">
-              Tamil Nadu Infrastructure Grid
+              {t('publicMap.title')}
             </h1>
             <p className="text-on-surface-variant text-xs sm:text-sm max-w-2xl">
-              Public status of urban maintenance work-orders. In accordance with resident privacy policies, low-density areas (&lt;5 reports) have exact coordinates suppressed. All personal reporter information is fully redacted.
+              {t('publicMap.subtitle')}
+            </p>
+            <p className="text-[11px] text-tertiary">
+              {t('publicMap.privacyNotice')}
             </p>
           </div>
 

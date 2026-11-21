@@ -66,6 +66,9 @@ public class ComplaintResponse {
     private String visionModel;
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String visionPromptVersion;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private OffsetDateTime visionAt;
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -73,6 +76,15 @@ public class ComplaintResponse {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private String finalPrioritySource;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String wardValidationStatus;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String wardBoundarySource;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private BigDecimal wardBoundaryDistanceMeters;
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private String visionSkipReason;
@@ -166,6 +178,7 @@ public class ComplaintResponse {
             this.visionConfidence = c.getVisionConfidence();
             this.visionReason = c.getVisionReason();
             this.visionModel = formatVisionModelDisplayName(c.getVisionModel());
+            this.visionPromptVersion = c.getVisionPromptVersion();
             this.visionAt = c.getVisionAt();
             this.disagreement = c.isDisagreement();
             this.finalPrioritySource = c.getFinalPrioritySource();
@@ -229,10 +242,17 @@ public class ComplaintResponse {
         resp.setCreatedAt(c.getCreatedAt());
         resp.setUpdatedAt(c.getUpdatedAt());
         resp.setDemo(c.isDemo());
+        resp.setVisionPromptVersion(c.getVisionPromptVersion());
+        resp.setWardValidationStatus(c.getWardValidationStatus());
+        resp.setWardBoundarySource(c.getWardBoundarySource());
+        resp.setWardBoundaryDistanceMeters(c.getWardBoundaryDistanceMeters());
 
         Map<String, Object> loc = new HashMap<>();
         loc.put("address", c.getAddress());
         loc.put("ward", c.getWard());
+        loc.put("wardValidationStatus", c.getWardValidationStatus());
+        loc.put("wardBoundarySource", c.getWardBoundarySource());
+        loc.put("wardBoundaryDistanceMeters", c.getWardBoundaryDistanceMeters());
         if (c.getLatitude() != null && c.getLongitude() != null) {
             Map<String, BigDecimal> coords = new HashMap<>();
             coords.put("lat", c.getLatitude());
@@ -611,5 +631,37 @@ public class ComplaintResponse {
 
     public void setVisionSkipReason(String visionSkipReason) {
         this.visionSkipReason = visionSkipReason;
+    }
+
+    public String getWardValidationStatus() {
+        return wardValidationStatus;
+    }
+
+    public void setWardValidationStatus(String wardValidationStatus) {
+        this.wardValidationStatus = wardValidationStatus;
+    }
+
+    public String getWardBoundarySource() {
+        return wardBoundarySource;
+    }
+
+    public void setWardBoundarySource(String wardBoundarySource) {
+        this.wardBoundarySource = wardBoundarySource;
+    }
+
+    public BigDecimal getWardBoundaryDistanceMeters() {
+        return wardBoundaryDistanceMeters;
+    }
+
+    public void setWardBoundaryDistanceMeters(BigDecimal wardBoundaryDistanceMeters) {
+        this.wardBoundaryDistanceMeters = wardBoundaryDistanceMeters;
+    }
+
+    public String getVisionPromptVersion() {
+        return visionPromptVersion;
+    }
+
+    public void setVisionPromptVersion(String visionPromptVersion) {
+        this.visionPromptVersion = visionPromptVersion;
     }
 }

@@ -1,6 +1,6 @@
 # CivicFix AI Triage & Duplicate Engine Benchmark Report
 
-> **Execution Timestamp**: `2026-11-20 17:58:55`<br>
+> **Execution Timestamp**: `2026-11-21 08:15:25`  
 > **Dataset**: `docs/evaluation/test_set.csv` (`100` synthetic labelled test samples)  
 > **Evaluation Rigor**: 100% computed from automated execution. No numbers or metrics in this document were estimated or fabricated.
 
@@ -19,12 +19,12 @@
 
 | Model / Baseline | Category Accuracy | 95% Wilson CI | Macro Precision | Macro Recall | Macro F1 | Weighted F1 |
 |---|---|---|---|---|---|---|
-| **DeterministicTriageEngine (Production)** | **87.00%** | **[79.02%, 92.24%]** | **86.81%** | **87.64%** | **86.67%** | **87.05%** |
+| **DeterministicTriageEngine (Production)** | **88.00%** | **[80.19%, 93.00%]** | **87.91%** | **88.48%** | **87.83%** | **88.00%** |
 | First-Keyword Match Baseline | 63.00% | [53.22%, 71.82%] | 86.67% | 63.15% | 66.17% | 64.81% |
 | Majority-Class Baseline (`STREET_LIGHT`) | 19.00% | [12.51%, 27.78%] | 2.71% | 14.29% | 4.56% | 6.07% |
 
 ### Key Observations
-- **Engine vs Baselines**: The `DeterministicTriageEngine` achieved **87.00% category accuracy** (95% Wilson CI: [79.02%, 92.24%]), outperforming the naive First-Keyword baseline (**63.00%**) by **+24.00%** and the Majority-Class baseline (**19.00%**) by **+68.00%**.
+- **Engine vs Baselines**: The `DeterministicTriageEngine` achieved **88.00% category accuracy** (95% Wilson CI: [80.19%, 93.00%]), outperforming the naive First-Keyword baseline (**63.00%**) by **+25.00%** and the Majority-Class baseline (**19.00%**) by **+69.00%**.
 - **Weighted Specificity**: The 2x title weighting and 3x multi-word phrase weighting in the production engine effectively resolve token competition in standard reports, whereas the naive first-keyword baseline arbitrarily selects whichever token appears first.
 - **Priority Prediction**: Priority classification reached **76.00% accuracy** (Macro-F1: **57.39%**) across CRITICAL, HIGH, MEDIUM, and LOW tiers.
 
@@ -35,14 +35,14 @@
 | Category | Support | TP | FP | FN | Precision | Recall | F1 Score |
 |---|---|---|---|---|---|---|---|
 | `ROADS` | 16 | 16 | 3 | 0 | 84.21% | 100.00% | 91.43% |
-| `WATER_SEWERAGE` | 17 | 14 | 1 | 3 | 93.33% | 82.35% | 87.50% |
+| `WATER_SEWERAGE` | 17 | 15 | 1 | 2 | 93.75% | 88.24% | 90.91% |
 | `STREET_LIGHT` | 19 | 17 | 0 | 2 | 100.00% | 89.47% | 94.44% |
 | `GARBAGE` | 12 | 10 | 1 | 2 | 90.91% | 83.33% | 86.96% |
 | `DRAINAGE` | 17 | 13 | 4 | 4 | 76.47% | 76.47% | 76.47% |
-| `PUBLIC_TRANSPORT` | 8 | 8 | 3 | 0 | 72.73% | 100.00% | 84.21% |
+| `PUBLIC_TRANSPORT` | 8 | 8 | 2 | 0 | 80.00% | 100.00% | 88.89% |
 | `PARKS` | 11 | 9 | 1 | 2 | 90.00% | 81.82% | 85.71% |
-| **Macro Average** | **100** | - | - | - | **86.81%** | **87.64%** | **86.67%** |
-| **Weighted Average** | **100** | - | - | - | **87.97%** | **87.00%** | **87.05%** |
+| **Macro Average** | **100** | - | - | - | **87.91%** | **88.48%** | **87.83%** |
+| **Weighted Average** | **100** | - | - | - | **88.62%** | **88.00%** | **88.00%** |
 
 ---
 
@@ -53,7 +53,7 @@ Columns represent **Predicted Category**, Rows represent **Actual Ground Truth C
 | Actual \ Predicted | ROADS | WATER | STREET_LIGHT | GARBAGE | DRAINAGE | TRANS | PARKS |
 |---|---|---|---|---|---|---|---|
 | **`ROADS`** | 16 | 0 | 0 | 0 | 0 | 0 | 0 |
-| **`WATER`** | 0 | 14 | 0 | 0 | 2 | 1 | 0 |
+| **`WATER`** | 0 | 15 | 0 | 0 | 2 | 0 | 0 |
 | **`LIGHT`** | 0 | 0 | 17 | 0 | 0 | 2 | 0 |
 | **`GARBAGE`** | 0 | 0 | 0 | 10 | 2 | 0 | 0 |
 | **`DRAIN`** | 1 | 1 | 0 | 1 | 13 | 0 | 1 |
@@ -129,7 +129,7 @@ Out of 100 test samples, the engine exhibited mismatches on **34 cases** (catego
 | `#19` | `DUPLICATE` | `WATER_SEWERAGE (CRITICAL)` | `WATER_SEWERAGE (MEDIUM)` | Missed Critical escalation: Hazard rule required exact trigger phrase that was paraphrased or misspelled. |
 | `#21` | `AMBIGUOUS` | `WATER_SEWERAGE (HIGH)` | `WATER_SEWERAGE (MEDIUM)` | Under-prioritized: Road or utility disruption lacked explicit arterial/school zone trigger keyword. |
 | `#22` | `AMBIGUOUS` | `GARBAGE (MEDIUM)` | `DRAINAGE (MEDIUM)` | Multi-concept conflict: Tokens from multiple municipal domains competed (e.g. tree vs lamppost, or garbage vs drain). |
-| `#24` | `AMBIGUOUS` | `WATER_SEWERAGE (HIGH)` | `PUBLIC_TRANSPORT (MEDIUM)` | Multi-concept conflict: Tokens from multiple municipal domains competed (e.g. tree vs lamppost, or garbage vs drain). Under-prioritized: Road or utility disruption lacked explicit arterial/school zone trigger keyword. |
+| `#24` | `AMBIGUOUS` | `WATER_SEWERAGE (HIGH)` | `WATER_SEWERAGE (MEDIUM)` | Under-prioritized: Road or utility disruption lacked explicit arterial/school zone trigger keyword. |
 | `#25` | `AMBIGUOUS` | `DRAINAGE (CRITICAL)` | `PARKS (CRITICAL)` | Multi-concept conflict: Tokens from multiple municipal domains competed (e.g. tree vs lamppost, or garbage vs drain). |
 | `#26` | `AMBIGUOUS` | `DRAINAGE (HIGH)` | `DRAINAGE (MEDIUM)` | Under-prioritized: Road or utility disruption lacked explicit arterial/school zone trigger keyword. |
 | `#28` | `AMBIGUOUS` | `DRAINAGE (MEDIUM)` | `GARBAGE (MEDIUM)` | Multi-concept conflict: Tokens from multiple municipal domains competed (e.g. tree vs lamppost, or garbage vs drain). |

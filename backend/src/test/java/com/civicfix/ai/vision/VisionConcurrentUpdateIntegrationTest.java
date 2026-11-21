@@ -73,6 +73,7 @@ class VisionConcurrentUpdateIntegrationTest {
                 "Deep crater on roadway posing critical hazard.",
                 "gemini-1.5-flash",
                 "OK",
+                "v1.1.0",
                 OffsetDateTime.now(),
                 false,
                 "VISION_SEVERITY_5",

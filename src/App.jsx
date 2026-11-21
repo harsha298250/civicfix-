@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useApp } from './context/AppContext';
+import { useTranslation } from './context/LanguageContext';
+import { authService } from './services/authService';
 import DemoRoleSwitcher from './components/common/DemoRoleSwitcher';
 import OfflineScreen from './components/common/OfflineScreen';
 import ReloadPrompt from './components/common/ReloadPrompt';
@@ -75,7 +77,23 @@ import { RoleRoute } from './components/common/RoleRoute';
 import NotFoundPage from './pages/NotFoundPage';
 
 function App() {
-  const { serverUnreachable } = useApp();
+  const { serverUnreachable, setServerUnreachable, refreshComplaints, setCurrentUser } = useApp();
+  const { t } = useTranslation();
+  const [retrying, setRetrying] = useState(false);
+
+  const handleRetryConnection = async () => {
+    setRetrying(true);
+    try {
+      const liveUser = await authService.checkSession();
+      setServerUnreachable(false);
+      if (liveUser) setCurrentUser(liveUser);
+      await refreshComplaints();
+    } catch {
+      setServerUnreachable(true);
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   return (
     <>
@@ -83,10 +101,23 @@ function App() {
         <div
           role="alert"
           aria-live="assertive"
-          className="bg-[#C63F48] text-white px-4 py-2 text-center text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 sticky top-0 z-50 shadow-md"
+          className="bg-[#C63F48] text-white px-4 py-2.5 text-center text-xs sm:text-sm font-semibold flex flex-wrap items-center justify-center gap-3 sticky top-0 z-50 shadow-md"
         >
-          <span className="material-symbols-outlined text-[18px]">cloud_off</span>
-          <span>Cannot reach the server. The platform is currently unreachable. Nothing was saved.</span>
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[18px]">cloud_off</span>
+            <span>{t('accessibility.offlineNotice')}</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleRetryConnection}
+            disabled={retrying}
+            className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:opacity-50"
+          >
+            <span className={`material-symbols-outlined text-[14px] ${retrying ? 'animate-spin' : ''}`}>
+              refresh
+            </span>
+            <span>{retrying ? t('common.loading') : t('accessibility.retryConnection')}</span>
+          </button>
         </div>
       )}
       <Routes>

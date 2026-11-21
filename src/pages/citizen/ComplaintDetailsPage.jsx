@@ -10,6 +10,7 @@ import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { LocationMiniMap } from '../../components/common/LocationMiniMap';
 import { COMPLAINT_STATUS } from '../../constants/statusConstants';
 import { apiClient } from '../../services/apiClient.js';
+import ModalDialog from '../../components/common/ModalDialog';
 
 export const ComplaintDetailsPage = () => {
   const { complaintId } = useParams();
@@ -806,175 +807,181 @@ export const ComplaintDetailsPage = () => {
       </section>
 
       {/* Manual SLA Escalation Modal */}
-      {showEscalateModal && (
-        <div className="fixed inset-0 z-50 bg-[#111c28]/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <form
-            onSubmit={handleEscalateComplaint}
-            className="bg-surface-container-lowest rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 border border-outline-variant/40"
-          >
-            <div className="flex items-center gap-2 text-red-600">
-              <span className="material-symbols-outlined text-[24px]">crisis_alert</span>
-              <h3 className="font-bold text-base text-on-surface">Escalate Complaint to Supervisory Command</h3>
-            </div>
-            <p className="text-xs text-on-surface-variant leading-relaxed">
-              Manually escalate ticket #{complaint.referenceId || complaint.id}. This will notify all municipal supervisors and trigger SLA breach protocols.
-            </p>
+      <ModalDialog
+        isOpen={showEscalateModal}
+        onClose={() => setShowEscalateModal(false)}
+        title={
+          <div className="flex items-center gap-2 text-red-600">
+            <span className="material-symbols-outlined text-[24px]">crisis_alert</span>
+            <span className="text-on-surface">Escalate Complaint to Supervisory Command</span>
+          </div>
+        }
+      >
+        <form onSubmit={handleEscalateComplaint} className="space-y-4">
+          <p className="text-xs text-on-surface-variant leading-relaxed">
+            Manually escalate ticket #{complaint.referenceId || complaint.id}. This will notify all municipal supervisors and trigger SLA breach protocols.
+          </p>
 
-            {escalateError && (
-              <div className="p-3 rounded-xl bg-red-50 text-red-700 text-xs border border-red-200">
-                {escalateError}
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1">
-                Escalation Reason <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                rows={3}
-                placeholder="Detail the operational reason for manual escalation (10 to 500 characters)..."
-                value={escalateReason}
-                onChange={(e) => setEscalateReason(e.target.value)}
-                minLength={10}
-                maxLength={500}
-                required
-                className="w-full p-3 bg-surface-container-low rounded-xl text-xs text-on-surface border border-outline-variant/40 focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
-              <div className="text-right text-[11px] text-on-surface-variant mt-1">
-                {escalateReason.length} / 500 characters (min 10)
-              </div>
+          {escalateError && (
+            <div role="alert" className="p-3 rounded-xl bg-red-50 text-red-700 text-xs border border-red-200">
+              {escalateError}
             </div>
+          )}
 
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowEscalateModal(false)}
-                disabled={escalating}
-                className="px-4 py-2 bg-surface-container rounded-xl text-xs font-semibold text-on-surface hover:bg-surface-container-high"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={escalating}
-                className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-semibold hover:bg-red-700 disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
-              >
-                {escalating && <span className="material-symbols-outlined text-[16px] animate-spin">refresh</span>}
-                <span>Confirm Escalation</span>
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* Citizen Confirmation Modal */}
-      {showConfirmModal && (
-        <div className="fixed inset-0 z-50 bg-[#111c28]/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface-container-lowest rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 border border-outline-variant/40">
-            <div className="flex items-center gap-2 text-emerald-600">
-              <span className="material-symbols-outlined text-[26px]">task_alt</span>
-              <h3 className="font-bold text-base text-on-surface">Confirm Resolution & Close Ticket</h3>
-            </div>
-            <p className="text-xs text-on-surface-variant leading-relaxed">
-              Are you satisfied that the repair work for ticket #{complaint.referenceId || complaint.id} has properly resolved the issue? This will record your confirmation and mark the complaint as officially resolved.
-            </p>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowConfirmModal(false)}
-                disabled={confirming}
-                className="px-4 py-2 bg-surface-container rounded-xl text-xs font-semibold text-on-surface hover:bg-surface-container-high"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmFix}
-                disabled={confirming}
-                className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
-              >
-                {confirming && <span className="material-symbols-outlined text-[16px] animate-spin">refresh</span>}
-                <span>Yes, Confirm Fix</span>
-              </button>
+          <div>
+            <label htmlFor="escalate-reason-field" className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1">
+              Escalation Reason <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              id="escalate-reason-field"
+              rows={3}
+              placeholder="Detail the operational reason for manual escalation (10 to 500 characters)..."
+              value={escalateReason}
+              onChange={(e) => setEscalateReason(e.target.value)}
+              minLength={10}
+              maxLength={500}
+              required
+              className="w-full p-3 bg-surface-container-low rounded-xl text-xs text-on-surface border border-outline-variant/40 focus:outline-none focus:ring-2 focus:ring-red-500"
+            />
+            <div className="text-right text-[11px] text-on-surface-variant mt-1">
+              {escalateReason.length} / 500 characters (min 10)
             </div>
           </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowEscalateModal(false)}
+              disabled={escalating}
+              className="px-4 py-2 bg-surface-container rounded-xl text-xs font-semibold text-on-surface hover:bg-surface-container-high focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={escalating}
+              className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-semibold hover:bg-red-700 disabled:opacity-50 flex items-center gap-1.5 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+            >
+              {escalating && <span className="material-symbols-outlined text-[16px] animate-spin">refresh</span>}
+              <span>Confirm Escalation</span>
+            </button>
+          </div>
+        </form>
+      </ModalDialog>
+
+      {/* Citizen Confirmation Modal */}
+      <ModalDialog
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        title={
+          <div className="flex items-center gap-2 text-emerald-600">
+            <span className="material-symbols-outlined text-[26px]">task_alt</span>
+            <span className="text-on-surface">Confirm Resolution & Close Ticket</span>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-on-surface-variant leading-relaxed">
+            Are you satisfied that the repair work for ticket #{complaint.referenceId || complaint.id} has properly resolved the issue? This will record your confirmation and mark the complaint as officially resolved.
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowConfirmModal(false)}
+              disabled={confirming}
+              className="px-4 py-2 bg-surface-container rounded-xl text-xs font-semibold text-on-surface hover:bg-surface-container-high focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmFix}
+              disabled={confirming}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1.5 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+            >
+              {confirming && <span className="material-symbols-outlined text-[16px] animate-spin">refresh</span>}
+              <span>Yes, Confirm Fix</span>
+            </button>
+          </div>
         </div>
-      )}
+      </ModalDialog>
 
       {/* Citizen Rejection Modal */}
-      {showRejectModal && (
-        <div className="fixed inset-0 z-50 bg-[#111c28]/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <form
-            onSubmit={handleRejectFix}
-            className="bg-surface-container-lowest rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 border border-outline-variant/40"
-          >
-            <div className="flex items-center gap-2 text-rose-600">
-              <span className="material-symbols-outlined text-[26px]">cancel</span>
-              <h3 className="font-bold text-base text-on-surface">Report Issue Not Fixed (Reopen)</h3>
-            </div>
-            <p className="text-xs text-on-surface-variant leading-relaxed">
-              If the reported defect is still present or substandard, describe what remains unresolved.
-              This will reopen ticket #{complaint.referenceId || complaint.id} and escalate it immediately to municipal supervisors.
-            </p>
+      <ModalDialog
+        isOpen={showRejectModal}
+        onClose={() => setShowRejectModal(false)}
+        title={
+          <div className="flex items-center gap-2 text-rose-600">
+            <span className="material-symbols-outlined text-[26px]">cancel</span>
+            <span className="text-on-surface">{t('complaints.rejectModalTitle')}</span>
+          </div>
+        }
+      >
+        <form onSubmit={handleRejectFix} className="space-y-4">
+          <p className="text-xs text-on-surface-variant leading-relaxed">
+            If the reported defect is still present or substandard, describe what remains unresolved.
+            This will reopen ticket #{complaint.referenceId || complaint.id} and escalate it immediately to municipal supervisors.
+          </p>
 
-            {rejectError && (
-              <div className="p-3 rounded-xl bg-red-50 text-red-700 text-xs border border-red-200">
-                {rejectError}
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1">
-                Reason Issue is Not Fixed <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                rows={3}
-                placeholder="Explain what was left undone or why the repair is defective (10 to 500 characters)..."
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                minLength={10}
-                maxLength={500}
-                required
-                className="w-full p-3 bg-surface-container-low rounded-xl text-xs text-on-surface border border-outline-variant/40 focus:outline-none focus:ring-2 focus:ring-rose-500"
-              />
-              <div className="text-right text-[11px] text-on-surface-variant mt-1">
-                {rejectReason.length} / 500 characters (min 10)
-              </div>
+          {rejectError && (
+            <div role="alert" className="p-3 rounded-xl bg-red-50 text-red-700 text-xs border border-red-200">
+              {rejectError}
             </div>
+          )}
 
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1">
-                Attach Photo Proof (Optional)
-              </label>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={(e) => setRejectPhoto(e.target.files?.[0] || null)}
-                className="block w-full text-xs text-on-surface-variant file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-surface-container file:text-on-surface hover:file:bg-surface-container-high"
-              />
+          <div>
+            <label htmlFor="reject-reason-field" className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1">
+              {t('complaints.rejectReasonLabel')}
+            </label>
+            <textarea
+              id="reject-reason-field"
+              rows={3}
+              placeholder={t('complaints.rejectReasonPlaceholder')}
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              minLength={10}
+              maxLength={500}
+              required
+              className="w-full p-3 bg-surface-container-low rounded-xl text-xs text-on-surface border border-outline-variant/40 focus:outline-none focus:ring-2 focus:ring-rose-500"
+            />
+            <div className="text-right text-[11px] text-on-surface-variant mt-1">
+              {rejectReason.length} / 500 characters (min 10)
             </div>
+          </div>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowRejectModal(false)}
-                disabled={rejecting}
-                className="px-4 py-2 bg-surface-container rounded-xl text-xs font-semibold text-on-surface hover:bg-surface-container-high"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={rejecting}
-                className="px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-semibold hover:bg-rose-700 disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
-              >
-                {rejecting && <span className="material-symbols-outlined text-[16px] animate-spin">refresh</span>}
-                <span>Submit & Reopen Ticket</span>
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+          <div>
+            <label htmlFor="reject-photo-field" className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1">
+              Attach Photo Proof (Optional)
+            </label>
+            <input
+              id="reject-photo-field"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(e) => setRejectPhoto(e.target.files?.[0] || null)}
+              className="block w-full text-xs text-on-surface-variant file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-surface-container file:text-on-surface hover:file:bg-surface-container-high focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowRejectModal(false)}
+              disabled={rejecting}
+              className="px-4 py-2 bg-surface-container rounded-xl text-xs font-semibold text-on-surface hover:bg-surface-container-high focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={rejecting}
+              className="px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-semibold hover:bg-rose-700 disabled:opacity-50 flex items-center gap-1.5 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+            >
+              {rejecting && <span className="material-symbols-outlined text-[16px] animate-spin">refresh</span>}
+              <span>{t('complaints.rejectSubmit')}</span>
+            </button>
+          </div>
+        </form>
+      </ModalDialog>
     </div>
   );
 };

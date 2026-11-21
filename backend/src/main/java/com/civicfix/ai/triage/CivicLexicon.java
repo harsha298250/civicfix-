@@ -25,64 +25,65 @@ public final class CivicLexicon {
 
     static {
         // ROADS / தார் சாலைகள் & குழிகள்
-        // Note: Tamil lexicon translations and hazard terminology require review by a native Tamil speaker.
         CATEGORY_KEYWORDS.put(CAT_ROADS, List.of(
-                "pothole", "road", "asphalt", "tar", "fissure", "crater", "pavement",
-                "divider", "curb", "bitumen", "speed breaker", "speedbreaker", "road cave",
-                "footpath", "sidewalk", "cobblestone", "street damage", "flyover", "underpass",
-                "குழி", "சாலை", "தார் சாலை", "பள்ளம்", "சாலை சேதம்", "நடைபாதை", "வேகத்தடை",
-                "மேடு பள்ளம்", "சாக்கடை பாலம்", "ரோடு"
+                "pothole", "potholes", "pothol", "pot hole", "road", "roads", "asphalt", "tar", "fissure", "crater", "pavement",
+                "divider", "curb", "bitumen", "speed breaker", "speedbreaker", "road cave", "footpath", "sidewalk",
+                "cobblestone", "street damage", "flyover", "underpass", "road cut", "manhole surrounding", "tar road", "damaged road",
+                "salai", "குழி", "சாலை", "தார் சாலை", "பள்ளம்", "சாலை சேதம்", "நடைபாதை", "வேகத்தடை",
+                "மேடு பள்ளம்", "சாக்கடை பாலம்", "ரோடு", "சாலைப்பணி", "பள்ளங்கள்", "தார்"
         ));
 
         // WATER_SEWERAGE / குடிநீர் & கழிவுநீர்
         CATEGORY_KEYWORDS.put(CAT_WATER, List.of(
-                "pipeline", "pipe burst", "pipe leak", "water leak", "water supply", "drinking water",
-                "contamination", "sewage", "sewer", "water main", "flange", "valve", "pump",
-                "borewell", "overhead tank", "water pressure", "drainage overflow", "gutter overflow",
-                "குடிநீர்", "தண்ணீர் கசிவு", "குழாய் உடைப்பு", "தண்ணீர் குழாய்", "கழிவுநீர்", "சாக்கடை",
-                "தண்ணீர் விநியோகம்", "நீர்க்கசிவு", "குழாய்", "தண்ணீர்"
+                "pipeline", "pipe burst", "pipe leak", "water pipe", "water leak", "water supply", "drinking water",
+                "drinking pipe", "contamination", "sewage", "sewer", "sewage leak", "sewage overflow", "water main",
+                "flange", "valve", "pump", "borewell", "overhead tank", "water pressure", "drainage overflow", "gutter overflow",
+                "kudineer", "thanneer", "குடிநீர்", "தண்ணீர் கசிவு", "குழாய் உடைப்பு", "தண்ணீர் குழாய்", "கழிவுநீர்", "சாக்கடை",
+                "தண்ணீர் விநியோகம்", "நீர்க்கசிவு", "குழாய்", "தண்ணீர்", "குடிநீர் தட்டுப்பாடு", "குழாய் வெடிப்பு", "கழிவுநீர் தேக்கம்"
         ));
 
         // STREET_LIGHT / தெருவிளக்குகள் & மின்சாரம்
         CATEGORY_KEYWORDS.put(CAT_STREET_LIGHT, List.of(
-                "street light", "streetlight", "lamppost", "lamp post", "light pole", "bulb",
+                "street light", "streetlight", "streetlights", "lamppost", "lamp post", "light pole", "bulb",
                 "dark street", "dark road", "cable", "wire", "transformer", "fuse", "driver unit",
-                "sodium light", "led light", "dark stretch", "illumination", "blackout",
+                "sodium light", "led light", "led lamp", "pole damaged", "light broken", "street illumination",
+                "dark stretch", "illumination", "blackout", "theru vilakku",
                 "தெருவிளக்கு", "தெரு விளக்கு", "விளக்கு கம்பம்", "மின்விளக்கு", "விளக்கு எரியவில்லை",
-                "இருட்டாக உள்ளது", "மின் கம்பி", "மின்மாற்றி", "விளக்கு"
+                "இருட்டாக உள்ளது", "மின் கம்பி", "மின்மாற்றி", "விளக்கு", "மின்சாரம் இல்லை", "விளக்கு மாற்று"
         ));
 
         // GARBAGE / திடக்கழிவு & குப்பை
         CATEGORY_KEYWORDS.put(CAT_GARBAGE, List.of(
-                "garbage", "waste", "trash", "dump", "dumping", "debris", "uncollected", "litter",
+                "garbage", "garbag", "waste", "trash", "dump", "dumping", "debris", "uncollected", "litter",
                 "dustbin", "bin", "solid waste", "plastic waste", "stench", "foul smell", "animal carcass",
-                "commercial waste", "rubbish", "compost",
-                "குப்பை", "குப்பைக் கூளம்", "கழிவு", "குப்பை தொட்டி", "துர்நாற்றம்",
-                "குப்பை அள்ளப்படவில்லை", "பிளாஸ்டிக் கழிவு", "அழுக்கு", "துப்புரவு"
+                "commercial waste", "rubbish", "compost", "dumping yard", "overflowing bin", "rotting garbage",
+                "kuppai", "குப்பை", "குப்பைக் கூளம்", "கழிவு", "குப்பை தொட்டி", "துர்நாற்றம்",
+                "குப்பை அள்ளப்படவில்லை", "பிளாஸ்டிக் கழிவு", "அழுக்கு", "துப்புரவு", "குப்பை மேடு", "கழிவு மேலாண்மை"
         ));
 
         // DRAINAGE / மழைநீர் வடிகால் & கால்வாய்
         CATEGORY_KEYWORDS.put(CAT_DRAINAGE, List.of(
-                "storm drain", "stormdrain", "drain", "canal", "culvert", "silt", "clogged drain",
+                "storm drain", "stormdrain", "drain", "drains", "canal", "culvert", "silt", "clogged drain",
                 "rainwater", "stagnation", "stagnant water", "flooding", "flood", "manhole", "open drain",
-                "catch basin", "runoff", "waterlogging", "waterlog",
+                "catch basin", "runoff", "waterlogging", "waterlog", "blocked culvert", "monsoon drain",
+                "drain overflow", "storm water", "vadikaal",
                 "வடிகால்", "மழைநீர் வடிகால்", "கால்வாய்", "அடைப்பு", "கழிவுநீர் கால்வாய்",
-                "தேங்கிய நீர்", "வெள்ளம்", "பாதாள சாக்கடை", "சாக்கடை அடைப்பு", "நீர் தேக்கம்"
+                "தேங்கிய நீர்", "வெள்ளம்", "பாதாள சாக்கடை", "சாக்கடை அடைப்பு", "நீர் தேக்கம்", "வடிகால் தூர்வாருதல்", "மழைநீர் கால்வாய் அடைப்பு"
         ));
 
         // PUBLIC_TRANSPORT / பேருந்து & பொதுப்போக்குவரத்து
         CATEGORY_KEYWORDS.put(CAT_PUBLIC_TRANSPORT, List.of(
                 "bus stop", "bus shelter", "bus bay", "transit", "depot", "mtc", "passenger",
-                "metro station", "bus route", "commuter shelter",
-                "பேருந்து நிறுத்தம்", "பேருந்து நிழற்குடை", "பேருந்து", "அரசு பேருந்து",
-                "மெட்ரோ நிலையம்", "பஸ் ஸ்டாப்", "பஸ்"
+                "metro station", "bus route", "commuter shelter", "bus stop shed", "bus shelter damaged", "bus terminus",
+                "perunthu", "பேருந்து நிறுத்தம்", "பேருந்து நிழற்குடை", "பேருந்து", "அரசு பேருந்து",
+                "மெட்ரோ நிலையம்", "பஸ் ஸ்டாப்", "பஸ்", "பஸ் நிறுத்தம்"
         ));
 
         // PARKS / பூங்காக்கள் & மரங்கள்
         CATEGORY_KEYWORDS.put(CAT_PARKS, List.of(
-                "tree", "branch", "fallen tree", "overhanging branch", "park", "playground",
-                "garden", "overgrown", "root", "horticulture", "lawn", "shrub",
-                "மரம்", "விழுந்த மரம்", "மரக்கிளை", "கிளை முறிந்தது", "பூங்கா", "தோட்டம்", "புல்வெளி", "செடி"
+                "tree", "trees", "branch", "branches", "fallen tree", "overhanging branch", "park", "parks", "playground",
+                "garden", "overgrown", "root", "horticulture", "lawn", "shrub", "fallen branch", "uprooted tree", "children park",
+                "maram", "மரம்", "விழுந்த மரம்", "மரக்கிளை", "கிளை முறிந்தது", "பூங்கா", "தோட்டம்", "புல்வெளி", "செடி", "பூங்கா பராமரிப்பு", "மரத்தை வெட்ட"
         ));
     }
 

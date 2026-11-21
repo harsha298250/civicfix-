@@ -3,6 +3,8 @@ import { apiClient } from '../../services/apiClient.js';
 import { officerService, VERIFIED_FIELD_WORKERS } from '../../services/officerService.js';
 import { SlaBadge } from '../../components/common/SlaBadge.jsx';
 import ClosureTrustBadge from '../../components/common/ClosureTrustBadge.jsx';
+import ModalDialog from '../../components/common/ModalDialog.jsx';
+import { useTranslation } from '../../context/LanguageContext.jsx';
 
 const WARDS = [
   'ALL',
@@ -26,6 +28,7 @@ const CATEGORIES = [
 ];
 
 export const SupervisorEscalationsPage = () => {
+  const { t } = useTranslation();
   const [escalations, setEscalations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -50,6 +53,20 @@ export const SupervisorEscalationsPage = () => {
   const [reassignReason, setReassignReason] = useState('');
   const [reassignSubmitting, setReassignSubmitting] = useState(false);
   const [reassignError, setReassignError] = useState(null);
+
+  // Extend SLA Modal State
+  const [extendModalOpen, setExtendModalOpen] = useState(false);
+  const [extendHours, setExtendHours] = useState(24);
+  const [extendReason, setExtendReason] = useState('');
+  const [extendSubmitting, setExtendSubmitting] = useState(false);
+  const [extendError, setExtendError] = useState(null);
+
+  // De-escalate Modal State
+  const [deEscalateModalOpen, setDeEscalateModalOpen] = useState(false);
+  const [deEscalateReason, setDeEscalateReason] = useState('');
+  const [deEscalateGraceHours, setDeEscalateGraceHours] = useState(24);
+  const [deEscalateSubmitting, setDeEscalateSubmitting] = useState(false);
+  const [deEscalateError, setDeEscalateError] = useState(null);
 
   // Fetch escalated complaints and closure trust analytics
   const fetchEscalations = useCallback(async () => {
@@ -158,6 +175,97 @@ export const SupervisorEscalationsPage = () => {
       setReassignError(err.message || 'Worker reassignment failed. Please check record version and try again.');
     } finally {
       setReassignSubmitting(false);
+    }
+  };
+
+  const openExtendModal = (complaint) => {
+    setTargetComplaint(complaint);
+    setExtendHours(24);
+    setExtendReason('');
+    setExtendError(null);
+    setExtendModalOpen(true);
+  };
+
+  const closeExtendModal = () => {
+    setExtendModalOpen(false);
+    setTargetComplaint(null);
+    setExtendReason('');
+    setExtendError(null);
+  };
+
+  const handleExtendSubmit = async (e) => {
+    e.preventDefault();
+    if (!extendReason.trim() || extendReason.trim().length < 5) {
+      setExtendError('A valid operational reason of at least 5 characters is required.');
+      return;
+    }
+    const hoursNum = parseInt(extendHours, 10);
+    if (isNaN(hoursNum) || hoursNum < 1 || hoursNum > 720) {
+      setExtendError('Additional hours must be between 1 and 720 (30 days).');
+      return;
+    }
+
+    setExtendSubmitting(true);
+    setExtendError(null);
+    try {
+      await apiClient.supervisor.extendSla(targetComplaint.id, {
+        additionalHours: hoursNum,
+        reason: extendReason.trim(),
+        version: targetComplaint.version
+      });
+
+      setActionSuccess(`SLA deadline for complaint #${targetComplaint.referenceId} was extended by ${hoursNum} hours.`);
+      closeExtendModal();
+      fetchEscalations();
+      setTimeout(() => setActionSuccess(null), 6000);
+    } catch (err) {
+      console.error('SLA extension failed:', err);
+      setExtendError(err.message || 'SLA extension failed. Please try again.');
+    } finally {
+      setExtendSubmitting(false);
+    }
+  };
+
+  const openDeEscalateModal = (complaint) => {
+    setTargetComplaint(complaint);
+    setDeEscalateReason('');
+    setDeEscalateGraceHours(24);
+    setDeEscalateError(null);
+    setDeEscalateModalOpen(true);
+  };
+
+  const closeDeEscalateModal = () => {
+    setDeEscalateModalOpen(false);
+    setTargetComplaint(null);
+    setDeEscalateReason('');
+    setDeEscalateError(null);
+  };
+
+  const handleDeEscalateSubmit = async (e) => {
+    e.preventDefault();
+    if (!deEscalateReason.trim() || deEscalateReason.trim().length < 5) {
+      setDeEscalateError('A valid explanation of at least 5 characters is required.');
+      return;
+    }
+
+    setDeEscalateSubmitting(true);
+    setDeEscalateError(null);
+    try {
+      await apiClient.supervisor.deEscalate(targetComplaint.id, {
+        reason: deEscalateReason.trim(),
+        additionalHours: parseInt(deEscalateGraceHours, 10) || 24,
+        version: targetComplaint.version
+      });
+
+      setActionSuccess(`Complaint #${targetComplaint.referenceId} was successfully de-escalated.`);
+      closeDeEscalateModal();
+      fetchEscalations();
+      setTimeout(() => setActionSuccess(null), 6000);
+    } catch (err) {
+      console.error('De-escalation failed:', err);
+      setDeEscalateError(err.message || 'De-escalation failed. Please try again.');
+    } finally {
+      setDeEscalateSubmitting(false);
     }
   };
 
@@ -481,19 +589,49 @@ export const SupervisorEscalationsPage = () => {
                       )}
                     </td>
                     <td className="px-4 py-3.5 text-right">
-                      <button
-                        onClick={() => openReassignModal(c)}
-                        disabled={!c.assignedWorker || c.status === 'RESOLVED' || c.status === 'REJECTED'}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shadow-sm ${
-                          c.assignedWorker && c.status !== 'RESOLVED' && c.status !== 'REJECTED'
-                            ? 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800'
-                            : 'bg-surface-container text-on-surface-variant opacity-50 cursor-not-allowed'
-                        }`}
-                        title={!c.assignedWorker ? 'Worker must be initially assigned before reassignment' : 'Reassign field crew'}
-                      >
-                        <span className="material-symbols-outlined text-[16px]">swap_horiz</span>
-                        <span>Reassign</span>
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                        <button
+                          onClick={() => openReassignModal(c)}
+                          disabled={!c.assignedWorker || c.status === 'RESOLVED' || c.status === 'REJECTED' || c.status === 'CLOSED'}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all shadow-xs ${
+                            c.assignedWorker && c.status !== 'RESOLVED' && c.status !== 'REJECTED' && c.status !== 'CLOSED'
+                              ? 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800'
+                              : 'bg-surface-container text-on-surface-variant opacity-50 cursor-not-allowed'
+                          }`}
+                          title={!c.assignedWorker ? 'Worker must be initially assigned before reassignment' : t('supervisor.reassignWorker')}
+                        >
+                          <span className="material-symbols-outlined text-[15px]">swap_horiz</span>
+                          <span>{t('supervisor.reassignWorker')}</span>
+                        </button>
+
+                        <button
+                          onClick={() => openExtendModal(c)}
+                          disabled={c.status === 'RESOLVED' || c.status === 'REJECTED' || c.status === 'CLOSED'}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all shadow-xs ${
+                            c.status !== 'RESOLVED' && c.status !== 'REJECTED' && c.status !== 'CLOSED'
+                              ? 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+                              : 'bg-surface-container text-on-surface-variant opacity-50 cursor-not-allowed'
+                          }`}
+                          title={t('supervisor.extendSla')}
+                        >
+                          <span className="material-symbols-outlined text-[15px]">more_time</span>
+                          <span>{t('supervisor.extendSla')}</span>
+                        </button>
+
+                        <button
+                          onClick={() => openDeEscalateModal(c)}
+                          disabled={!c.escalatedAt || c.status === 'RESOLVED' || c.status === 'REJECTED' || c.status === 'CLOSED'}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all shadow-xs ${
+                            c.escalatedAt && c.status !== 'RESOLVED' && c.status !== 'REJECTED' && c.status !== 'CLOSED'
+                              ? 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                              : 'bg-surface-container text-on-surface-variant opacity-50 cursor-not-allowed'
+                          }`}
+                          title={t('supervisor.deEscalate')}
+                        >
+                          <span className="material-symbols-outlined text-[15px]">check_circle</span>
+                          <span>{t('supervisor.deEscalate')}</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -529,25 +667,18 @@ export const SupervisorEscalationsPage = () => {
       </div>
 
       {/* Technician Reassignment Modal */}
-      {reassignModalOpen && targetComplaint && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-surface border border-outline/20 rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-outline/10 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-red-600 text-[24px]">swap_horiz</span>
-                <h3 className="font-title text-lg font-bold text-on-surface">
-                  Reassign Technician
-                </h3>
-              </div>
-              <button
-                onClick={closeReassignModal}
-                disabled={reassignSubmitting}
-                className="text-on-surface-variant hover:text-on-surface"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
+      {targetComplaint && (
+        <ModalDialog
+          isOpen={reassignModalOpen}
+          onClose={closeReassignModal}
+          title={
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-red-600 text-[24px]">swap_horiz</span>
+              <span>{t('supervisor.reassignModalTitle')}</span>
             </div>
-
+          }
+        >
+          <div className="space-y-4">
             {/* Target Ticket Details */}
             <div className="p-3 rounded-xl bg-surface-container-low text-xs space-y-1.5 border border-outline/10">
               <div className="flex justify-between">
@@ -567,17 +698,18 @@ export const SupervisorEscalationsPage = () => {
             </div>
 
             {reassignError && (
-              <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs">
+              <div role="alert" className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-xs">
                 {reassignError}
               </div>
             )}
 
             <form onSubmit={handleReassignSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1.5">
-                  Select New Field Technician <span className="text-red-500">*</span>
+                <label htmlFor="select-worker-input" className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1.5">
+                  {t('supervisor.selectWorker')} <span className="text-red-500">*</span>
                 </label>
                 <select
+                  id="select-worker-input"
                   value={selectedWorkerId}
                   onChange={(e) => setSelectedWorkerId(e.target.value)}
                   className="w-full bg-surface border border-outline/20 rounded-xl px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
@@ -597,13 +729,14 @@ export const SupervisorEscalationsPage = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1.5">
-                  Reassignment Reason <span className="text-red-500">*</span>
+                <label htmlFor="reassign-reason-input" className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1.5">
+                  {t('supervisor.reassignReason')}
                 </label>
                 <textarea
+                  id="reassign-reason-input"
                   value={reassignReason}
                   onChange={(e) => setReassignReason(e.target.value)}
-                  placeholder="Enter operational reason for reassigning this ticket (5 to 500 characters)..."
+                  placeholder={t('supervisor.reassignReasonPlaceholder')}
                   rows={3}
                   minLength={5}
                   maxLength={500}
@@ -620,24 +753,197 @@ export const SupervisorEscalationsPage = () => {
                   type="button"
                   onClick={closeReassignModal}
                   disabled={reassignSubmitting}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold border border-outline/20 text-on-surface hover:bg-surface-container"
+                  className="px-4 py-2 rounded-xl text-sm font-semibold border border-outline/20 text-on-surface hover:bg-surface-container focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={reassignSubmitting}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-red-600 text-white hover:bg-red-700 shadow-md disabled:opacity-50"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-red-600 text-white hover:bg-red-700 shadow-md disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-500"
                 >
                   {reassignSubmitting && (
                     <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
                   )}
-                  <span>Confirm Reassignment</span>
+                  <span>{t('supervisor.confirmReassign')}</span>
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </ModalDialog>
+      )}
+
+      {/* Extend SLA Modal */}
+      {targetComplaint && (
+        <ModalDialog
+          isOpen={extendModalOpen}
+          onClose={closeExtendModal}
+          title={`${t('supervisor.extendSlaModalTitle')} — #${targetComplaint.referenceId}`}
+          maxWidth="max-w-lg"
+        >
+          <div className="p-6 space-y-4">
+            <p className="text-xs text-on-surface-variant">
+              Extend the SLA resolution deadline for defect <strong>#{targetComplaint.referenceId}</strong>.
+              All deadline modifications are recorded immutably in the municipal audit ledger.
+            </p>
+
+            {extendError && (
+              <div role="alert" aria-live="assertive" className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl text-xs text-red-700 dark:text-red-300">
+                {extendError}
+              </div>
+            )}
+
+            <form onSubmit={handleExtendSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="extend-hours-input" className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1.5">
+                  {t('supervisor.additionalHours')}
+                </label>
+                <div className="relative">
+                  <input
+                    id="extend-hours-input"
+                    type="number"
+                    min="1"
+                    max="720"
+                    value={extendHours}
+                    onChange={(e) => setExtendHours(e.target.value)}
+                    className="w-full bg-surface border border-outline/20 rounded-xl px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+                    required
+                  />
+                  <span className="absolute right-3 top-2.5 text-xs text-on-surface-variant">Hours</span>
+                </div>
+                <div className="text-[11px] text-on-surface-variant mt-1">
+                  Common: 24h (1 day), 48h (2 days), 72h (weekend buffer)
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="extend-reason-input" className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1.5">
+                  {t('supervisor.extendReason')}
+                </label>
+                <textarea
+                  id="extend-reason-input"
+                  value={extendReason}
+                  onChange={(e) => setExtendReason(e.target.value)}
+                  placeholder={t('supervisor.extendReasonPlaceholder')}
+                  rows={3}
+                  minLength={5}
+                  maxLength={500}
+                  className="w-full bg-surface border border-outline/20 rounded-xl p-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary"
+                  required
+                />
+                <div className="text-right text-[11px] text-on-surface-variant mt-1">
+                  {extendReason.length} / 500 characters (min 5)
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closeExtendModal}
+                  disabled={extendSubmitting}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold border border-outline/20 text-on-surface hover:bg-surface-container focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={extendSubmitting}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700 shadow-md disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-amber-500"
+                >
+                  {extendSubmitting && (
+                    <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                  )}
+                  <span>{t('supervisor.confirmExtendSla')}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </ModalDialog>
+      )}
+
+      {/* De-escalate Modal */}
+      {targetComplaint && (
+        <ModalDialog
+          isOpen={deEscalateModalOpen}
+          onClose={closeDeEscalateModal}
+          title={`${t('supervisor.deEscalateModalTitle')} — #${targetComplaint.referenceId}`}
+          maxWidth="max-w-lg"
+        >
+          <div className="p-6 space-y-4">
+            <p className="text-xs text-on-surface-variant">
+              De-escalate defect <strong>#{targetComplaint.referenceId}</strong>.
+              This removes the escalation flag and applies a mandatory 24h+ operational grace period to prevent immediate re-escalation by the SLA monitoring engine.
+            </p>
+
+            {deEscalateError && (
+              <div role="alert" aria-live="assertive" className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl text-xs text-red-700 dark:text-red-300">
+                {deEscalateError}
+              </div>
+            )}
+
+            <form onSubmit={handleDeEscalateSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="deescalate-grace-input" className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1.5">
+                  Operational Grace Window (Hours)
+                </label>
+                <div className="relative">
+                  <input
+                    id="deescalate-grace-input"
+                    type="number"
+                    min="1"
+                    max="168"
+                    value={deEscalateGraceHours}
+                    onChange={(e) => setDeEscalateGraceHours(e.target.value)}
+                    className="w-full bg-surface border border-outline/20 rounded-xl px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+                    required
+                  />
+                  <span className="absolute right-3 top-2.5 text-xs text-on-surface-variant">Hours</span>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="deescalate-reason-input" className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1.5">
+                  {t('supervisor.deEscalateReason')}
+                </label>
+                <textarea
+                  id="deescalate-reason-input"
+                  value={deEscalateReason}
+                  onChange={(e) => setDeEscalateReason(e.target.value)}
+                  placeholder={t('supervisor.deEscalateReasonPlaceholder')}
+                  rows={3}
+                  minLength={5}
+                  maxLength={500}
+                  className="w-full bg-surface border border-outline/20 rounded-xl p-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary"
+                  required
+                />
+                <div className="text-right text-[11px] text-on-surface-variant mt-1">
+                  {deEscalateReason.length} / 500 characters (min 5)
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closeDeEscalateModal}
+                  disabled={deEscalateSubmitting}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold border border-outline/20 text-on-surface hover:bg-surface-container focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={deEscalateSubmitting}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow-md disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-500"
+                >
+                  {deEscalateSubmitting && (
+                    <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                  )}
+                  <span>{t('supervisor.confirmDeEscalate')}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </ModalDialog>
       )}
     </div>
   );

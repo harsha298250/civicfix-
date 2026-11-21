@@ -1,33 +1,36 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { useTranslation } from '../../context/LanguageContext';
 import { DemoRoleSwitcher } from '../common/DemoRoleSwitcher';
 import LanguageToggle from '../common/LanguageToggle';
+import SkipToContent from '../common/SkipToContent';
 
 export const SupervisorLayout = () => {
   const { currentUser, unreadCount, toast, logout } = useApp();
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const navItems = [
     {
-      label: 'Escalations Queue',
+      label: t('nav.escalationsQueue'),
       path: '/supervisor/escalations',
       icon: 'crisis_alert'
     },
     {
-      label: 'Operational Analytics',
+      label: t('nav.operationalAnalytics'),
       path: '/officer/analytics',
       icon: 'monitoring'
     },
     {
-      label: 'Live Issue Map',
+      label: t('nav.liveIssueMap'),
       path: '/officer/map',
       icon: 'map'
     },
     {
-      label: 'Notifications',
+      label: t('nav.notifications'),
       path: '/officer/notifications',
       icon: 'notifications',
       badge: unreadCount > 0 ? unreadCount : null,
@@ -37,6 +40,7 @@ export const SupervisorLayout = () => {
 
   return (
     <div className="min-h-screen bg-surface font-sans text-on-surface flex">
+      <SkipToContent />
       {/* Toast Notification */}
       {toast && (
         <div className="fixed top-4 right-4 z-50 bg-[#151D26] text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 border border-secondary/30 animate-fade-in">
@@ -141,10 +145,10 @@ export const SupervisorLayout = () => {
               logout();
               navigate('/login');
             }}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-gray-400 hover:text-white hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <span className="material-symbols-outlined text-[18px]">logout</span>
-            <span>Sign Out</span>
+            <span>{t('common.logout')}</span>
           </button>
         </div>
       </aside>
@@ -156,12 +160,13 @@ export const SupervisorLayout = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileSidebarOpen(true)}
-              className="md:hidden text-on-surface-variant hover:text-on-surface p-1"
+              className="md:hidden text-on-surface-variant hover:text-on-surface p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+              aria-label={t('accessibility.toggleNavigation')}
             >
               <span className="material-symbols-outlined text-[24px]">menu</span>
             </button>
             <h1 className="font-title text-title font-bold text-on-surface hidden sm:block">
-              Supervisory Control Center
+              {t('supervisor.dashboardTitle')}
             </h1>
           </div>
 
@@ -172,7 +177,7 @@ export const SupervisorLayout = () => {
         </header>
 
         {/* Dynamic Nested Page Content */}
-        <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto">
+        <main id="main-content" tabIndex="-1" className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto focus:outline-none">
           <Outlet />
         </main>
       </div>
