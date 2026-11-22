@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from '../../context/LanguageContext';
+import LanguageToggle from '../../components/common/LanguageToggle';
 import { authService } from '../../services/authService';
 
 export const ForgotPasswordPage = () => {
@@ -14,7 +15,7 @@ export const ForgotPasswordPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email.trim()) {
-      setErrorMessage('Please enter your registered email address.');
+      setErrorMessage(t('auth.registeredEmailLabel'));
       return;
     }
 
@@ -25,7 +26,7 @@ export const ForgotPasswordPage = () => {
       await authService.forgotPassword(email.trim());
       setSubmitted(true);
     } catch (err) {
-      setErrorMessage(err.message || 'Unable to process password reset request. Please try again.');
+      setErrorMessage(err.message || t('auth.errorUnreachable'));
     } finally {
       setLoading(false);
     }
@@ -34,16 +35,21 @@ export const ForgotPasswordPage = () => {
   return (
     <div className="w-full min-h-[calc(100vh-64px)] flex flex-col items-center justify-center p-4 sm:p-6 bg-surface">
       <div className="w-full max-w-md mx-auto bg-surface-container-lowest rounded-2xl p-6 sm:p-8 shadow-xl border border-outline-variant/40 space-y-6">
+        <div className="flex items-center justify-between pb-2 border-b border-outline-variant/30">
+          <span className="text-[11px] font-bold text-tertiary uppercase tracking-wider">{t('common.language')}</span>
+          <LanguageToggle />
+        </div>
+
         <div>
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface-variant text-xs font-semibold mb-3">
             <span className="material-symbols-outlined text-[16px] text-primary">lock_reset</span>
-            <span>Account Security Recovery</span>
+            <span>{t('auth.forgotPasswordRecoveryBadge')}</span>
           </div>
           <h1 className="font-headline-sm text-2xl font-bold text-on-surface">
-            {t('auth.forgotPasswordTitle', 'Reset your password')}
+            {t('auth.forgotPasswordTitle')}
           </h1>
           <p className="text-body-md text-sm text-on-surface-variant mt-2 leading-relaxed">
-            Enter your registered email address and we'll send you a secure, single-use link to create a new password.
+            {t('auth.forgotPasswordDesc')}
           </p>
         </div>
 
@@ -59,16 +65,16 @@ export const ForgotPasswordPage = () => {
             <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 space-y-2 text-xs text-emerald-900">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-emerald-600 text-[20px]">check_circle</span>
-                <strong className="text-sm font-bold">Check your inbox</strong>
+                <strong className="text-sm font-bold">{t('auth.checkInboxTitle')}</strong>
               </div>
               <p className="leading-relaxed text-emerald-800">
-                If an account with that email exists, password reset instructions have been sent. The link expires in 15 minutes.
+                {t('auth.checkInboxDesc', 'If an account exists with this email, instructions have been sent to reset your password. For security reasons, we do not reveal whether an email is registered.')}
               </p>
             </div>
 
             <div className="p-3 bg-surface-container-low rounded-xl border border-outline-variant/30 text-[11px] text-on-surface-variant space-y-1">
-              <span className="font-semibold block text-on-surface">Didn't receive an email?</span>
-              <p>Check your spam folder or verify that you entered your registered address. For security, we do not reveal whether an email is registered.</p>
+              <span className="font-semibold block text-on-surface">{t('auth.didntReceiveEmail')}</span>
+              <p>{t('auth.didntReceiveEmailDesc')}</p>
             </div>
 
             <div className="pt-2 text-center">
@@ -77,7 +83,7 @@ export const ForgotPasswordPage = () => {
                 className="w-full h-11 rounded-xl bg-primary-container hover:bg-primary text-white font-semibold text-sm transition-all flex items-center justify-center gap-2 shadow-sm"
               >
                 <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-                <span>Return to Sign In</span>
+                <span>{t('auth.backToSignIn')}</span>
               </Link>
             </div>
           </div>
@@ -85,7 +91,7 @@ export const ForgotPasswordPage = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
               <label htmlFor="recovery-email" className="block text-xs font-semibold text-on-surface">
-                Registered Email Address *
+                {t('auth.registeredEmailLabel')} *
               </label>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-2.5 text-on-surface-variant text-[18px]">
@@ -95,7 +101,7 @@ export const ForgotPasswordPage = () => {
                   id="recovery-email"
                   type="email"
                   required
-                  placeholder="name@example.com"
+                  placeholder={t('auth.emailPlaceholder')}
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
@@ -104,9 +110,6 @@ export const ForgotPasswordPage = () => {
                   className="w-full pl-9 pr-3.5 py-2.5 bg-surface-container-low rounded-xl text-sm text-on-surface placeholder:text-outline border border-transparent focus:border-primary-container focus:bg-surface-container-lowest focus:outline-none transition-all"
                 />
               </div>
-              <p className="text-[11px] text-on-surface-variant mt-1">
-                We will send an encrypted recovery link valid for 15 minutes.
-              </p>
             </div>
 
             <button
@@ -117,12 +120,12 @@ export const ForgotPasswordPage = () => {
               {loading ? (
                 <>
                   <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
-                  <span>Sending Instructions...</span>
+                  <span>{t('auth.sendingResetLink')}</span>
                 </>
               ) : (
                 <>
                   <span className="material-symbols-outlined text-[18px]">send</span>
-                  <span>Send Reset Link</span>
+                  <span>{t('auth.sendResetLinkButton')}</span>
                 </>
               )}
             </button>
@@ -133,7 +136,7 @@ export const ForgotPasswordPage = () => {
                 className="text-xs text-primary font-semibold hover:underline inline-flex items-center gap-1"
               >
                 <span className="material-symbols-outlined text-[14px]">arrow_back</span>
-                <span>Back to Sign In</span>
+                <span>{t('auth.backToSignIn')}</span>
               </Link>
             </div>
           </form>

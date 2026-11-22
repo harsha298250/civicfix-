@@ -13,8 +13,9 @@ export const LoginPage = () => {
   const { setCurrentUser, showToast } = useApp();
   const { t } = useTranslation();
 
-  const [identifier, setIdentifier] = useState('alex.m@citizen.org');
-  const [password, setPassword] = useState('CivicSecure#2026!');
+  const [selectedRole, setSelectedRole] = useState('CITIZEN');
+  const [identifier, setIdentifier] = useState(isDemoModeEnabled() ? 'alex.m@citizen.org' : '');
+  const [password, setPassword] = useState(isDemoModeEnabled() ? 'CivicSecure#2026!' : '');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -42,6 +43,7 @@ export const LoginPage = () => {
   ];
 
   const handleApplyPreset = (preset, usePhone = false) => {
+    setSelectedRole(preset.role === 'OFFICER' ? 'OFFICER' : 'CITIZEN');
     setIdentifier(usePhone ? preset.phone : preset.identifier);
     setPassword('CivicSecure#2026!');
     setErrorMsg('');
@@ -141,6 +143,81 @@ export const LoginPage = () => {
             </div>
           )}
 
+          {/* Role Selection Tabs */}
+          <div className="flex p-1 bg-slate-100 rounded-xl gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedRole('CITIZEN');
+                if (isDemoModeEnabled()) {
+                  handleApplyPreset(DEMO_PRESETS[0], false);
+                } else {
+                  setIdentifier('');
+                  setPassword('');
+                }
+              }}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                selectedRole === 'CITIZEN'
+                  ? 'bg-white text-[#18232F] shadow-xs'
+                  : 'text-[#667384] hover:text-[#18232F]'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px]">person</span>
+              <span>{t('auth.roleCitizenTab')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedRole('OFFICER');
+                if (isDemoModeEnabled()) {
+                  handleApplyPreset(DEMO_PRESETS[1], false);
+                } else {
+                  setIdentifier('');
+                  setPassword('');
+                }
+              }}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                selectedRole === 'OFFICER'
+                  ? 'bg-[#137A70] text-white shadow-xs'
+                  : 'text-[#667384] hover:text-[#18232F]'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px]">account_balance</span>
+              <span>{t('auth.roleOfficerTab')}</span>
+            </button>
+          </div>
+
+          {/* Officer Role Instructions Card */}
+          {selectedRole === 'OFFICER' && (
+            <div className="p-4 bg-teal-50 border border-teal-200 rounded-xl text-xs space-y-2 animate-fade-in">
+              <div className="flex items-center gap-2 text-teal-900 font-bold">
+                <span className="material-symbols-outlined text-[18px] text-teal-700">admin_panel_settings</span>
+                <span>{t('auth.officerInstructionsTitle')}</span>
+              </div>
+              <p className="text-teal-800 leading-relaxed text-[11px]">
+                {t('auth.officerInstructionsDesc')}
+              </p>
+              {isDemoModeEnabled() ? (
+                <div className="pt-2 border-t border-teal-200/60 flex items-center justify-between">
+                  <span className="text-[10px] text-teal-700 font-medium">{t('auth.officerNoticeDemo')}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyPreset(DEMO_PRESETS[1], false)}
+                    className="px-2.5 py-1 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-[10px] font-semibold transition-colors"
+                  >
+                    Load Elena Vance (Demo Officer)
+                  </button>
+                </div>
+              ) : (
+                <div className="pt-1.5 border-t border-teal-200/60">
+                  <span className="text-[10px] text-teal-700">
+                    {t('auth.officerNoticeProd')}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -153,12 +230,12 @@ export const LoginPage = () => {
                 </label>
                 {contactType === 'PHONE' && (
                   <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-mono font-semibold flex items-center gap-1 border border-emerald-200">
-                    <span>🇮🇳</span> +91 Mobile
+                    <span>🇮🇳</span> {t('auth.mobileBadge')}
                   </span>
                 )}
                 {contactType === 'EMAIL' && (
                   <span className="text-[10px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full font-mono font-semibold">
-                    Email Login
+                    {t('auth.emailBadge')}
                   </span>
                 )}
               </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from '../../context/LanguageContext';
 import { useApp } from '../../context/AppContext';
 import { officerService, VERIFIED_FIELD_WORKERS } from '../../services/officerService.js';
 import { apiClient } from '../../services/apiClient.js';
@@ -64,6 +65,7 @@ const getAdjudicationBadge = (status) => {
 };
 
 export const ComplaintReviewPage = () => {
+  const { t } = useTranslation();
   const { complaintId } = useParams();
   const navigate = useNavigate();
   const { showToast, currentUser, refreshComplaints } = useApp();
@@ -505,7 +507,7 @@ export const ComplaintReviewPage = () => {
               className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm"
             >
               <span className="material-symbols-outlined text-[16px]">crisis_alert</span>
-              <span>Escalate</span>
+              <span>{t('officerReview.escalate', 'Escalate')}</span>
             </button>
           )}
           <button
@@ -514,13 +516,13 @@ export const ComplaintReviewPage = () => {
             className="px-4 py-2 rounded-xl bg-error-container hover:bg-red-200 text-on-error-container text-xs font-semibold transition-colors flex items-center gap-1.5"
           >
             <span className="material-symbols-outlined text-[16px]">cancel</span>
-            <span>Reject / Clarify</span>
+            <span>{t('officerReview.rejectClarify', 'Reject / Clarify')}</span>
           </button>
           <Link
             to="/officer/complaints"
             className="px-4 py-2 rounded-xl border border-outline-variant/40 hover:bg-surface-container text-on-surface text-xs font-semibold transition-colors"
           >
-            Back to Queue
+            {t('officerReview.backToQueue', 'Back to Queue')}
           </Link>
         </div>
       </div>
@@ -593,8 +595,8 @@ export const ComplaintReviewPage = () => {
             </div>
 
             <div className="space-y-1">
-              <span className="text-xs font-bold text-tertiary uppercase tracking-wider block">
-                Reported Citizen Description
+              <span className="text-xs font-bold text-tertiary uppercase tracking-normal block">
+                {t('officerReview.reportedDescription', 'Reported Citizen Description')}
               </span>
               <p className="text-body-md text-sm text-on-surface leading-relaxed">
                 {complaint.description}
@@ -604,8 +606,8 @@ export const ComplaintReviewPage = () => {
             {/* Photos */}
             {complaint.photos && complaint.photos.length > 0 && (
               <div className="pt-2">
-                <span className="text-xs font-bold text-tertiary uppercase tracking-wider block mb-2">
-                  Citizen Media Evidence
+                <span className="text-xs font-bold text-tertiary uppercase tracking-normal block mb-2">
+                  {t('officerReview.mediaEvidence', 'Citizen Media Evidence')}
                 </span>
                 <div className="grid grid-cols-2 gap-3">
                   {complaint.photos.map((p, idx) => (
@@ -628,8 +630,8 @@ export const ComplaintReviewPage = () => {
             {/* Geographic Verification Mini-Map */}
             <div className="pt-3 border-t border-outline-variant/30 space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-tertiary uppercase tracking-wider">
-                  Location & Map Verification
+                <span className="font-bold text-tertiary uppercase tracking-normal">
+                  {t('officerReview.locationVerification', 'Location & Map Verification')}
                 </span>
                 <span className="font-code text-tertiary">
                   {hasValidCoordinates(complaint.location?.coordinates || (complaint.latitude != null && complaint.longitude != null ? [complaint.latitude, complaint.longitude] : null))
@@ -655,13 +657,13 @@ export const ComplaintReviewPage = () => {
                   <span className="material-symbols-outlined text-[18px]">rule</span>
                 </div>
                 <div>
-                  <h3 className="font-title text-sm font-bold text-on-surface">Rule-based triage</h3>
+                  <h3 className="font-title text-sm font-bold text-on-surface">{t('officerReview.ruleBasedTriageTitle', 'Rule-based triage')}</h3>
                   <span className="text-[10px] text-tertiary font-semibold">Rule-Based Deterministic Engine</span>
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[11px] text-on-surface-variant font-medium hidden sm:inline">
-                  Suggestions only. The officer decides.
+                  {t('officerReview.officerDecidesNotice', 'Suggestions only. The officer decides.')}
                 </span>
                 {complaint.aiTriage ? getAdjudicationBadge(complaint.aiTriage.adjudicationStatus) : (
                   <span className="text-[10px] bg-surface-container text-tertiary font-bold px-2 py-0.5 rounded-full">
@@ -740,7 +742,7 @@ export const ComplaintReviewPage = () => {
                     ) : (
                       <span className="material-symbols-outlined text-[16px]">check</span>
                     )}
-                    <span>Accept Recommendation</span>
+                    <span>{t('officerReview.acceptRecommendation', 'Accept Recommendation')}</span>
                   </button>
 
                   <button
@@ -754,7 +756,7 @@ export const ComplaintReviewPage = () => {
                     className="px-3.5 py-2 bg-primary-container hover:bg-primary disabled:opacity-50 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all"
                   >
                     <span className="material-symbols-outlined text-[16px]">tune</span>
-                    <span>Override Recommendation</span>
+                    <span>{t('officerReview.overrideRecommendation', 'Override Recommendation')}</span>
                   </button>
 
                   <button
@@ -764,7 +766,7 @@ export const ComplaintReviewPage = () => {
                     className="px-3.5 py-2 bg-surface-container hover:bg-surface-container-high disabled:opacity-50 text-on-surface rounded-xl text-xs font-semibold flex items-center gap-1.5 border border-outline-variant/40 transition-all"
                   >
                     <span className="material-symbols-outlined text-[16px]">close</span>
-                    <span>Dismiss Rule Advice</span>
+                    <span>{t('officerReview.dismissAdvice', 'Dismiss Rule Advice')}</span>
                   </button>
                 </div>
               </div>

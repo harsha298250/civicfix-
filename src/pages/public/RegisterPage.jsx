@@ -149,9 +149,9 @@ export const RegisterPage = () => {
             <span className="material-symbols-outlined text-[18px]">verified_user</span>
           </div>
           <div className="text-xs">
-            <h4 className="font-bold text-[#18232F]">Municipal Public Enrollment Boundary</h4>
+            <h4 className="font-bold text-[#18232F]">{t('auth.staffAdvisoryTitle')}</h4>
             <p className="text-[#667384] mt-0.5 leading-relaxed">
-              Public registration creates standard Citizen accounts for incident reporting. Municipal Officers and Field Crew accounts are provisioned exclusively through Municipal Administration.
+              {t('auth.staffAdvisoryDesc')}
             </p>
           </div>
         </div>
@@ -182,23 +182,23 @@ export const RegisterPage = () => {
             <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs space-y-2 animate-fade-in">
               <div className="flex items-start gap-2 text-amber-800 font-semibold">
                 <span className="material-symbols-outlined text-[18px] shrink-0">account_circle</span>
-                <p>An account is already registered with this contact information.</p>
+                <p>{t('auth.duplicateAccountAlert')}</p>
               </div>
               <p className="text-amber-700 text-[11px] leading-relaxed">
-                If this is your account, please sign in directly or restore access through account recovery.
+                {t('auth.duplicateAccountDesc')}
               </p>
               <div className="flex items-center gap-3 pt-1">
                 <Link
                   to="/login"
                   className="px-3 py-1.5 bg-[#137A70] text-white font-semibold rounded-lg text-xs hover:bg-[#0F625B]"
                 >
-                  Sign In to Account →
+                  {t('auth.signInDirectly')} →
                 </Link>
                 <Link
                   to="/forgot-password"
                   className="text-xs text-[#137A70] font-semibold hover:underline"
                 >
-                  Forgot Password?
+                  {t('auth.forgotPassword')}
                 </Link>
               </div>
             </div>
@@ -241,7 +241,7 @@ export const RegisterPage = () => {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-xs font-semibold text-[#18232F] uppercase tracking-wider">
-                  Contact Method *
+                  {t('auth.contactMethodLabel')} *
                 </label>
                 <div className="flex items-center bg-slate-100 p-0.5 rounded-lg text-[11px] font-semibold">
                   <button
@@ -253,7 +253,7 @@ export const RegisterPage = () => {
                         : 'text-tertiary hover:text-on-surface'
                     }`}
                   >
-                    🇮🇳 Mobile (+91)
+                    🇮🇳 {t('auth.mobileBadge')}
                   </button>
                   <button
                     type="button"
@@ -264,7 +264,7 @@ export const RegisterPage = () => {
                         : 'text-tertiary hover:text-on-surface'
                     }`}
                   >
-                    Email Address
+                    {t('auth.emailBadge')}
                   </button>
                 </div>
               </div>

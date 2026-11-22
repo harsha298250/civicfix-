@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from '../../context/LanguageContext';
 import { useApp } from '../../context/AppContext';
 import { adminService } from '../../services/adminService';
 import { officerService } from '../../services/officerService';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 
 export const AdminDashboard = () => {
+  const { t } = useTranslation();
   const { showToast, currentUser } = useApp();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -74,8 +76,8 @@ export const AdminDashboard = () => {
     <div className="w-full flex flex-col gap-6">
       <Breadcrumb
         items={[
-          { label: 'Admin Governance', path: '/admin/dashboard', icon: 'admin_panel_settings' },
-          { label: 'Platform Overview' }
+          { label: t('admin.dashboardTitle', 'Admin Governance'), path: '/admin/dashboard', icon: 'admin_panel_settings' },
+          { label: t('adminDashboard.controlCenter', 'Platform Overview') }
         ]}
       />
 
@@ -88,14 +90,14 @@ export const AdminDashboard = () => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-headline-md text-2xl font-extrabold text-on-surface">
-                Platform Administration Workspace
+                {t('adminDashboard.controlCenter', 'Platform Administration Workspace')}
               </h1>
-              <span className="px-2.5 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed-variant text-[10px] font-bold uppercase">
-                Tier-0 Root
+              <span className="px-2.5 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed-variant text-[10px] font-bold uppercase tracking-normal">
+                {t('adminDashboard.rootControl', 'Tier-0 Root')}
               </span>
             </div>
             <p className="text-xs text-on-surface-variant mt-0.5">
-              Live database oversight, role governance, pending workforce vetting, and compliance ledger.
+              {t('adminDashboard.subtitle', 'Live database oversight, role governance, pending workforce vetting, and compliance ledger.')}
             </p>
           </div>
         </div>
@@ -106,24 +108,24 @@ export const AdminDashboard = () => {
             onClick={fetchDashboardData}
             disabled={loading}
             className="px-3.5 py-2.5 bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5"
-            title="Refresh Live Telemetry"
+            title={t('common.refresh', 'Refresh')}
           >
             <span className={`material-symbols-outlined text-[16px] ${loading ? 'animate-spin' : ''}`}>refresh</span>
-            <span>Refresh</span>
+            <span>{t('common.refresh', 'Refresh')}</span>
           </button>
           <Link
             to="/admin/users/new"
             className="px-4 py-2.5 bg-primary-container hover:bg-primary text-white text-xs font-semibold rounded-xl shadow transition-colors flex items-center gap-1.5"
           >
             <span className="material-symbols-outlined text-[16px]">person_add</span>
-            <span>Create Staff Account</span>
+            <span>{t('adminDashboard.provisionStaff', 'Create Staff Account')}</span>
           </Link>
           <Link
             to="/admin/roles"
             className="px-4 py-2.5 bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5"
           >
             <span className="material-symbols-outlined text-[16px]">shield</span>
-            <span>Role Matrix</span>
+            <span>{t('admin.filterRole', 'Role Matrix')}</span>
           </Link>
         </div>
       </div>
@@ -155,7 +157,7 @@ export const AdminDashboard = () => {
             <div className="p-5 rounded-2xl bg-surface-container-lowest shadow-sm border border-outline-variant/30 flex flex-col justify-between">
               <div className="flex items-start justify-between">
                 <div>
-                  <span className="text-xs font-bold text-tertiary uppercase tracking-wider">Total Users</span>
+                  <span className="text-xs font-bold text-tertiary uppercase tracking-normal">{t('adminDashboard.totalUsers', 'Total Users')}</span>
                   <div className="mt-1 flex items-baseline gap-2">
                     <span className="font-display text-3xl font-extrabold text-on-surface">
                       {summary?.totalUsers ?? 0}
@@ -176,7 +178,7 @@ export const AdminDashboard = () => {
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <span className="text-xs font-bold text-tertiary uppercase tracking-wider">Pending Vetting</span>
+                  <span className="text-xs font-bold text-tertiary uppercase tracking-normal">{t('adminDashboard.pendingApprovals', 'Pending Vetting')}</span>
                   <div className="mt-1 flex items-baseline gap-2">
                     <span className={`font-display text-3xl font-extrabold ${(summary?.pendingApprovalCount ?? 0) > 0 ? 'text-amber-600' : 'text-on-surface'}`}>
                       {summary?.pendingApprovalCount ?? 0}
@@ -201,7 +203,7 @@ export const AdminDashboard = () => {
             <div className="p-5 rounded-2xl bg-surface-container-lowest shadow-sm border border-outline-variant/30 flex flex-col justify-between">
               <div className="flex items-start justify-between">
                 <div>
-                  <span className="text-xs font-bold text-tertiary uppercase tracking-wider">Audit Events (24h)</span>
+                  <span className="text-xs font-bold text-tertiary uppercase tracking-normal">{t('adminDashboard.auditEvents24h', 'Audit Events (24h)')}</span>
                   <div className="mt-1 flex items-baseline gap-2">
                     <span className="font-display text-3xl font-extrabold text-secondary">
                       {summary?.auditEventsLast24h ?? 0}
@@ -219,7 +221,7 @@ export const AdminDashboard = () => {
             <div className="p-5 rounded-2xl bg-surface-container-lowest shadow-sm border border-outline-variant/30 flex flex-col justify-between">
               <div className="flex items-start justify-between">
                 <div>
-                  <span className="text-xs font-bold text-tertiary uppercase tracking-wider">Total Complaints</span>
+                  <span className="text-xs font-bold text-tertiary uppercase tracking-normal">{t('adminDashboard.totalComplaints', 'Total Complaints')}</span>
                   <div className="mt-1 flex items-baseline gap-2">
                     <span className="font-display text-3xl font-extrabold text-emerald-700">
                       {summary?.totalComplaints ?? 0}

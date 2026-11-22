@@ -123,7 +123,7 @@ export const PublicMapPage = () => {
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-container hover:bg-primary text-white text-xs font-semibold shadow-sm transition-all"
             >
               <span className="material-symbols-outlined text-[18px]">add_location_alt</span>
-              <span>Report an Issue</span>
+              <span>{t('citizenDashboard.reportNewDefect')}</span>
             </Link>
           </div>
         </div>
@@ -136,7 +136,7 @@ export const PublicMapPage = () => {
             </span>
             <input
               type="text"
-              placeholder="Search area, road, defect..."
+              placeholder={t('publicMap.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-3 py-2 bg-surface-container-low rounded-xl text-xs text-on-surface placeholder:text-outline border border-transparent focus:border-primary-container focus:outline-none"
@@ -145,13 +145,13 @@ export const PublicMapPage = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="text-tertiary text-[11px] font-semibold uppercase">Category:</label>
+            <label className="text-tertiary text-[11px] font-semibold uppercase">{t('officerDashboard.category')}:</label>
             <select
               value={activeCategory}
               onChange={(e) => setActiveCategory(e.target.value)}
               className="px-3 py-2 rounded-xl bg-surface-container-low border border-outline-variant/40 text-xs text-on-surface font-semibold"
             >
-              <option value="ALL">All Categories</option>
+              <option value="ALL">{t('publicMap.allCategories')}</option>
               {CATEGORIES.map((cat) => (
                 <option key={cat.id} value={cat.id}>
                   {cat.name}
@@ -161,19 +161,19 @@ export const PublicMapPage = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="text-tertiary text-[11px] font-semibold uppercase">Status:</label>
+            <label className="text-tertiary text-[11px] font-semibold uppercase">{t('officerDashboard.status')}:</label>
             <select
               value={activeStatus}
               onChange={(e) => setActiveStatus(e.target.value)}
               className="px-3 py-2 rounded-xl bg-surface-container-low border border-outline-variant/40 text-xs text-on-surface font-semibold"
             >
-              <option value="ALL">All Statuses</option>
-              <option value="SUBMITTED">Submitted</option>
-              <option value="UNDER_REVIEW">Under Review</option>
-              <option value="ASSIGNED">Crew Dispatched</option>
-              <option value="IN_PROGRESS">In Progress</option>
-              <option value="RESOLUTION_SUBMITTED">Verification Pending</option>
-              <option value="RESOLVED">Verified Resolved</option>
+              <option value="ALL">{t('publicMap.allStatuses')}</option>
+              <option value="SUBMITTED">{t('status.SUBMITTED')}</option>
+              <option value="UNDER_REVIEW">{t('status.UNDER_REVIEW')}</option>
+              <option value="ASSIGNED">{t('status.ASSIGNED')}</option>
+              <option value="IN_PROGRESS">{t('status.IN_PROGRESS')}</option>
+              <option value="RESOLUTION_SUBMITTED">{t('status.RESOLUTION_SUBMITTED')}</option>
+              <option value="RESOLVED">{t('status.RESOLVED')}</option>
             </select>
           </div>
         </div>
@@ -184,34 +184,34 @@ export const PublicMapPage = () => {
         {/* Left List Column */}
         <div className="lg:col-span-4 bg-surface-container-lowest rounded-2xl p-4 shadow-sm border border-outline-variant/30 space-y-3 max-h-[640px] overflow-y-auto">
           <div className="flex items-center justify-between pb-2 border-b border-outline-variant/30">
-            <span className="font-title text-xs font-bold uppercase tracking-wider text-on-surface">
-              Public Work Orders ({filtered.length})
+            <span className="font-title text-xs font-bold uppercase tracking-normal text-on-surface">
+              {t('publicMap.verifiedIncidents')} ({filtered.length})
             </span>
-            <span className="text-[10px] font-code text-tertiary">Anonymized</span>
+            <span className="text-[10px] font-code text-tertiary">{t('publicMap.subtitle')}</span>
           </div>
 
           {loading ? (
             <div className="text-center py-12 text-tertiary text-xs space-y-2">
               <span className="material-symbols-outlined text-2xl animate-spin text-primary">progress_activity</span>
-              <p>Loading public work orders...</p>
+              <p>{t('publicMap.privacyNotice')}</p>
             </div>
           ) : error ? (
             <div className="text-center py-12 text-xs space-y-3">
               <span className="material-symbols-outlined text-3xl text-red-600">cloud_off</span>
-              <p className="font-semibold text-on-surface">Unable to load map data</p>
+              <p className="font-semibold text-on-surface">{t('citizenDashboard.unableToLoad')}</p>
               <p className="text-on-surface-variant max-w-xs mx-auto">{error}</p>
               <button
                 onClick={fetchComplaints}
                 className="px-3 py-1.5 bg-primary-container text-white rounded-lg font-semibold hover:bg-primary transition-colors inline-flex items-center gap-1"
               >
                 <span className="material-symbols-outlined text-[14px]">refresh</span>
-                <span>Retry</span>
+                <span>{t('publicMap.retry')}</span>
               </button>
             </div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-12 text-tertiary text-xs">
               <span className="material-symbols-outlined text-[32px] text-slate-300">search_off</span>
-              <p className="mt-1 font-semibold">No issues match filters</p>
+              <p className="mt-1 font-semibold">{t('citizenDashboard.noComplaintsMatch')}</p>
             </div>
           ) : (
             filtered.map((c) => (

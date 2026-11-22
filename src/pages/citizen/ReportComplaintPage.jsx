@@ -409,7 +409,7 @@ export const ReportComplaintPage = () => {
               {/* STEP 1: Details */}
               {currentStep === 1 && (
                 <div className="space-y-5 animate-fade-in">
-                  <h3 className="font-title text-base font-bold text-on-surface">Step 1: Incident Specifics</h3>
+                  <h3 className="font-title text-base font-bold text-on-surface">{t('reportComplaint.step1Heading')}</h3>
 
                   {/* Title */}
                   <div className="space-y-1">
@@ -530,7 +530,7 @@ export const ReportComplaintPage = () => {
               {currentStep === 2 && (
                 <div className="space-y-5 animate-fade-in">
                   <h3 className="font-title text-base font-bold text-on-surface">
-                    Step 2: Photographic Evidence & Camera Capture
+                    {t('reportComplaint.step2Heading')}
                   </h3>
 
                   <ImageUploadManager
@@ -538,8 +538,8 @@ export const ReportComplaintPage = () => {
                     onChange={(newPhotos) => setFormData({ ...formData, photos: newPhotos })}
                     maxPhotos={5}
                     allowSampleDemo={true}
-                    label="Incident Photographs"
-                    helperText="Upload real photographs from your device or capture a live photo using your camera."
+                    label={t('reportComplaint.photosLabel')}
+                    helperText={t('reportComplaint.photosHelper')}
                   />
 
                   {/* Optional Vision Photo Analysis Layer (Only shown when server feature is enabled) */}
@@ -581,7 +581,7 @@ export const ReportComplaintPage = () => {
                 <div className="space-y-5 animate-fade-in">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <h3 className="font-title text-base font-bold text-on-surface">
-                      Step 3: Geolocation & Tamil Nadu Location Pin
+                      {t('reportComplaint.step3Heading')}
                     </h3>
 
                     <button
@@ -591,7 +591,7 @@ export const ReportComplaintPage = () => {
                       className="px-3 py-1.5 bg-[#137A70] hover:bg-[#0F625B] text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all shadow-sm disabled:opacity-60 self-start"
                     >
                       <span className="material-symbols-outlined text-[16px]">my_location</span>
-                      <span>{geoLoading ? 'Acquiring GPS...' : 'Use My Current Location'}</span>
+                      <span>{geoLoading ? t('reportComplaint.acquiringGps') : t('reportComplaint.useCurrentLocation')}</span>
                     </button>
                   </div>
 
@@ -601,7 +601,7 @@ export const ReportComplaintPage = () => {
                       <div className="flex items-start gap-3">
                         <span className="material-symbols-outlined text-teal-700 text-2xl shrink-0">location_searching</span>
                         <div className="space-y-1">
-                          <h4 className="text-xs font-bold text-teal-900">Requesting Device Geolocation</h4>
+                          <h4 className="text-xs font-bold text-teal-900">{t('reportComplaint.requestingGeo')}</h4>
                           <p className="text-xs text-teal-800 leading-relaxed">
                             CivicFix uses your browser's location services to automatically pinpoint the coordinates of this defect and resolve the nearest street address. No background tracking occurs.
                           </p>
@@ -804,13 +804,13 @@ export const ReportComplaintPage = () => {
               {/* STEP 4: Review & Submit */}
               {currentStep === 4 && (
                 <div className="space-y-5 animate-fade-in">
-                  <h3 className="font-title text-base font-bold text-on-surface">Step 4: Review & Final Submission</h3>
+                  <h3 className="font-title text-base font-bold text-on-surface">{t('reportComplaint.step4Heading')}</h3>
 
                   <div className="p-4 rounded-xl bg-surface-container-low space-y-3 border border-outline-variant/30 text-xs">
                     <div className="flex justify-between items-start">
                       <div>
-                        <span className="text-tertiary block text-[10px] uppercase">Title</span>
-                        <h4 className="font-bold text-sm text-on-surface">{formData.title || 'Untitled Defect'}</h4>
+                        <span className="text-tertiary block text-[10px] uppercase">{t('reportComplaint.reviewTitle')}</span>
+                        <h4 className="font-bold text-sm text-on-surface">{formData.title || t('reportComplaint.untitledDefect')}</h4>
                       </div>
                       <span className="px-2.5 py-0.5 rounded-full bg-surface-container text-primary-container font-semibold">
                         {selectedCategoryObj.name}
@@ -818,19 +818,19 @@ export const ReportComplaintPage = () => {
                     </div>
 
                     <div>
-                      <span className="text-tertiary block text-[10px] uppercase">Narrative</span>
+                      <span className="text-tertiary block text-[10px] uppercase">{t('reportComplaint.reviewNarrative')}</span>
                       <p className="text-on-surface-variant leading-relaxed">
-                        {formData.description || 'No description provided'}
+                        {formData.description || t('reportComplaint.noDescriptionProvided')}
                       </p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 pt-2 border-t border-outline-variant/30">
                       <div>
-                        <span className="text-tertiary block text-[10px] uppercase">Location</span>
+                        <span className="text-tertiary block text-[10px] uppercase">{t('reportComplaint.reviewLocation')}</span>
                         <span className="font-semibold text-on-surface">{formData.address}</span>
                       </div>
                       <div>
-                        <span className="text-tertiary block text-[10px] uppercase">Coordinates</span>
+                        <span className="text-tertiary block text-[10px] uppercase">{t('reportComplaint.step3Title')}</span>
                         <span className="font-mono text-on-surface">
                           {formData.coordinates.lat.toFixed(4)}° N, {formData.coordinates.lng.toFixed(4)}° E
                         </span>
@@ -840,7 +840,7 @@ export const ReportComplaintPage = () => {
                     {/* Attached Photos Preview */}
                     <div className="pt-2 border-t border-outline-variant/30">
                       <span className="text-tertiary block text-[10px] uppercase mb-1.5">
-                        Photographs Staged ({formData.photos.length})
+                        {t('reportComplaint.reviewEvidence')} ({formData.photos.length})
                       </span>
                       {formData.photos.length > 0 ? (
                         <div className="flex gap-2 overflow-x-auto pb-1">
@@ -868,13 +868,13 @@ export const ReportComplaintPage = () => {
                     )}
                   </div>
 
-                  <div className="p-3 bg-surface-container-low rounded-xl text-xs text-on-surface-variant space-y-1 border border-outline-variant/30">
+                  <div className="p-3.5 bg-surface-container-low rounded-xl text-xs text-on-surface-variant space-y-1 border border-outline-variant/30">
                     <p className="font-semibold text-on-surface flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[16px] text-secondary">verified_user</span>
-                      <span>Prepared for Future Backend Integration</span>
+                      <span className="material-symbols-outlined text-[16px] text-emerald-600">verified_user</span>
+                      <span>{t('reportComplaint.backendConnectedTitle')}</span>
                     </p>
                     <p className="text-[11px] text-tertiary leading-relaxed">
-                      Submission queues this ticket in client storage for this demo session. When the Spring Boot REST API is connected, this form will dispatch a multipart request to <code className="font-mono">POST /api/v1/complaints</code>.
+                      {t('reportComplaint.backendConnectedDesc')}
                     </p>
                   </div>
                 </div>

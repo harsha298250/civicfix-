@@ -287,12 +287,12 @@ export const ComplaintDetailsPage = () => {
 
   // Stepper steps
   const steps = [
-    { key: COMPLAINT_STATUS.SUBMITTED, label: 'Submitted', icon: 'send' },
-    { key: COMPLAINT_STATUS.UNDER_REVIEW, label: 'Under Review', icon: 'rate_review' },
-    { key: COMPLAINT_STATUS.ASSIGNED, label: 'Assigned', icon: 'assignment_ind' },
-    { key: COMPLAINT_STATUS.IN_PROGRESS, label: 'In Progress', icon: 'engineering' },
-    { key: COMPLAINT_STATUS.PENDING_CITIZEN_CONFIRMATION, label: 'Citizen Confirmation', icon: 'mark_email_unread' },
-    { key: COMPLAINT_STATUS.RESOLVED, label: 'Verified Resolved', icon: 'check_circle' }
+    { key: COMPLAINT_STATUS.SUBMITTED, label: t('status.SUBMITTED'), icon: 'send' },
+    { key: COMPLAINT_STATUS.UNDER_REVIEW, label: t('status.UNDER_REVIEW'), icon: 'rate_review' },
+    { key: COMPLAINT_STATUS.ASSIGNED, label: t('status.ASSIGNED'), icon: 'assignment_ind' },
+    { key: COMPLAINT_STATUS.IN_PROGRESS, label: t('status.IN_PROGRESS'), icon: 'engineering' },
+    { key: COMPLAINT_STATUS.PENDING_CITIZEN_CONFIRMATION, label: t('status.PENDING_CITIZEN_CONFIRMATION'), icon: 'mark_email_unread' },
+    { key: COMPLAINT_STATUS.RESOLVED, label: t('status.RESOLVED'), icon: 'check_circle' }
   ];
 
   const getStepIndex = (st) => {
@@ -687,8 +687,8 @@ export const ComplaintDetailsPage = () => {
         <div className="lg:col-span-4 space-y-6">
           {/* Location Details */}
           <div className="bg-surface-container-lowest rounded-2xl p-5 shadow-sm border border-outline-variant/30 space-y-3">
-            <span className="text-xs font-bold text-tertiary uppercase tracking-wider block">
-              Incident Geolocation
+            <span className="text-xs font-bold text-tertiary uppercase tracking-normal block">
+              {t('complaintDetails.locationTitle')}
             </span>
             <div className="space-y-1.5 text-xs">
               <div className="flex items-start gap-2">

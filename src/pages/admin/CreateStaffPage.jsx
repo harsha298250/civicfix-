@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from '../../context/LanguageContext';
 import { useApp } from '../../context/AppContext';
 import { adminService } from '../../services/adminService';
 import Breadcrumb from '../../components/common/Breadcrumb';
 
 const CreateStaffPage = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { showToast } = useApp();
 
@@ -100,10 +102,10 @@ const CreateStaffPage = () => {
         <div className="border-b border-[#E2E7ED] pb-5 mb-6">
           <h1 className="text-2xl font-bold text-[#18232F] flex items-center gap-2">
             <span className="material-symbols-outlined text-[#137A70] text-3xl">badge</span>
-            Provision Official Staff Account
+            {t('admin.provisionTitle', 'Provision Official Staff Account')}
           </h1>
           <p className="text-sm text-[#667384] mt-1">
-            Create verified municipal credentials for Officers or Field Workers with a validated temporary password.
+            {t('admin.provisionSubtitle', 'Create verified municipal credentials for Officers or Field Workers with a validated temporary password.')}
           </p>
         </div>
 
@@ -118,7 +120,7 @@ const CreateStaffPage = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
               <label className="block text-xs font-semibold text-[#18232F] uppercase mb-1.5">
-                Full Legal Name *
+                {t('admin.fullName', 'Full Legal Name')} *
               </label>
               <input
                 type="text"
@@ -135,7 +137,7 @@ const CreateStaffPage = () => {
 
             <div>
               <label className="block text-xs font-semibold text-[#18232F] uppercase mb-1.5">
-                Official Municipal Email *
+                {t('admin.officialEmail', 'Official Municipal Email')} *
               </label>
               <input
                 type="email"
@@ -152,7 +154,7 @@ const CreateStaffPage = () => {
 
             <div>
               <label className="block text-xs font-semibold text-[#18232F] uppercase mb-1.5">
-                Authorized Staff Role *
+                {t('admin.staffRole', 'Authorized Staff Role')} *
               </label>
               <select
                 name="role"
@@ -160,15 +162,15 @@ const CreateStaffPage = () => {
                 onChange={handleChange}
                 className="w-full px-3.5 py-2.5 text-sm border border-[#E2E7ED] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#137A70]"
               >
-                <option value="OFFICER">Municipal Officer (Review & Dispatch)</option>
-                <option value="WORKER">Field Worker (Repairs & Evidence)</option>
+                <option value="OFFICER">{t('admin.officerOption', 'Municipal Officer (Review & Dispatch)')}</option>
+                <option value="WORKER">{t('admin.workerOption', 'Field Worker (Repairs & Evidence)')}</option>
               </select>
               {errors.role && <p className="text-xs text-[#C63F48] mt-1">{errors.role}</p>}
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-[#18232F] uppercase mb-1.5">
-                Assigned Department *
+                {t('admin.assignedDept', 'Assigned Department')} *
               </label>
               <select
                 name="department"
@@ -189,7 +191,7 @@ const CreateStaffPage = () => {
             <div className="sm:col-span-2">
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs font-semibold text-[#18232F] uppercase">
-                  Temporary Activation Password * (min. 8 characters)
+                  {t('admin.tempPassword', 'Temporary Activation Password')} * (min. 8 characters)
                 </label>
                 <button
                   type="button"
@@ -197,7 +199,7 @@ const CreateStaffPage = () => {
                   className="text-xs text-[#137A70] hover:underline font-semibold flex items-center gap-1"
                 >
                   <span className="material-symbols-outlined text-[14px]">auto_fix_high</span>
-                  Generate Strong Password
+                  {t('admin.generatePassword', 'Generate Strong Password')}
                 </button>
               </div>
               <input
@@ -217,7 +219,7 @@ const CreateStaffPage = () => {
 
             <div>
               <label className="block text-xs font-semibold text-[#18232F] uppercase mb-1.5">
-                Contact Phone (Optional)
+                {t('admin.contactPhone', 'Contact Phone (Optional)')}
               </label>
               <input
                 type="text"
@@ -243,7 +245,7 @@ const CreateStaffPage = () => {
               to="/admin/users"
               className="px-5 py-2.5 text-sm font-semibold text-[#667384] hover:text-[#18232F] border border-[#E2E7ED] rounded-lg hover:bg-slate-50 transition-colors"
             >
-              Cancel
+              {t('admin.cancel', 'Cancel')}
             </Link>
             <button
               type="submit"
@@ -258,7 +260,7 @@ const CreateStaffPage = () => {
               ) : (
                 <>
                   <span className="material-symbols-outlined text-[18px]">person_add</span>
-                  Create & Issue Credentials
+                  {t('admin.createButton', 'Create & Issue Credentials')}
                 </>
               )}
             </button>
