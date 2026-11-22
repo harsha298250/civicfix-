@@ -13,7 +13,7 @@ WORKDIR /build
 # Copy Maven configuration, wrapper settings, and dependency descriptor
 COPY .mvn ./.mvn
 COPY pom.xml .
-RUN mvn dependency:resolve dependency:resolve-plugins -s .mvn/settings.xml -B
+RUN mvn dependency:resolve -s .mvn/settings.xml -B
 
 # Copy application source code and compile production JAR
 COPY src ./src
