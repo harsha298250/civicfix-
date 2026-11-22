@@ -59,6 +59,16 @@ spring:
           auth: ${SPRING_MAIL_AUTH:true}
           starttls:
             enable: ${SPRING_MAIL_STARTTLS:true}
+          connectiontimeout: ${SPRING_MAIL_CONNECTION_TIMEOUT:5000}
+          timeout: ${SPRING_MAIL_TIMEOUT:5000}
+          writetimeout: ${SPRING_MAIL_WRITE_TIMEOUT:5000}
+
+# Resend Transactional Email API Configuration
+resend:
+  api-key: ${RESEND_API_KEY:}
+  from-email: ${RESEND_FROM_EMAIL:onboarding@resend.dev}
+  api-url: ${RESEND_API_URL:https://api.resend.com/emails}
+  timeout-ms: ${RESEND_TIMEOUT_MS:5000}
 
 # Actuator configuration: restrict sensitive health/metrics
 management:

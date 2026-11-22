@@ -11,6 +11,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
+/**
+ * Secondary/Fallback Email Delivery Service using standard Spring Mail (SMTP).
+ */
 @Service
 public class DefaultEmailService implements EmailService {
 
@@ -30,13 +33,13 @@ public class DefaultEmailService implements EmailService {
     }
 
     @Override
-    public void sendPasswordResetEmail(String toEmail, String resetUrl) {
+    public boolean sendPasswordResetEmail(String toEmail, String resetUrl) {
         String maskedRecipient = maskEmail(toEmail);
 
         if (!mailEnabled || mailSender.isEmpty()) {
-            log.info("[EMAIL SERVICE] Password reset email simulated for recipient: {}. (Outbound delivery skipped: mail.enabled=false)",
+            log.warn("[SMTP EMAIL] Outbound email delivery aborted: SMTP is disabled (civicfix.mail.enabled=false). Recipient: {}",
                     maskedRecipient);
-            return;
+            return false;
         }
 
         try {
@@ -54,21 +57,55 @@ public class DefaultEmailService implements EmailService {
                     + "<p>A password reset was requested for your CivicFix account.</p>"
                     + "<p>Click the link below to set a new password. This link is single-use and expires in 15 minutes:</p>"
                     + "<p style=\"margin: 24px 0;\"><a href=\"" + resetUrl + "\" style=\"display: inline-block; background-color: #137A70; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;\">Reset Password</a></p>"
-                    + "<p style=\"font-size: 12px; color: #667384;\">If you did not request this reset, you can safely ignore this email. Your current password remains secure.</p>"
-                    + "<hr style=\"border: none; border-top: 1px solid #E2E7ED; margin: 24px 0;\" />"
-                    + "<p style=\"font-size: 11px; color: #94A3B8;\">CivicFix Platform — Municipal Issue Remediation</p>"
+                    + "<p style=\"font-size: 12px; color: #667384;\">If you did not request this reset, you can safely ignore this email.</p>"
                     + "</div></body></html>";
 
             helper.setText(htmlBody, true);
             sender.send(message);
 
-            log.info("[EMAIL SERVICE] Password reset email successfully dispatched to: {}", maskedRecipient);
+            log.info("[SMTP EMAIL] Password reset email successfully dispatched to: {}", maskedRecipient);
+            return true;
         } catch (Exception ex) {
-            // Log warning with masked email and never leak sensitive tokens or credentials in logs
-            log.warn("[EMAIL SERVICE] Failed to deliver password reset email to: {}. Error: {}",
+            log.warn("[SMTP EMAIL] Failed to deliver password reset email to: {}. Error: {}",
                     maskedRecipient, ex.getMessage());
-            // Do not rethrow - auth flow must not reveal provider failure to end user
+            return false;
         }
+    }
+
+    @Override
+    public boolean sendPasswordResetConfirmationEmail(String toEmail, String name) {
+        log.warn("[SMTP EMAIL] Outbound email skipped: SMTP fallback disabled. Recipient: {}", maskEmail(toEmail));
+        return false;
+    }
+
+    @Override
+    public boolean sendWelcomeEmail(String toEmail, String name) {
+        log.warn("[SMTP EMAIL] Outbound email skipped: SMTP fallback disabled. Recipient: {}", maskEmail(toEmail));
+        return false;
+    }
+
+    @Override
+    public boolean sendComplaintSubmittedEmail(String toEmail, String citizenName, String referenceId, String title, String category, String ward) {
+        log.warn("[SMTP EMAIL] Outbound email skipped for #{} (SMTP fallback disabled). Recipient: {}", referenceId, maskEmail(toEmail));
+        return false;
+    }
+
+    @Override
+    public boolean sendComplaintStatusUpdateEmail(String toEmail, String citizenName, String referenceId, String title, String oldStatus, String newStatus, String notes) {
+        log.warn("[SMTP EMAIL] Outbound email skipped for #{} (SMTP fallback disabled). Recipient: {}", referenceId, maskEmail(toEmail));
+        return false;
+    }
+
+    @Override
+    public boolean sendComplaintAssignmentEmail(String toEmail, String recipientName, String role, String referenceId, String title, String priority, String ward) {
+        log.warn("[SMTP EMAIL] Outbound email skipped for #{} (SMTP fallback disabled). Recipient: {}", referenceId, maskEmail(toEmail));
+        return false;
+    }
+
+    @Override
+    public boolean sendNewComplaintAlertEmail(String toEmail, String officerName, String referenceId, String title, String priority, String ward) {
+        log.warn("[SMTP EMAIL] Outbound email skipped for #{} (SMTP fallback disabled). Recipient: {}", referenceId, maskEmail(toEmail));
+        return false;
     }
 
     private String maskEmail(String email) {

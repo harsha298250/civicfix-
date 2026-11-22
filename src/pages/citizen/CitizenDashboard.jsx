@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { useTranslation } from '../../context/LanguageContext';
@@ -13,6 +13,10 @@ export const CitizenDashboard = () => {
   const [activeFilter, setActiveFilter] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
 
+  useEffect(() => {
+    refreshComplaints();
+  }, []);
+
   // Strictly isolated to the authenticated citizen resident
   const myComplaints = getCitizenComplaints
     ? getCitizenComplaints(currentUser)
@@ -22,6 +26,11 @@ export const CitizenDashboard = () => {
   const inProgressCount = myComplaints.filter(c => c.status === COMPLAINT_STATUS.IN_PROGRESS).length;
   const verificationCount = myComplaints.filter(c => c.status === COMPLAINT_STATUS.RESOLUTION_SUBMITTED).length;
   const resolvedCount = myComplaints.filter(c => c.status === COMPLAINT_STATUS.RESOLVED).length;
+
+  const displayTotal = complaintsError ? '—' : loading ? '...' : totalCount;
+  const displayInProgress = complaintsError ? '—' : loading ? '...' : inProgressCount;
+  const displayVerification = complaintsError ? '—' : loading ? '...' : verificationCount;
+  const displayResolved = complaintsError ? '—' : loading ? '...' : resolvedCount;
 
   const filteredComplaints = myComplaints.filter(c => {
     const matchesFilter =
@@ -51,7 +60,7 @@ export const CitizenDashboard = () => {
               </h1>
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container-low text-primary-container text-xs font-semibold">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary-container" />
-                Verified Resident
+                {t('citizenDashboard.verifiedResident')}
               </span>
             </div>
             <p className="text-body-md text-sm text-on-surface-variant">
@@ -60,17 +69,17 @@ export const CitizenDashboard = () => {
             <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-tertiary">
               <span className="flex items-center gap-1">
                 <span className="material-symbols-outlined text-[14px]">update</span>
-                <span>Real-time Sync Active</span>
+                <span>{t('citizenDashboard.realTimeSyncActive')}</span>
               </span>
               <span>•</span>
               <span className="flex items-center gap-1 text-on-surface font-medium">
                 <span className="material-symbols-outlined text-[14px] text-primary-container">near_me</span>
-                <span>{currentUser.ward || 'Ward 08, Anna Nagar, Chennai'}</span>
+                <span>{currentUser?.ward || 'Ward 08, Anna Nagar, Chennai'}</span>
               </span>
               <span>•</span>
               <span className="flex items-center gap-1 text-secondary font-medium">
                 <span className="material-symbols-outlined text-[14px]">rule</span>
-                <span>Rule Triage Active</span>
+                <span>{t('citizenDashboard.ruleTriageActive')}</span>
               </span>
             </div>
           </div>
@@ -80,7 +89,7 @@ export const CitizenDashboard = () => {
             <div className="flex flex-col text-left">
               <span className="font-title text-sm font-bold text-on-surface">{t('citizenDashboard.reportNewDefect')}</span>
               <span className="text-xs text-tertiary max-w-[200px]">
-                Spotted a pothole, leak, or electrical hazard?
+                {t('citizenDashboard.spottedPrompt')}
               </span>
             </div>
             <Link
@@ -105,7 +114,7 @@ export const CitizenDashboard = () => {
             className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg shrink-0 transition-colors flex items-center gap-1"
           >
             <span className="material-symbols-outlined text-[16px]">refresh</span>
-            <span>Retry</span>
+            <span>{t('citizenDashboard.retry')}</span>
           </button>
         </div>
       )}
@@ -114,32 +123,32 @@ export const CitizenDashboard = () => {
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-outline-variant/30 flex flex-col justify-between hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-tertiary uppercase tracking-wider">Total Reports</span>
+            <span className="text-xs font-semibold text-tertiary uppercase tracking-wider">{t('citizenDashboard.totalReports')}</span>
             <div className="w-8 h-8 rounded-lg bg-surface-container-low flex items-center justify-center text-primary-container">
               <span className="material-symbols-outlined text-[18px]">folder_shared</span>
             </div>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="font-display text-3xl font-extrabold text-on-surface">{totalCount}</span>
-            <span className="text-xs text-primary font-semibold">100% indexed</span>
+            <span className="font-display text-3xl font-extrabold text-on-surface">{displayTotal}</span>
+            <span className="text-xs text-primary font-semibold">{t('citizenDashboard.indexed100')}</span>
           </div>
-          <span className="text-[11px] text-tertiary mt-2">Active in municipal ledger</span>
+          <span className="text-[11px] text-tertiary mt-2">{t('citizenDashboard.activeInLedger')}</span>
         </div>
 
         <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-outline-variant/30 flex flex-col justify-between hover:shadow-md transition-shadow">
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-tertiary uppercase tracking-wider">Reports Being Worked On</span>
+              <span className="text-xs font-semibold text-tertiary uppercase tracking-wider">{t('citizenDashboard.reportsWorkedOn')}</span>
               <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
                 <span className="material-symbols-outlined text-[18px]">engineering</span>
               </div>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="font-display text-3xl font-extrabold text-primary">{inProgressCount}</span>
-              <span className="text-xs text-primary font-semibold">Crews On Site</span>
+              <span className="font-display text-3xl font-extrabold text-primary">{displayInProgress}</span>
+              <span className="text-xs text-primary font-semibold">{t('citizenDashboard.crewsOnSite')}</span>
             </div>
             <p className="text-[11px] text-tertiary mt-2">
-              Assigned municipal work orders currently being executed on-site by dispatched field units.
+              {t('citizenDashboard.workedOnDesc')}
             </p>
           </div>
           <div className="pt-3 border-t border-outline-variant/20 mt-3">
@@ -147,7 +156,7 @@ export const CitizenDashboard = () => {
               to="/citizen/complaints?status=IN_PROGRESS"
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary-container transition-colors group"
             >
-              <span>Track Work</span>
+              <span>{t('citizenDashboard.trackWork')}</span>
               <span className="material-symbols-outlined text-[14px] transition-transform group-hover:translate-x-0.5">arrow_forward</span>
             </Link>
           </div>
@@ -156,17 +165,17 @@ export const CitizenDashboard = () => {
         <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-outline-variant/30 flex flex-col justify-between hover:shadow-md transition-shadow">
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-tertiary uppercase tracking-wider">Awaiting Verification</span>
+              <span className="text-xs font-semibold text-tertiary uppercase tracking-wider">{t('citizenDashboard.awaitingVerification')}</span>
               <div className="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary">
                 <span className="material-symbols-outlined text-[18px]">fact_check</span>
               </div>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="font-display text-3xl font-extrabold text-secondary">{verificationCount}</span>
-              <span className="text-xs text-secondary font-semibold">Resolution Submitted</span>
+              <span className="font-display text-3xl font-extrabold text-secondary">{displayVerification}</span>
+              <span className="text-xs text-secondary font-semibold">{t('citizenDashboard.resolutionSubmitted')}</span>
             </div>
             <p className="text-[11px] text-tertiary mt-2">
-              Repairs completed by field crews, currently undergoing officer quality audit and sign-off.
+              {t('citizenDashboard.awaitingVerificationDesc')}
             </p>
           </div>
           <div className="pt-3 border-t border-outline-variant/20 mt-3">
@@ -174,7 +183,7 @@ export const CitizenDashboard = () => {
               to="/citizen/complaints?status=RESOLUTION_SUBMITTED"
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-secondary hover:text-secondary-container transition-colors group"
             >
-              <span>View Status</span>
+              <span>{t('citizenDashboard.viewStatus')}</span>
               <span className="material-symbols-outlined text-[14px] transition-transform group-hover:translate-x-0.5">arrow_forward</span>
             </Link>
           </div>
@@ -182,16 +191,16 @@ export const CitizenDashboard = () => {
 
         <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-outline-variant/30 flex flex-col justify-between hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-tertiary uppercase tracking-wider">Verified Resolved</span>
+            <span className="text-xs font-semibold text-tertiary uppercase tracking-wider">{t('citizenDashboard.verifiedResolved')}</span>
             <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-700">
               <span className="material-symbols-outlined text-[18px]">check_circle</span>
             </div>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="font-display text-3xl font-extrabold text-emerald-700">{resolvedCount}</span>
-            <span className="text-xs text-emerald-600 font-semibold">100% Verified</span>
+            <span className="font-display text-3xl font-extrabold text-emerald-700">{displayResolved}</span>
+            <span className="text-xs text-emerald-600 font-semibold">{t('citizenDashboard.verified100')}</span>
           </div>
-          <span className="text-[11px] text-tertiary mt-2">Officially closed cases</span>
+          <span className="text-[11px] text-tertiary mt-2">{t('citizenDashboard.closedCases')}</span>
         </div>
       </section>
 
@@ -201,17 +210,17 @@ export const CitizenDashboard = () => {
         <div className="lg:col-span-8 bg-surface-container-lowest rounded-2xl p-6 shadow-sm border border-outline-variant/30 space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h2 className="font-title text-base font-bold text-on-surface">Registered Civic Complaints</h2>
-              <p className="text-xs text-on-surface-variant">Real-time status updates from Central Operations</p>
+              <h2 className="font-title text-base font-bold text-on-surface">{t('citizenDashboard.registeredComplaints')}</h2>
+              <p className="text-xs text-on-surface-variant">{t('citizenDashboard.realTimeOps')}</p>
             </div>
 
             {/* Filter Tabs */}
             <div className="flex items-center gap-1 bg-surface-container-low p-1 rounded-xl text-xs overflow-x-auto no-scrollbar">
               {[
-                { id: 'ALL', label: 'All Reports' },
-                { id: 'IN_PROGRESS', label: 'In Progress' },
-                { id: 'RESOLUTION_SUBMITTED', label: 'Verification' },
-                { id: 'RESOLVED', label: 'Resolved' }
+                { id: 'ALL', label: t('citizenDashboard.allReports') },
+                { id: 'IN_PROGRESS', label: t('citizenDashboard.tabInProgress') },
+                { id: 'RESOLUTION_SUBMITTED', label: t('citizenDashboard.tabVerification') },
+                { id: 'RESOLVED', label: t('citizenDashboard.tabResolved') }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -235,7 +244,7 @@ export const CitizenDashboard = () => {
             </span>
             <input
               type="text"
-              placeholder="Search by ticket ID (#CF-2026-00124), issue title, street..."
+              placeholder={t('citizenDashboard.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-surface-container-low rounded-xl text-xs text-on-surface placeholder:text-outline border border-transparent focus:border-primary-container focus:bg-surface-container-lowest focus:outline-none transition-all"
@@ -247,7 +256,7 @@ export const CitizenDashboard = () => {
             {complaintsError ? (
               <div className="text-center py-12 bg-surface-container-low rounded-xl p-6 space-y-3 border border-red-200">
                 <span className="material-symbols-outlined text-red-600 text-[36px]">cloud_off</span>
-                <p className="font-semibold text-sm text-on-surface">Unable to load complaints</p>
+                <p className="font-semibold text-sm text-on-surface">{t('citizenDashboard.unableToLoad')}</p>
                 <p className="text-xs text-on-surface-variant max-w-sm mx-auto">
                   {complaintsError}
                 </p>
@@ -257,22 +266,22 @@ export const CitizenDashboard = () => {
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-container text-white text-xs font-semibold shadow-sm hover:bg-primary transition-colors"
                 >
                   <span className="material-symbols-outlined text-[16px]">refresh</span>
-                  <span>Retry</span>
+                  <span>{t('citizenDashboard.retry')}</span>
                 </button>
               </div>
             ) : filteredComplaints.length === 0 ? (
               <div className="text-center py-12 bg-surface-container-low rounded-xl p-6 space-y-3">
                 <span className="material-symbols-outlined text-tertiary text-[36px]">inbox</span>
-                <p className="font-semibold text-sm text-on-surface">No complaints match your criteria</p>
+                <p className="font-semibold text-sm text-on-surface">{t('citizenDashboard.noComplaintsMatch')}</p>
                 <p className="text-xs text-tertiary max-w-sm mx-auto">
-                  Try adjusting your filter or report a new civic defect in your area.
+                  {t('citizenDashboard.noComplaintsAdjust')}
                 </p>
                 <Link
                   to="/citizen/complaints/new"
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-container text-white text-xs font-semibold shadow-sm hover:bg-primary"
                 >
                   <span className="material-symbols-outlined text-[16px]">add_location_alt</span>
-                  <span>File a Report Now</span>
+                  <span>{t('citizenDashboard.fileReportNow')}</span>
                 </Link>
               </div>
             ) : (
@@ -313,10 +322,10 @@ export const CitizenDashboard = () => {
                             style={{ width: `${item.progressPercent}%` }}
                           />
                         </div>
-                        <span className="text-[10px] text-tertiary font-code">{item.progressPercent}% progress</span>
+                        <span className="text-[10px] text-tertiary font-code">{item.progressPercent}% {t('citizenDashboard.progress')}</span>
                         {item.assignedWorker && (
                           <span className="text-[10px] text-on-surface-variant font-medium">
-                            · Assigned: {item.assignedWorker.name}
+                            · {t('citizenDashboard.assigned')} {item.assignedWorker.name}
                           </span>
                         )}
                       </div>
@@ -328,7 +337,7 @@ export const CitizenDashboard = () => {
                       to={`/citizen/complaints/${item.id}`}
                       className="px-3.5 py-2 rounded-xl bg-surface-container hover:bg-primary-container hover:text-white text-on-surface font-semibold text-xs transition-all flex items-center gap-1 shadow-sm"
                     >
-                      <span>Track Details</span>
+                      <span>{t('citizenDashboard.trackDetails')}</span>
                       <span className="material-symbols-outlined text-[16px]">chevron_right</span>
                     </Link>
                   </div>
@@ -345,16 +354,16 @@ export const CitizenDashboard = () => {
             <div className="flex items-center justify-between">
               <span className="font-title text-xs font-bold text-on-surface uppercase tracking-wider flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[16px] text-primary-container">verified_user</span>
-                <span>Citizen Data Isolation</span>
+                <span>{t('citizenDashboard.dataIsolationTitle')}</span>
               </span>
-              <span className="text-[10px] font-code text-primary-container font-semibold">Active</span>
+              <span className="text-[10px] font-code text-primary-container font-semibold">{t('citizenDashboard.dataIsolationStatus')}</span>
             </div>
             <p className="text-xs text-on-surface-variant leading-relaxed">
-              Your reported complaints, uploaded photos, and location coordinates are private to your resident identity. Only authorized municipal officers and assigned field crews review repair telemetry.
+              {t('citizenDashboard.dataIsolationDesc')}
             </p>
             <div className="pt-2 border-t border-outline-variant/20 flex items-center justify-between text-xs">
-              <span className="text-tertiary">Resolution Verification:</span>
-              <span className="font-semibold text-primary">Officer Inspected</span>
+              <span className="text-tertiary">{t('citizenDashboard.resolutionVerification')}</span>
+              <span className="font-semibold text-primary">{t('citizenDashboard.officerInspected')}</span>
             </div>
           </div>
 
@@ -362,22 +371,22 @@ export const CitizenDashboard = () => {
           <div className="bg-surface-container-lowest rounded-2xl p-5 shadow-sm border border-outline-variant/30 space-y-3">
             <div className="flex items-center gap-2 text-secondary font-bold text-xs uppercase tracking-wider">
               <span className="material-symbols-outlined text-[18px]">rule</span>
-              <span>Rule-Based Triage & Verification</span>
+              <span>{t('citizenDashboard.ruleTriageTitle')}</span>
             </div>
             <p className="text-xs text-on-surface-variant leading-relaxed">
-              Every complaint is evaluated by deterministic keyword rules and spatial proximity screening to suggest category, detect duplicates, and route to municipal officers.
+              {t('citizenDashboard.ruleTriageDesc')}
             </p>
             <div className="bg-surface-container-low p-3 rounded-xl space-y-2 text-xs">
               <div className="flex justify-between">
-                <span className="text-tertiary">Duplicate Detection:</span>
-                <span className="font-semibold text-on-surface">3 Clustered</span>
+                <span className="text-tertiary">{t('citizenDashboard.duplicateDetection')}</span>
+                <span className="font-semibold text-on-surface">{t('citizenDashboard.clustered3')}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-tertiary">Mean Triage Latency:</span>
+                <span className="text-tertiary">{t('citizenDashboard.meanTriageLatency')}</span>
                 <span className="font-semibold text-primary-container font-code">1.4s</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-tertiary">Inspection Precision:</span>
+                <span className="text-tertiary">{t('citizenDashboard.inspectionPrecision')}</span>
                 <span className="font-semibold text-emerald-600">98.4%</span>
               </div>
             </div>

@@ -32,8 +32,9 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AuthUserResponse>> register(
             @Valid @RequestBody RegisterCitizenRequest request,
-            HttpServletRequest httpRequest) {
-        AuthUserResponse response = authService.registerCitizen(request, clientIpResolver.resolveClientIp(httpRequest));
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+        AuthUserResponse response = authService.registerCitizen(request, httpRequest, httpResponse);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Citizen account registered successfully.", response));
     }

@@ -105,9 +105,12 @@ export const AppProvider = ({ children }) => {
 
   useEffect(() => {
     if (currentUser) {
+      refreshComplaints();
       refreshNotifications();
       refreshUnreadCount();
     } else {
+      setComplaints([]);
+      setComplaintsError(null);
       setNotifications([]);
       setUnreadCount(0);
     }

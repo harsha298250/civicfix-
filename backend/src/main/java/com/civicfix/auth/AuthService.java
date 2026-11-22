@@ -168,7 +168,35 @@ public class AuthService {
                 "SUCCESS"
         );
 
+        if (emailService != null && savedUser.getEmail() != null && !savedUser.getEmail().isBlank()) {
+            try {
+                emailService.sendWelcomeEmail(savedUser.getEmail(), savedUser.getFullName());
+            } catch (Exception ex) {
+                log.warn("Non-fatal welcome email delivery failed for user {}: {}", savedUser.getId(), ex.getMessage());
+            }
+        }
+
         return AuthUserResponse.fromEntity(savedUser);
+    }
+
+    @Transactional
+    public AuthUserResponse registerCitizen(RegisterCitizenRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        String clientIp = httpRequest != null ? clientIpResolver.resolveClientIp(httpRequest) : "unknown";
+        AuthUserResponse response = registerCitizen(request, clientIp);
+
+        // Immediately authenticate the newly registered citizen and establish server-side HTTP session
+        if (httpRequest != null && httpResponse != null && response != null && response.getId() != null) {
+            User user = userRepository.findById(response.getId()).orElse(null);
+            if (user != null) {
+                UserPrincipal principal = new UserPrincipal(user);
+                Authentication auth = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+                SecurityContext context = securityContextHolderStrategy.createEmptyContext();
+                context.setAuthentication(auth);
+                securityContextHolderStrategy.setContext(context);
+                securityContextRepository.saveContext(context, httpRequest, httpResponse);
+            }
+        }
+        return response;
     }
 
     @Transactional(noRollbackFor = {BadCredentialsException.class, RateLimitExceededException.class})
@@ -392,6 +420,14 @@ public class AuthService {
                 token.getCreatedByIp(),
                 "SUCCESS"
         );
+
+        if (emailService != null && user.getEmail() != null && !user.getEmail().isBlank()) {
+            try {
+                emailService.sendPasswordResetConfirmationEmail(user.getEmail(), user.getFullName());
+            } catch (Exception ex) {
+                log.warn("Non-fatal password reset confirmation email failed for user {}: {}", user.getId(), ex.getMessage());
+            }
+        }
 
         return "Password has been reset successfully. You can now log in with your new credentials.";
     }

@@ -400,6 +400,10 @@ export const ImageUploadManager = ({
                   src={item.url}
                   alt={item.name || `Photo ${idx + 1}`}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='225' viewBox='0 0 400 225'%3E%3Crect width='400' height='225' fill='%231e293b'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2394a3b8' font-family='sans-serif' font-size='13'%3EPreview Unavailable%3C/text%3E%3C/svg%3E";
+                  }}
                 />
                 <button
                   type="button"

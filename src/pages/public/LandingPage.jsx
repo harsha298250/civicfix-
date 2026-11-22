@@ -1,7 +1,9 @@
 import React, { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useTranslation } from '../../context/LanguageContext';
 
 export const LandingPage = () => {
+  const { t } = useTranslation();
   const location = useLocation();
 
   // Handle cross-page anchor navigation (e.g. from /register or /legal/terms to /#how-it-works)
@@ -27,17 +29,16 @@ export const LandingPage = () => {
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-container-high w-fit shadow-sm">
               <span className="w-2 h-2 rounded-full bg-primary-container animate-pulse" />
               <span className="font-label-sm text-label-sm text-on-surface-variant font-medium">
-                Rule-Assisted Civic Complaint Platform
+                {t('landing.badge')}
               </span>
             </div>
 
             <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl text-on-surface tracking-tight leading-tight font-extrabold">
-              Report. Track. Fix. <br className="hidden sm:inline" />
-              <span className="text-primary-container">Together.</span>
+              {t('landing.heroTitle')}
             </h1>
 
             <p className="font-body-lg text-body-lg text-on-surface-variant max-w-xl leading-relaxed">
-              Report local civic issues, follow their progress in real-time, and help build cleaner, safer, better-connected communities through autonomous verified work-orders.
+              {t('landing.heroDesc')}
             </p>
 
             {/* CTA Cluster */}
@@ -47,21 +48,21 @@ export const LandingPage = () => {
                 className="inline-flex items-center gap-2 bg-primary-container hover:bg-primary text-white font-semibold px-6 h-12 rounded-xl shadow-md transition-all hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
               >
                 <span className="material-symbols-outlined text-[20px]">near_me</span>
-                <span>Report an Issue</span>
+                <span>{t('landing.reportAnIssue')}</span>
               </Link>
               <Link
                 to="/login"
                 className="inline-flex items-center gap-2 bg-surface-container-lowest hover:bg-surface-container text-on-surface font-semibold px-6 h-12 rounded-xl shadow-sm border border-outline-variant/40 transition-all hover:shadow"
               >
                 <span className="material-symbols-outlined text-[20px]">lock_open</span>
-                <span>Sign In to Portal</span>
+                <span>{t('landing.signInPortal')}</span>
               </Link>
               <Link
                 to="/map"
                 className="inline-flex items-center gap-2 bg-secondary-fixed text-on-secondary-fixed hover:bg-secondary-fixed-dim font-semibold px-5 h-12 rounded-xl shadow-sm transition-all"
               >
                 <span className="material-symbols-outlined text-[20px]">map</span>
-                <span>Live City Map</span>
+                <span>{t('landing.liveCityMap')}</span>
               </Link>
             </div>
 
@@ -69,15 +70,15 @@ export const LandingPage = () => {
             <div className="pt-4 flex flex-wrap items-center gap-6 text-on-surface-variant font-label-sm text-label-sm">
               <div className="flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-primary-container text-[18px]">verified</span>
-                <span>GIS-GeoTagged Validation</span>
+                <span>{t('landing.gisValidation')}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-primary-container text-[18px]">history_toggle_off</span>
-                <span>Real-time Public Auditing</span>
+                <span>{t('landing.realTimeAudit')}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-secondary text-[18px]">rule</span>
-                <span>Rule-Based Triage Pipeline</span>
+                <span>{t('landing.ruleTriagePipeline')}</span>
               </div>
             </div>
           </div>
@@ -93,7 +94,7 @@ export const LandingPage = () => {
               <div className="absolute inset-0 bg-gradient-to-t from-[#111c28]/70 via-transparent to-transparent" />
               <div className="absolute top-4 left-4 bg-[#151D26]/80 backdrop-blur-md text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>Sector 04 Active Sensor Grid</span>
+                <span>{t('landing.sensorGrid')}</span>
               </div>
             </div>
 
@@ -102,14 +103,14 @@ export const LandingPage = () => {
               <div className="flex items-start justify-between gap-2 mb-2">
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 font-label-sm text-xs font-semibold">
                   <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                  Resolved in 48h
+                  {t('landing.resolvedIn48h')}
                 </span>
                 <span className="font-code text-xs text-on-surface-variant font-semibold">#CF-2026-00124</span>
               </div>
-              <h4 className="font-title text-sm text-on-surface font-bold">Pothole & Road Resurfacing</h4>
+              <h4 className="font-title text-sm text-on-surface font-bold">{t('landing.sampleTitle')}</h4>
               <p className="font-body-sm text-xs text-on-surface-variant flex items-center gap-1 mt-1">
                 <span className="material-symbols-outlined text-[15px] text-tertiary">location_on</span>
-                Pine Boulevard • District 4
+                {t('landing.sampleLoc')}
               </p>
               <div className="mt-3 pt-2 flex items-center justify-between bg-surface-container-low rounded-xl p-2.5 text-xs">
                 <div className="flex items-center gap-2">
@@ -117,15 +118,15 @@ export const LandingPage = () => {
                     <span className="material-symbols-outlined text-[18px]">engineering</span>
                   </div>
                   <div>
-                    <p className="font-semibold text-on-surface">SDOT Unit 4</p>
-                    <p className="text-[10px] text-tertiary">Hydraulic Roller Compaction</p>
+                    <p className="font-semibold text-on-surface">{t('landing.sampleUnit')}</p>
+                    <p className="text-[10px] text-tertiary">{t('landing.sampleUnitDesc')}</p>
                   </div>
                 </div>
                 <Link
                   to="/citizen/complaints/CF-2026-00124"
                   className="text-primary-container font-semibold hover:underline flex items-center gap-0.5"
                 >
-                  <span>Track</span>
+                  <span>{t('landing.track')}</span>
                   <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                 </Link>
               </div>
@@ -139,13 +140,13 @@ export const LandingPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center max-w-2xl mx-auto mb-12">
             <span className="text-secondary font-semibold text-xs uppercase tracking-wider">
-              Transparent Operations
+              {t('landing.transparentOps')}
             </span>
             <h2 className="font-headline-lg text-3xl font-bold text-on-surface mt-1">
-              How CivicFix Resolves Urban Defects
+              {t('landing.howCivicFixResolves')}
             </h2>
             <p className="text-on-surface-variant text-sm mt-2">
-              From citizen report to field crew dispatch and verified resolution in 4 streamlined stages.
+              {t('landing.howCivicFixSubtitle')}
             </p>
           </div>
 
@@ -153,29 +154,29 @@ export const LandingPage = () => {
             {[
               {
                 step: '01',
-                title: 'Citizen Geo-Intake',
-                desc: 'Residents capture photos and GPS coordinates in seconds. Zero bureaucratic paperwork.',
+                title: t('landing.step1Title'),
+                desc: t('landing.step1Desc'),
                 icon: 'photo_camera',
                 color: 'bg-primary-container text-white'
               },
               {
                 step: '02',
-                title: 'Smart Triage (Rule-Based)',
-                desc: 'Deterministic keyword matching classifies category, detects duplicates by proximity, and suggests priority.',
+                title: t('landing.step2Title'),
+                desc: t('landing.step2Desc'),
                 icon: 'rule',
                 color: 'bg-secondary text-white'
               },
               {
                 step: '03',
-                title: 'Verified Crew Dispatch',
-                desc: 'Municipal officers review suggested recommendations and deploy closest field units with mobile telemetry.',
+                title: t('landing.step3Title'),
+                desc: t('landing.step3Desc'),
                 icon: 'send_and_archive',
                 color: 'bg-amber-600 text-white'
               },
               {
                 step: '04',
-                title: 'Officer Verification',
-                desc: 'Repair evidence is validated through dual-photo checks before status transitions to Resolved.',
+                title: t('landing.step4Title'),
+                desc: t('landing.step4Desc'),
                 icon: 'verified',
                 color: 'bg-emerald-600 text-white'
               }
@@ -186,7 +187,7 @@ export const LandingPage = () => {
               >
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <span className="font-code text-sm font-bold text-tertiary">STAGE {s.step}</span>
+                    <span className="font-code text-sm font-bold text-tertiary">{t('landing.stage')} {s.step}</span>
                     <div className={`w-10 h-10 rounded-xl ${s.color} flex items-center justify-center shadow-sm`}>
                       <span className="material-symbols-outlined text-[20px]">{s.icon}</span>
                     </div>
@@ -206,20 +207,20 @@ export const LandingPage = () => {
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
             <div>
               <span className="text-primary-container font-semibold text-xs uppercase tracking-wider">
-                Full-Stack Architecture
+                {t('landing.fullStackArch')}
               </span>
               <h2 className="font-headline-lg text-3xl font-bold text-on-surface mt-1">
-                Engineered for City Scale
+                {t('landing.engineeredCityScale')}
               </h2>
               <p className="text-on-surface-variant text-sm mt-1">
-                Role-based interfaces tailored specifically to Citizens, Municipal Officers, Field Workers, and Administrators.
+                {t('landing.engineeredSubtitle')}
               </p>
             </div>
             <Link
               to="/login"
               className="inline-flex items-center gap-1.5 text-primary-container font-semibold hover:underline text-sm"
             >
-              <span>Explore All 4 Workspaces</span>
+              <span>{t('landing.exploreAll4Workspaces')}</span>
               <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
             </Link>
           </div>
@@ -227,32 +228,32 @@ export const LandingPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               {
-                role: 'Citizen Portal',
+                role: t('landing.citizenPortal'),
                 path: '/citizen/dashboard',
                 icon: 'person',
-                desc: 'File complaints in 2 minutes, monitor real-time repair progress, and receive verification alerts.',
-                badge: 'Open Access'
+                desc: t('landing.citizenPortalDesc'),
+                badge: t('landing.citizenBadge')
               },
               {
-                role: 'Municipal Officer',
+                role: t('landing.municipalOfficer'),
                 path: '/officer/dashboard',
                 icon: 'account_balance',
-                desc: 'Assess rule-suggested recommendations, assign field crews, review repair evidence, and inspect the GIS issue map.',
-                badge: 'District Ops'
+                desc: t('landing.municipalOfficerDesc'),
+                badge: t('landing.officerBadge')
               },
               {
-                role: 'Field Worker Companion',
+                role: t('landing.fieldWorkerCompanion'),
                 path: '/worker/dashboard',
                 icon: 'engineering',
-                desc: 'Mobile-first task queue, live status updates, blocker reporting, and GPS photo evidence upload.',
-                badge: 'Rapid Crew'
+                desc: t('landing.fieldWorkerDesc'),
+                badge: t('landing.workerBadge')
               },
               {
-                role: 'Platform Admin Suite',
+                role: t('landing.adminSuite'),
                 path: '/admin/dashboard',
                 icon: 'admin_panel_settings',
-                desc: 'Manage municipal user directory, approve staff accounts, enforce RBAC roles, and inspect audit logs.',
-                badge: 'Tier-0 Governance'
+                desc: t('landing.adminDesc'),
+                badge: t('landing.adminBadge')
               }
             ].map((card) => (
               <div
@@ -276,7 +277,7 @@ export const LandingPage = () => {
                     to={card.path}
                     className="inline-flex items-center gap-1 text-xs font-semibold text-primary-container hover:text-primary transition-colors"
                   >
-                    <span>Launch Workspace</span>
+                    <span>{t('landing.launchWorkspace')}</span>
                     <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                   </Link>
                 </div>
@@ -291,35 +292,35 @@ export const LandingPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center max-w-2xl mx-auto mb-8">
             <span className="text-secondary font-semibold text-xs uppercase tracking-wider">
-              Prototype Operational Telemetry
+              {t('landing.telemetryBadge')}
             </span>
             <h2 className="font-headline-lg text-2xl font-bold text-on-surface mt-1">
-              Demonstrated Architecture Metrics
+              {t('landing.telemetryTitle')}
             </h2>
             <p className="text-xs text-tertiary mt-1">
-              Simulated demonstration performance across Tamil Nadu municipal evaluation sectors.
+              {t('landing.telemetrySubtitle')}
             </p>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 text-center">
             <div className="p-6 bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/40">
               <p className="text-4xl font-extrabold text-primary-container font-display">14,820+</p>
-              <p className="text-sm font-semibold text-on-surface mt-1">Verified Fixes</p>
-              <p className="text-xs text-tertiary mt-0.5">District 4 Operations</p>
+              <p className="text-sm font-semibold text-on-surface mt-1">{t('landing.verifiedFixes')}</p>
+              <p className="text-xs text-tertiary mt-0.5">{t('landing.verifiedFixesSub')}</p>
             </div>
             <div className="p-6 bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/40">
               <p className="text-4xl font-extrabold text-secondary font-display">&lt; 14m</p>
-              <p className="text-sm font-semibold text-on-surface mt-1">Rule Triage Speed</p>
-              <p className="text-xs text-tertiary mt-0.5">Automated Categorization</p>
+              <p className="text-sm font-semibold text-on-surface mt-1">{t('landing.triageSpeed')}</p>
+              <p className="text-xs text-tertiary mt-0.5">{t('landing.triageSpeedSub')}</p>
             </div>
             <div className="p-6 bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/40">
               <p className="text-4xl font-extrabold text-primary-container font-display">99.4%</p>
-              <p className="text-sm font-semibold text-on-surface mt-1">Routing Accuracy</p>
-              <p className="text-xs text-tertiary mt-0.5">Departmental Work-Orders</p>
+              <p className="text-sm font-semibold text-on-surface mt-1">{t('landing.routingAccuracy')}</p>
+              <p className="text-xs text-tertiary mt-0.5">{t('landing.routingAccuracySub')}</p>
             </div>
             <div className="p-6 bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/40">
               <p className="text-4xl font-extrabold text-emerald-600 font-display">48h</p>
-              <p className="text-sm font-semibold text-on-surface mt-1">Average P1 SLA</p>
-              <p className="text-xs text-tertiary mt-0.5">Hazard Elimination</p>
+              <p className="text-sm font-semibold text-on-surface mt-1">{t('landing.p1Sla')}</p>
+              <p className="text-xs text-tertiary mt-0.5">{t('landing.p1SlaSub')}</p>
             </div>
           </div>
         </div>
@@ -330,36 +331,39 @@ export const LandingPage = () => {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-xs font-semibold text-primary-fixed">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Civic Infrastructure Operations Online</span>
+            <span>{t('landing.bottomGridOnline')}</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-            Experience the Future of Smart Municipal Governance
+            {t('landing.bottomTitle')}
           </h2>
           <p className="text-gray-300 max-w-2xl mx-auto text-sm">
-            Explore the citizen report intake journey, municipal officer assessment and verification queue, and field worker progress tracking now.
+            {t('landing.bottomSubtitle')}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <Link
               to="/citizen/dashboard"
               className="bg-primary-container hover:bg-primary text-white font-semibold px-6 py-3 rounded-xl shadow-md transition-all"
             >
-              Start as Citizen
+              {t('landing.startCitizen')}
             </Link>
             <Link
               to="/officer/dashboard"
               className="bg-white/10 hover:bg-white/20 text-white font-semibold px-6 py-3 rounded-xl border border-white/20 transition-all"
             >
-              Start as Officer
+              {t('landing.startOfficer')}
             </Link>
             <Link
               to="/login"
               className="bg-white text-[#151D26] hover:bg-gray-100 font-semibold px-6 py-3 rounded-xl shadow-md transition-all"
             >
-              Unified Sign In
+              {t('landing.unifiedSignIn')}
             </Link>
           </div>
         </div>
       </section>
+    </div>
+  );
+};
     </div>
   );
 };

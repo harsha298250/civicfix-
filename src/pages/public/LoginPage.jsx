@@ -4,7 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { useTranslation } from '../../context/LanguageContext';
 import LanguageToggle from '../../components/common/LanguageToggle';
 import InstallPwaButton from '../../components/common/InstallPwaButton';
-import { authService } from '../../services/authService';
+import { authService, isDemoModeEnabled } from '../../services/authService';
 import { apiClient } from '../../services/apiClient';
 import { detectContactType, formatIndianPhone, isValidIndianPhone } from '../../utils/phoneUtils';
 
@@ -248,45 +248,47 @@ export const LoginPage = () => {
             </button>
           </form>
 
-          {/* Quick Demo Account Presets */}
-          <div className="pt-2 border-t border-[#E2E7ED] space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-[#667384] uppercase tracking-wider">
-                {t('auth.demoAccountsTitle')}
-              </span>
-              <span className="text-[10px] text-tertiary font-mono">CivicSecure#2026!</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {DEMO_PRESETS.map((p, idx) => (
-                <div
-                  key={idx}
-                  className="p-2 rounded-xl border border-[#E2E7ED] bg-slate-50 hover:bg-[#E8F4F1] hover:border-[#137A70] transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-[#18232F]">{p.label}</p>
-                    <span className="text-[9px] font-mono text-tertiary">{p.role}</span>
+          {/* Quick Demo Account Presets (Active exclusively when VITE_DEMO_MODE=true) */}
+          {isDemoModeEnabled() && (
+            <div className="pt-2 border-t border-[#E2E7ED] space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-[#667384] uppercase tracking-wider">
+                  {t('auth.demoAccountsTitle')}
+                </span>
+                <span className="text-[10px] text-tertiary font-mono">CivicSecure#2026!</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {DEMO_PRESETS.map((p, idx) => (
+                  <div
+                    key={idx}
+                    className="p-2 rounded-xl border border-[#E2E7ED] bg-slate-50 hover:bg-[#E8F4F1] hover:border-[#137A70] transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold text-[#18232F]">{p.label}</p>
+                      <span className="text-[9px] font-mono text-tertiary">{p.role}</span>
+                    </div>
+                    <p className="text-[11px] text-[#667384] truncate">{p.name}</p>
+                    <div className="flex items-center gap-1.5 mt-1.5 pt-1.5 border-t border-slate-200 text-[10px]">
+                      <button
+                        type="button"
+                        onClick={() => handleApplyPreset(p, false)}
+                        className="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 text-primary-container font-semibold border border-slate-200"
+                      >
+                        Email
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyPreset(p, true)}
+                        className="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 text-emerald-800 font-semibold border border-slate-200"
+                      >
+                        🇮🇳 Mobile
+                      </button>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-[#667384] truncate">{p.name}</p>
-                  <div className="flex items-center gap-1.5 mt-1.5 pt-1.5 border-t border-slate-200 text-[10px]">
-                    <button
-                      type="button"
-                      onClick={() => handleApplyPreset(p, false)}
-                      className="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 text-primary-container font-semibold border border-slate-200"
-                    >
-                      Email
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleApplyPreset(p, true)}
-                      className="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 text-emerald-800 font-semibold border border-slate-200"
-                    >
-                      🇮🇳 Mobile
-                    </button>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Registration link */}
           <div className="text-center text-xs text-[#667384] pt-2 border-t border-[#E2E7ED]">

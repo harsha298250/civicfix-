@@ -10,16 +10,26 @@
  */
 
 export const getApiBaseUrl = () => {
+  let envUrl = '';
   if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL;
+    envUrl = import.meta.env.VITE_API_BASE_URL.trim();
+  } else if (typeof process !== 'undefined' && process.env && process.env.VITE_API_BASE_URL) {
+    envUrl = process.env.VITE_API_BASE_URL.trim();
   }
-  if (typeof process !== 'undefined' && process.env && process.env.VITE_API_BASE_URL) {
-    return process.env.VITE_API_BASE_URL;
-  }
+
   if (typeof window !== 'undefined' && window.location) {
-    return '/api';
+    // When running on Vercel, if envUrl points directly to Render cross-origin,
+    // prefer same-origin '/api' to route through vercel.json proxy and preserve session cookies
+    if (
+      envUrl &&
+      window.location.hostname.endsWith('vercel.app') &&
+      envUrl.includes('onrender.com')
+    ) {
+      return '/api';
+    }
+    return envUrl || '/api';
   }
-  return 'http://localhost:8080/api';
+  return envUrl || 'http://localhost:8080/api';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
@@ -66,10 +76,15 @@ export async function apiRequest(endpoint, options = {}) {
     }
   }
 
+  const timeoutMs = options.timeout || 15000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   const config = {
     ...options,
     method,
     headers,
+    signal: options.signal || controller.signal,
     credentials: 'include' // Transmit and store CIVICFIX_SESSION and XSRF-TOKEN cookies
   };
 
@@ -95,6 +110,8 @@ export async function apiRequest(endpoint, options = {}) {
         errorMessage = seconds
           ? `Too many requests. Please wait ${seconds} seconds before trying again.`
           : (data?.message || 'Too many requests. Please slow down and try again shortly.');
+      } else if (response.status === 401) {
+        errorMessage = data?.message || 'Full authentication is required to access this municipal resource.';
       }
       const error = new Error(errorMessage);
       error.status = response.status;
@@ -105,6 +122,11 @@ export async function apiRequest(endpoint, options = {}) {
 
     return data;
   } catch (err) {
+    if (err.name === 'AbortError') {
+      const timeoutErr = new Error(`Request timed out after ${Math.round(timeoutMs / 1000)} seconds. Please check your network connection and try again.`);
+      timeoutErr.status = 408;
+      throw timeoutErr;
+    }
     if (
       err.name === 'TypeError' ||
       err.code === 'ECONNREFUSED' ||
@@ -115,6 +137,8 @@ export async function apiRequest(endpoint, options = {}) {
       throw connErr;
     }
     throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

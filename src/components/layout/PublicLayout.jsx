@@ -78,7 +78,7 @@ export const PublicLayout = () => {
               onClick={(e) => handleNavClick('impact', e)}
               className="hover:text-primary transition-colors font-medium text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
             >
-              Impact
+              {t('nav.impact')}
             </button>
           </nav>
 
@@ -142,7 +142,7 @@ export const PublicLayout = () => {
               onClick={(e) => handleNavClick('impact', e)}
               className="py-2 text-left text-on-surface font-medium hover:text-primary"
             >
-              Impact & Metrics
+              {t('nav.impact')}
             </button>
             <div className="border-t border-outline-variant/30 my-1" />
             <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="py-2 text-on-surface font-medium">{t('auth.signInButton')}</Link>
@@ -167,47 +167,47 @@ export const PublicLayout = () => {
               <span className="font-bold text-lg">CivicFix</span>
             </div>
             <p className="text-sm text-gray-400">
-              An Explainable, Rule-Assisted Civic Complaint Platform with GIS Mapping and Citizen-Verified Resolution.
+              {t('footer.tagline')}
             </p>
             <div className="flex items-center gap-2 text-xs text-emerald-400">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Municipal Systems Grid Online</span>
+              <span>{t('footer.systemsOnline')}</span>
             </div>
           </div>
           <div>
-            <h4 className="font-semibold text-sm uppercase tracking-wider text-gray-300 mb-3">Public Portals</h4>
+            <h4 className="font-semibold text-sm uppercase tracking-wider text-gray-300 mb-3">{t('footer.publicPortals')}</h4>
             <ul className="space-y-2 text-sm text-gray-400">
-              <li><Link to="/citizen/complaints/new" className="hover:text-white transition-colors">Report Civic Issue</Link></li>
-              <li><Link to="/login" className="hover:text-white transition-colors">Unified Login Portal</Link></li>
-              <li><Link to="/register" className="hover:text-white transition-colors">Citizen Registration</Link></li>
-              <li><Link to="/forgot-password" className="hover:text-white transition-colors">Account Recovery</Link></li>
+              <li><Link to="/citizen/complaints/new" className="hover:text-white transition-colors">{t('footer.reportCivicIssue')}</Link></li>
+              <li><Link to="/login" className="hover:text-white transition-colors">{t('footer.unifiedLogin')}</Link></li>
+              <li><Link to="/register" className="hover:text-white transition-colors">{t('footer.citizenRegistration')}</Link></li>
+              <li><Link to="/forgot-password" className="hover:text-white transition-colors">{t('footer.accountRecovery')}</Link></li>
             </ul>
           </div>
           <div>
-            <h4 className="font-semibold text-sm uppercase tracking-wider text-gray-300 mb-3">Workspaces</h4>
+            <h4 className="font-semibold text-sm uppercase tracking-wider text-gray-300 mb-3">{t('footer.workspaces')}</h4>
             <ul className="space-y-2 text-sm text-gray-400">
-              <li><Link to="/citizen/dashboard" className="hover:text-white transition-colors">Citizen Dashboard</Link></li>
-              <li><Link to="/officer/dashboard" className="hover:text-white transition-colors">Municipal Officer Command</Link></li>
-              <li><Link to="/worker/dashboard" className="hover:text-white transition-colors">Field Crew Companion</Link></li>
-              <li><Link to="/admin/dashboard" className="hover:text-white transition-colors">Platform Admin Governance</Link></li>
+              <li><Link to="/citizen/dashboard" className="hover:text-white transition-colors">{t('footer.citizenDashboard')}</Link></li>
+              <li><Link to="/officer/dashboard" className="hover:text-white transition-colors">{t('footer.officerCommand')}</Link></li>
+              <li><Link to="/worker/dashboard" className="hover:text-white transition-colors">{t('footer.fieldCrewCompanion')}</Link></li>
+              <li><Link to="/admin/dashboard" className="hover:text-white transition-colors">{t('footer.adminGovernance')}</Link></li>
             </ul>
           </div>
           <div>
-            <h4 className="font-semibold text-sm uppercase tracking-wider text-gray-300 mb-3">Legal & Compliance</h4>
+            <h4 className="font-semibold text-sm uppercase tracking-wider text-gray-300 mb-3">{t('footer.legalCompliance')}</h4>
             <ul className="space-y-2 text-sm text-gray-400">
-              <li><Link to="/legal/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
-              <li><Link to="/legal/privacy" className="hover:text-white transition-colors">Citizen Data Privacy Policy</Link></li>
-              <li><Link to="/map" className="hover:text-white transition-colors">Public Infrastructure Map</Link></li>
+              <li><Link to="/legal/terms" className="hover:text-white transition-colors">{t('footer.termsOfService')}</Link></li>
+              <li><Link to="/legal/privacy" className="hover:text-white transition-colors">{t('footer.privacyPolicy')}</Link></li>
+              <li><Link to="/map" className="hover:text-white transition-colors">{t('footer.publicMap')}</Link></li>
               <li className="flex items-center gap-1.5 pt-1 text-xs text-gray-400">
                 <span className="material-symbols-outlined text-[16px] text-primary">shield</span>
-                <span>Resident Data Isolated</span>
+                <span>{t('footer.dataIsolated')}</span>
               </li>
             </ul>
           </div>
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-8 mt-8 border-t border-gray-800 text-xs text-gray-500 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span>© 2026 CivicFix — An Explainable, Rule-Assisted Civic Complaint Platform with GIS Mapping and Citizen-Verified Resolution.</span>
-          <span>Designed with Google Stitch Architecture</span>
+          <span>{t('footer.copyright')}</span>
+          <span>{t('footer.designedWith')}</span>
         </div>
       </footer>
 

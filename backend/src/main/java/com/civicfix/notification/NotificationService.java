@@ -32,10 +32,19 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final com.civicfix.mail.EmailService emailService;
 
-    public NotificationService(NotificationRepository notificationRepository, UserRepository userRepository) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public NotificationService(NotificationRepository notificationRepository,
+                               UserRepository userRepository,
+                               @org.springframework.beans.factory.annotation.Autowired(required = false) com.civicfix.mail.EmailService emailService) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
+        this.emailService = emailService;
+    }
+
+    public NotificationService(NotificationRepository notificationRepository, UserRepository userRepository) {
+        this(notificationRepository, userRepository, null);
     }
 
     /**
@@ -66,6 +75,20 @@ public class NotificationService {
                             NotificationSeverity.INFO,
                             "/citizen/complaints/" + refId
                     );
+                    if (emailService != null && complaint.getCitizen() != null && complaint.getCitizen().getEmail() != null) {
+                        try {
+                            emailService.sendComplaintSubmittedEmail(
+                                    complaint.getCitizen().getEmail(),
+                                    complaint.getCitizen().getFullName(),
+                                    refId,
+                                    complaint.getTitle(),
+                                    complaint.getCategory() != null ? complaint.getCategory() : "General",
+                                    complaint.getWard()
+                            );
+                        } catch (Exception ex) {
+                            log.warn("Non-fatal email error on complaint intake receipt #{}: {}", refId, ex.getMessage());
+                        }
+                    }
 
                     // 2. Notify municipal officers
                     NotificationSeverity officerSeverity = (complaint.getPriority() == ComplaintPriority.CRITICAL || complaint.getPriority() == ComplaintPriority.HIGH)
@@ -85,6 +108,20 @@ public class NotificationService {
                                 officerSeverity,
                                 "/officer/complaints/" + refId + "/review"
                         );
+                        if (emailService != null && officer.getEmail() != null && !officer.getEmail().isBlank()) {
+                            try {
+                                emailService.sendNewComplaintAlertEmail(
+                                        officer.getEmail(),
+                                        officer.getFullName(),
+                                        refId,
+                                        complaint.getTitle(),
+                                        complaint.getPriority() != null ? complaint.getPriority().name() : "MEDIUM",
+                                        wardDesc
+                                );
+                            } catch (Exception ex) {
+                                log.warn("Non-fatal email alert to officer {}: {}", officer.getEmail(), ex.getMessage());
+                            }
+                        }
                     }
                     break;
 
@@ -102,6 +139,21 @@ public class NotificationService {
                                 NotificationSeverity.INFO,
                                 "/worker/tasks/" + refId
                         );
+                        if (emailService != null && complaint.getAssignedWorker().getEmail() != null) {
+                            try {
+                                emailService.sendComplaintAssignmentEmail(
+                                        complaint.getAssignedWorker().getEmail(),
+                                        complaint.getAssignedWorker().getFullName(),
+                                        "FIELD_WORKER",
+                                        refId,
+                                        complaint.getTitle(),
+                                        complaint.getPriority() != null ? complaint.getPriority().name() : "MEDIUM",
+                                        complaint.getWard()
+                                );
+                            } catch (Exception ex) {
+                                log.warn("Non-fatal email dispatch to technician: {}", ex.getMessage());
+                            }
+                        }
                     }
 
                     // 2. Notify citizen
@@ -117,6 +169,21 @@ public class NotificationService {
                             NotificationSeverity.INFO,
                             "/citizen/complaints/" + refId
                     );
+                    if (emailService != null && complaint.getCitizen() != null && complaint.getCitizen().getEmail() != null) {
+                        try {
+                            emailService.sendComplaintStatusUpdateEmail(
+                                    complaint.getCitizen().getEmail(),
+                                    complaint.getCitizen().getFullName(),
+                                    refId,
+                                    complaint.getTitle(),
+                                    "SUBMITTED",
+                                    "WORKER_ASSIGNED",
+                                    "Technician " + workerName + " has been assigned to your ticket."
+                            );
+                        } catch (Exception ex) {
+                            log.warn("Non-fatal email to citizen on worker assignment: {}", ex.getMessage());
+                        }
+                    }
                     break;
 
                 case WORK_STARTED:
@@ -132,6 +199,21 @@ public class NotificationService {
                             NotificationSeverity.INFO,
                             "/citizen/complaints/" + refId
                     );
+                    if (emailService != null && complaint.getCitizen() != null && complaint.getCitizen().getEmail() != null) {
+                        try {
+                            emailService.sendComplaintStatusUpdateEmail(
+                                    complaint.getCitizen().getEmail(),
+                                    complaint.getCitizen().getFullName(),
+                                    refId,
+                                    complaint.getTitle(),
+                                    "ASSIGNED",
+                                    "WORK_STARTED",
+                                    "Field technician has arrived on scene and begun repair operations."
+                            );
+                        } catch (Exception ex) {
+                            log.warn("Non-fatal email error on work started #{}: {}", refId, ex.getMessage());
+                        }
+                    }
                     break;
 
                 case RESOLUTION_SUBMITTED:
@@ -177,6 +259,21 @@ public class NotificationService {
                             NotificationSeverity.INFO,
                             "/citizen/complaints/" + refId
                     );
+                    if (emailService != null && complaint.getCitizen() != null && complaint.getCitizen().getEmail() != null) {
+                        try {
+                            emailService.sendComplaintStatusUpdateEmail(
+                                    complaint.getCitizen().getEmail(),
+                                    complaint.getCitizen().getFullName(),
+                                    refId,
+                                    complaint.getTitle(),
+                                    "IN_PROGRESS",
+                                    "RESOLUTION_SUBMITTED",
+                                    "Field repairs have completed. Municipal officer verification is underway."
+                            );
+                        } catch (Exception ex) {
+                            log.warn("Non-fatal email error on resolution submission #{}: {}", refId, ex.getMessage());
+                        }
+                    }
                     break;
 
                 case COMPLAINT_RESOLVED:
@@ -192,6 +289,21 @@ public class NotificationService {
                             NotificationSeverity.SUCCESS,
                             "/citizen/complaints/" + refId
                     );
+                    if (emailService != null && complaint.getCitizen() != null && complaint.getCitizen().getEmail() != null) {
+                        try {
+                            emailService.sendComplaintStatusUpdateEmail(
+                                    complaint.getCitizen().getEmail(),
+                                    complaint.getCitizen().getFullName(),
+                                    refId,
+                                    complaint.getTitle(),
+                                    "VERIFIED",
+                                    "RESOLVED",
+                                    "Resolution evidence has been verified and formally closed."
+                            );
+                        } catch (Exception ex) {
+                            log.warn("Non-fatal email error on complaint resolution #{}: {}", refId, ex.getMessage());
+                        }
+                    }
 
                     // 2. Notify field technician of approval
                     if (complaint.getAssignedWorker() != null) {
@@ -245,6 +357,21 @@ public class NotificationService {
                             NotificationSeverity.WARNING,
                             "/citizen/complaints/" + refId
                     );
+                    if (emailService != null && complaint.getCitizen() != null && complaint.getCitizen().getEmail() != null) {
+                        try {
+                            emailService.sendComplaintStatusUpdateEmail(
+                                    complaint.getCitizen().getEmail(),
+                                    complaint.getCitizen().getFullName(),
+                                    refId,
+                                    complaint.getTitle(),
+                                    "UNDER_REVIEW",
+                                    "REJECTED",
+                                    "Complaint closed without action: " + rejectReason
+                            );
+                        } catch (Exception ex) {
+                            log.warn("Non-fatal email error on complaint rejection #{}: {}", refId, ex.getMessage());
+                        }
+                    }
                     break;
 
                 case DUPLICATE_LINKED:
