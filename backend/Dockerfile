@@ -10,13 +10,14 @@
 FROM maven:3.9.9-eclipse-temurin-21 AS build
 WORKDIR /build
 
-# Copy dependency descriptor first to maximize Docker layer cache reuse
+# Copy Maven configuration, wrapper settings, and dependency descriptor
+COPY .mvn ./.mvn
 COPY pom.xml .
-RUN mvn dependency:go-offline -B || true
+RUN mvn dependency:resolve dependency:resolve-plugins -s .mvn/settings.xml -B
 
 # Copy application source code and compile production JAR
 COPY src ./src
-RUN mvn clean package -DskipTests -B
+RUN mvn package -DskipTests -s .mvn/settings.xml -B
 
 # ------------------------------------------------------------------------------
 # Stage 2: Production Runtime Stage
