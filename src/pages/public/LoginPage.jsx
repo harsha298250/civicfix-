@@ -15,7 +15,7 @@ export const LoginPage = () => {
   const { t } = useTranslation();
 
   const [selectedRole, setSelectedRole] = useState('CITIZEN');
-  const [identifier, setIdentifier] = useState(isDemoModeEnabled() ? 'alex.m@citizen.org' : '');
+  const [identifier, setIdentifier] = useState(isDemoModeEnabled() ? 'citizen@civicfix.gov' : '');
   const [password, setPassword] = useState(isDemoModeEnabled() ? 'CivicSecure#2026!' : '');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -34,13 +34,13 @@ export const LoginPage = () => {
     return () => { mounted = false; };
   }, []);
 
-  // Quick Demo Account Presets with Indian phone numbers
+  // Quick Staff & Demo Account Presets with Indian phone numbers
   const DEMO_PRESETS = [
-    { label: 'Citizen', name: 'Alex Morgan', identifier: 'alex.m@citizen.org', phone: '+91 98401 23456', role: 'CITIZEN' },
-    { label: 'Municipal Officer', name: 'Elena Vance', identifier: 'elena.vance@metro.gov', phone: '+91 94440 12345', role: 'OFFICER' },
-    { label: 'Supervisor', name: 'Sarah Jenkins', identifier: 'sarah.jenkins@metro.gov', phone: '+91 98405 67890', role: 'SUPERVISOR' },
-    { label: 'Field Worker', name: 'Marcus Chen', identifier: 'marcus.chen@fieldops.gov', phone: '+91 91760 98765', role: 'WORKER' },
-    { label: 'System Admin', name: 'Priya Sharma', identifier: 'priya.sharma@admin.metro.gov', phone: '+91 98410 87654', role: 'ADMIN' }
+    { label: 'Citizen', name: 'Alex Morgan', identifier: 'citizen@civicfix.gov', phone: '+91 98401 23456', role: 'CITIZEN' },
+    { label: 'Municipal Officer', name: 'Elena Vance', identifier: 'officer@civicfix.gov', phone: '+91 94440 12345', role: 'OFFICER' },
+    { label: 'Supervisor', name: 'Sarah Jenkins', identifier: 'supervisor@civicfix.gov', phone: '+91 98405 67890', role: 'SUPERVISOR' },
+    { label: 'Field Worker', name: 'Marcus Chen', identifier: 'worker@civicfix.gov', phone: '+91 91760 98765', role: 'WORKER' },
+    { label: 'System Admin', name: 'Priya Sharma', identifier: 'admin@civicfix.gov', phone: '+91 98410 87654', role: 'ADMIN' }
   ];
 
   const handleApplyPreset = (preset, usePhone = false) => {

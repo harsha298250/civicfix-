@@ -112,11 +112,17 @@ export async function apiRequest(endpoint, options = {}) {
           : (data?.message || 'Too many requests. Please slow down and try again shortly.');
       } else if (response.status === 401) {
         errorMessage = data?.message || 'Full authentication is required to access this municipal resource.';
+      } else if (response.status === 400 && data?.validationErrors && typeof data.validationErrors === 'object') {
+        const fieldMsgs = Object.values(data.validationErrors).filter(Boolean);
+        if (fieldMsgs.length > 0) {
+          errorMessage = fieldMsgs.join('. ');
+        }
       }
       const error = new Error(errorMessage);
       error.status = response.status;
       error.retryAfter = retryAfter ? parseInt(retryAfter, 10) : (data?.retryAfterSeconds || null);
       error.data = data;
+      error.validationErrors = data?.validationErrors || null;
       throw error;
     }
 

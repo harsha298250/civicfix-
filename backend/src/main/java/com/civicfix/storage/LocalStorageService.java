@@ -243,7 +243,8 @@ public class LocalStorageService implements StorageService {
             }
             ImageReader reader = readers.next();
             try {
-                reader.setInput(iis, true, false);
+                // Set ignoreMetadata=true to avoid IIOException on non-standard stream metadata (e.g. JFIF in stream metadata)
+                reader.setInput(iis, false, true);
                 int width = reader.getWidth(0);
                 int height = reader.getHeight(0);
                 if (width <= 0 || height <= 0) {

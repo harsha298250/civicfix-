@@ -156,12 +156,36 @@ export const ReportComplaintPage = () => {
   const validateStep = (step) => {
     const newErrors = {};
     if (step === 1) {
-      if (!formData.title.trim()) newErrors.title = 'Please provide a clear title for the issue.';
-      if (!formData.description.trim()) newErrors.description = 'Please describe the defect in detail.';
+      const trimmedTitle = formData.title.trim();
+      if (!trimmedTitle) {
+        newErrors.title = 'Please provide a clear title for the issue.';
+      } else if (trimmedTitle.length < 5) {
+        newErrors.title = 'Title must be between 5 and 200 characters.';
+      } else if (trimmedTitle.length > 200) {
+        newErrors.title = 'Title cannot exceed 200 characters.';
+      }
+
+      const trimmedDesc = formData.description.trim();
+      if (!trimmedDesc) {
+        newErrors.description = 'Please describe the defect in detail.';
+      } else if (trimmedDesc.length < 10) {
+        newErrors.description = 'Description must be between 10 and 2000 characters.';
+      } else if (trimmedDesc.length > 2000) {
+        newErrors.description = 'Description cannot exceed 2000 characters.';
+      }
     }
     if (step === 3) {
-      if (!formData.address.trim()) newErrors.address = 'Please provide a physical street or location.';
-      if (!formData.locationConfirmed) newErrors.locationConfirmed = 'Please confirm this location before proceeding.';
+      const trimmedAddress = formData.address.trim();
+      if (!trimmedAddress) {
+        newErrors.address = 'Please provide a physical street or location.';
+      } else if (trimmedAddress.length < 3) {
+        newErrors.address = 'Address must be between 3 and 255 characters.';
+      } else if (trimmedAddress.length > 255) {
+        newErrors.address = 'Address cannot exceed 255 characters.';
+      }
+      if (!formData.locationConfirmed) {
+        newErrors.locationConfirmed = 'Please confirm this location before proceeding.';
+      }
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -179,8 +203,14 @@ export const ReportComplaintPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateStep(1) || !validateStep(3)) {
+    const isStep1Valid = validateStep(1);
+    if (!isStep1Valid) {
       setCurrentStep(1);
+      return;
+    }
+    const isStep3Valid = validateStep(3);
+    if (!isStep3Valid) {
+      setCurrentStep(3);
       return;
     }
 
@@ -208,9 +238,9 @@ export const ReportComplaintPage = () => {
         photos: photoUrls,
         files: realFiles,
         visionConsent: Boolean(formData.visionConsent),
-        citizenId: currentUser.id,
-        citizenName: currentUser.name,
-        citizenEmail: currentUser.email
+        citizenId: currentUser?.id,
+        citizenName: currentUser?.name,
+        citizenEmail: currentUser?.email
       });
 
       await refreshComplaints();
@@ -218,6 +248,15 @@ export const ReportComplaintPage = () => {
       showToast('Complaint submitted successfully and queued for review!', 'success');
     } catch (err) {
       console.error(err);
+      if (err.validationErrors || err.data?.validationErrors) {
+        const fieldErrors = err.validationErrors || err.data.validationErrors;
+        setErrors(fieldErrors);
+        if (fieldErrors.title || fieldErrors.description) {
+          setCurrentStep(1);
+        } else if (fieldErrors.address || fieldErrors.latitude || fieldErrors.longitude) {
+          setCurrentStep(3);
+        }
+      }
       showToast(err.message || 'Submission failed. Please check form fields.', 'error');
     } finally {
       setSubmitting(false);
