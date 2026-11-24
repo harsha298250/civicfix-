@@ -10,6 +10,7 @@ import com.civicfix.common.exception.BadRequestException;
 import com.civicfix.common.exception.ConflictException;
 import com.civicfix.common.exception.RateLimitExceededException;
 import com.civicfix.common.exception.ResourceNotFoundException;
+import com.civicfix.mail.EmailOutboxService;
 import com.civicfix.mail.EmailService;
 import com.civicfix.security.UserPrincipal;
 import com.civicfix.security.ratelimit.ClientIpResolver;
@@ -22,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
@@ -60,6 +62,7 @@ public class AuthService {
     private final ClientIpResolver clientIpResolver;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final EmailService emailService;
+    private final EmailOutboxService emailOutboxService;
     private SessionRegistry sessionRegistry;
     private final SecureRandom secureRandom = new SecureRandom();
     private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
@@ -82,7 +85,7 @@ public class AuthService {
                        LoginLockoutService loginLockoutService,
                        ClientIpResolver clientIpResolver) {
         this(userRepository, roleRepository, passwordEncoder, authenticationManager, auditService,
-             loginLockoutService, clientIpResolver, null, null, null);
+             loginLockoutService, clientIpResolver, null, null, null, null);
     }
 
     public AuthService(UserRepository userRepository,
@@ -95,7 +98,7 @@ public class AuthService {
                        PasswordResetTokenRepository passwordResetTokenRepository,
                        EmailService emailService) {
         this(userRepository, roleRepository, passwordEncoder, authenticationManager, auditService,
-             loginLockoutService, clientIpResolver, passwordResetTokenRepository, emailService, null);
+             loginLockoutService, clientIpResolver, passwordResetTokenRepository, emailService, null, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -108,6 +111,7 @@ public class AuthService {
                        ClientIpResolver clientIpResolver,
                        @org.springframework.beans.factory.annotation.Autowired(required = false) PasswordResetTokenRepository passwordResetTokenRepository,
                        @org.springframework.beans.factory.annotation.Autowired(required = false) EmailService emailService,
+                       @org.springframework.beans.factory.annotation.Autowired(required = false) EmailOutboxService emailOutboxService,
                        @org.springframework.beans.factory.annotation.Autowired(required = false) SessionRegistry sessionRegistry) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
@@ -118,6 +122,7 @@ public class AuthService {
         this.clientIpResolver = clientIpResolver;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.emailService = emailService;
+        this.emailOutboxService = emailOutboxService;
         this.sessionRegistry = sessionRegistry;
     }
 
@@ -168,9 +173,20 @@ public class AuthService {
                 "SUCCESS"
         );
 
-        if (emailService != null && savedUser.getEmail() != null && !savedUser.getEmail().isBlank()) {
+        if (savedUser.getEmail() != null && !savedUser.getEmail().isBlank()) {
             try {
-                emailService.sendWelcomeEmail(savedUser.getEmail(), savedUser.getFullName());
+                if (emailOutboxService != null) {
+                    String idemKey = "welcome_" + savedUser.getId();
+                    emailOutboxService.enqueueEmail(
+                            idemKey,
+                            savedUser.getEmail(),
+                            "Welcome to CivicFix Platform",
+                            "WELCOME",
+                            java.util.Map.of("name", savedUser.getFullName() != null ? savedUser.getFullName() : "Citizen")
+                    );
+                } else if (emailService != null) {
+                    emailService.sendWelcomeEmail(savedUser.getEmail(), savedUser.getFullName());
+                }
             } catch (Exception ex) {
                 log.warn("Non-fatal welcome email delivery failed for user {}: {}", savedUser.getId(), ex.getMessage());
             }
@@ -216,6 +232,9 @@ public class AuthService {
             authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(identifier, request.getPassword())
             );
+        } catch (DisabledException ex) {
+            loginLockoutService.recordFailedAttempt(identifier, ipAddress);
+            throw new BadRequestException("Your account is pending activation or disabled. Please use the activation link sent to your email or contact your administrator.");
         } catch (AuthenticationException ex) {
             loginLockoutService.recordFailedAttempt(identifier, ipAddress);
             throw new BadCredentialsException("Invalid credentials. Please verify your email or phone and password.");
@@ -322,7 +341,18 @@ public class AuthService {
                         passwordResetTokenRepository.save(token);
 
                         String resetUrl = appBaseUrl + "/reset-password?token=" + rawToken;
-                        emailService.sendPasswordResetEmail(user.getEmail(), resetUrl);
+                        if (emailOutboxService != null) {
+                            String idemKey = "pwd_reset_" + token.getId();
+                            emailOutboxService.enqueueEmail(
+                                    idemKey,
+                                    user.getEmail(),
+                                    "CivicFix Password Reset Request",
+                                    "PASSWORD_RESET",
+                                    java.util.Map.of("resetUrl", resetUrl, "rawToken", rawToken)
+                            );
+                        } else if (emailService != null) {
+                            emailService.sendPasswordResetEmail(user.getEmail(), resetUrl);
+                        }
 
                         auditService.logAction(
                                 user.getId(),
@@ -421,9 +451,20 @@ public class AuthService {
                 "SUCCESS"
         );
 
-        if (emailService != null && user.getEmail() != null && !user.getEmail().isBlank()) {
+        if (user.getEmail() != null && !user.getEmail().isBlank()) {
             try {
-                emailService.sendPasswordResetConfirmationEmail(user.getEmail(), user.getFullName());
+                if (emailOutboxService != null) {
+                    String idemKey = "pwd_reset_confirm_" + user.getId() + "_" + System.currentTimeMillis();
+                    emailOutboxService.enqueueEmail(
+                            idemKey,
+                            user.getEmail(),
+                            "CivicFix Account Security: Password Changed",
+                            "PASSWORD_RESET_CONFIRMATION",
+                            java.util.Map.of("name", user.getFullName() != null ? user.getFullName() : "Citizen")
+                    );
+                } else if (emailService != null) {
+                    emailService.sendPasswordResetConfirmationEmail(user.getEmail(), user.getFullName());
+                }
             } catch (Exception ex) {
                 log.warn("Non-fatal password reset confirmation email failed for user {}: {}", user.getId(), ex.getMessage());
             }

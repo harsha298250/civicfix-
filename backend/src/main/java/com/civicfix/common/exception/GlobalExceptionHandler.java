@@ -65,6 +65,7 @@ public class GlobalExceptionHandler {
         body.put("error", HttpStatus.TOO_MANY_REQUESTS.getReasonPhrase());
         body.put("message", ex.getMessage());
         body.put("retryAfterSeconds", retryAfter);
+        injectRequestId(body, req);
 
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .header(org.springframework.http.HttpHeaders.RETRY_AFTER, String.valueOf(retryAfter))
@@ -89,6 +90,7 @@ public class GlobalExceptionHandler {
         body.put("error", "Validation Error");
         body.put("message", "Input validation failed. Please check the supplied parameters.");
         body.put("validationErrors", fieldErrors);
+        injectRequestId(body, req);
 
         return ResponseEntity.badRequest().body(body);
     }
@@ -120,6 +122,18 @@ public class GlobalExceptionHandler {
         body.put("status", status.value());
         body.put("error", status.getReasonPhrase());
         body.put("message", message);
+        injectRequestId(body, req);
         return new ResponseEntity<>(body, status);
+    }
+
+    private void injectRequestId(Map<String, Object> body, WebRequest req) {
+        String reqId = org.slf4j.MDC.get("requestId");
+        if (reqId == null && req != null) {
+            Object attr = req.getAttribute("requestId", WebRequest.SCOPE_REQUEST);
+            if (attr != null) reqId = attr.toString();
+        }
+        if (reqId != null) {
+            body.put("requestId", reqId);
+        }
     }
 }

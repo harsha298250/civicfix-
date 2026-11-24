@@ -53,11 +53,8 @@ const CreateStaffPage = () => {
     if (!formData.name.trim()) newErrors.name = 'Full legal name is required';
     if (!formData.email.trim() || !formData.email.includes('@')) newErrors.email = 'Valid municipal email is required';
     if (!formData.department.trim()) newErrors.department = 'Department selection is required';
-    if (!formData.temporaryPassword || formData.temporaryPassword.length < 8) {
-      newErrors.temporaryPassword = 'Temporary password must be at least 8 characters';
-    }
-    if (formData.role !== 'OFFICER' && formData.role !== 'WORKER') {
-      newErrors.role = 'Authorized staff role must be OFFICER or WORKER';
+    if (formData.role !== 'OFFICER' && formData.role !== 'WORKER' && formData.role !== 'SUPERVISOR') {
+      newErrors.role = 'Authorized staff role must be OFFICER, WORKER, or SUPERVISOR';
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -70,15 +67,18 @@ const CreateStaffPage = () => {
 
     try {
       const newUser = await adminService.createStaff({
+        fullName: formData.name.trim(),
         name: formData.name.trim(),
         email: formData.email.trim().toLowerCase(),
         phone: formData.phone.trim() || undefined,
         role: formData.role,
         department: formData.department,
-        temporaryPassword: formData.temporaryPassword
+        password: formData.temporaryPassword || undefined,
+        temporaryPassword: formData.temporaryPassword || undefined
       });
 
-      showToast(`Provisioned new staff account for ${newUser.name} (${newUser.role}) in PostgreSQL`, 'success');
+      const tokenNotice = newUser?.activationToken ? ' (Activation link generated)' : '';
+      showToast(`Provisioned new ${newUser.role || formData.role} account with status PENDING_ACTIVATION${tokenNotice}`, 'success');
       navigate(`/admin/users/${newUser.id}`);
     } catch (err) {
       console.error('Failed to create staff account:', err);
@@ -164,6 +164,7 @@ const CreateStaffPage = () => {
               >
                 <option value="OFFICER">{t('admin.officerOption', 'Municipal Officer (Review & Dispatch)')}</option>
                 <option value="WORKER">{t('admin.workerOption', 'Field Worker (Repairs & Evidence)')}</option>
+                <option value="SUPERVISOR">Department Supervisor (SLA & Workload Governance)</option>
               </select>
               {errors.role && <p className="text-xs text-[#C63F48] mt-1">{errors.role}</p>}
             </div>
@@ -191,7 +192,7 @@ const CreateStaffPage = () => {
             <div className="sm:col-span-2">
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs font-semibold text-[#18232F] uppercase">
-                  {t('admin.tempPassword', 'Temporary Activation Password')} * (min. 8 characters)
+                  {t('admin.tempPassword', 'Initial / Temporary Password (Optional)')}
                 </label>
                 <button
                   type="button"
@@ -207,14 +208,14 @@ const CreateStaffPage = () => {
                 name="temporaryPassword"
                 value={formData.temporaryPassword}
                 onChange={handleChange}
-                placeholder="Temporary secure password (e.g. SecureStaff@2026)"
+                placeholder="Leave blank to invite staff via secure email activation link"
                 className={`w-full px-3.5 py-2.5 text-sm font-mono border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#137A70] ${
                   errors.temporaryPassword ? 'border-[#C63F48]' : 'border-[#E2E7ED]'
                 }`}
               />
-              {errors.temporaryPassword && (
-                <p className="text-xs text-[#C63F48] mt-1">{errors.temporaryPassword}</p>
-              )}
+              <p className="text-[11px] text-slate-500 mt-1">
+                If omitted, an activation link will be automatically generated and sent to the staff member's email to set their permanent password.
+              </p>
             </div>
 
             <div>

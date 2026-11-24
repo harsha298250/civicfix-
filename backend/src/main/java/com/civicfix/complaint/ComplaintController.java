@@ -4,6 +4,9 @@ import com.civicfix.ai.AiTriageService;
 import com.civicfix.ai.dto.DuplicateCandidate;
 import com.civicfix.ai.dto.SuggestCategoryRequest;
 import com.civicfix.ai.dto.SuggestCategoryResponse;
+import com.civicfix.ai.summary.ComplaintSummaryResponse;
+import com.civicfix.ai.vision.pothole.dto.CalibrationRequest;
+import com.civicfix.ai.vision.pothole.dto.PotholeAnalysisResponse;
 import com.civicfix.common.ApiResponse;
 import com.civicfix.common.PagedResponse;
 import com.civicfix.common.exception.BadRequestException;
@@ -113,6 +116,34 @@ public class ComplaintController {
         List<PublicMapComplaintResponse> markers = complaintService.getPublicMapComplaints(
                 minLat, maxLat, minLng, maxLng, status, category, limit);
         return ResponseEntity.ok(ApiResponse.success(markers));
+    }
+
+    @GetMapping("/nearby")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<List<NearbyComplaintResponse>>> getNearbyComplaints(
+            @RequestParam BigDecimal lat,
+            @RequestParam BigDecimal lng,
+            @RequestParam(required = false, defaultValue = "2.0") Double radiusKm,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) ComplaintStatus status,
+            @RequestParam(required = false, defaultValue = "20") Integer limit,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        List<NearbyComplaintResponse> nearby = complaintService.getNearbyComplaints(
+                lat, lng, radiusKm, category, status, limit, principal);
+        return ResponseEntity.ok(ApiResponse.success(nearby));
+    }
+
+    @GetMapping("/public/nearby")
+    public ResponseEntity<ApiResponse<List<NearbyComplaintResponse>>> getPublicNearbyComplaints(
+            @RequestParam BigDecimal lat,
+            @RequestParam BigDecimal lng,
+            @RequestParam(required = false, defaultValue = "2.0") Double radiusKm,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) ComplaintStatus status,
+            @RequestParam(required = false, defaultValue = "20") Integer limit) {
+        List<NearbyComplaintResponse> nearby = complaintService.getPublicNearbyComplaints(
+                lat, lng, radiusKm, category, status, limit);
+        return ResponseEntity.ok(ApiResponse.success(nearby));
     }
 
     @GetMapping
@@ -311,6 +342,43 @@ public class ComplaintController {
             @AuthenticationPrincipal UserPrincipal principal) {
         List<DuplicateCandidate> candidates = complaintService.getDuplicateCandidates(id, principal);
         return ResponseEntity.ok(ApiResponse.success(candidates));
+    }
+
+    @GetMapping("/{id}/ai/summary")
+    @PreAuthorize("hasAnyRole('OFFICER', 'SUPERVISOR', 'ADMIN')")
+    public ResponseEntity<ApiResponse<ComplaintSummaryResponse>> getComplaintSummary(
+            @PathVariable String id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        ComplaintSummaryResponse summary = complaintService.getComplaintSummary(id, principal);
+        return ResponseEntity.ok(ApiResponse.success(summary));
+    }
+
+    @GetMapping("/{id}/ai/pothole-analysis")
+    @PreAuthorize("hasAnyRole('OFFICER', 'SUPERVISOR', 'ADMIN')")
+    public ResponseEntity<ApiResponse<PotholeAnalysisResponse>> getPotholeAnalysis(
+            @PathVariable String id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        PotholeAnalysisResponse analysis = complaintService.getPotholeAnalysis(id, principal);
+        return ResponseEntity.ok(ApiResponse.success(analysis));
+    }
+
+    @PostMapping("/{id}/ai/pothole-analysis")
+    @PreAuthorize("hasAnyRole('OFFICER', 'SUPERVISOR', 'ADMIN')")
+    public ResponseEntity<ApiResponse<PotholeAnalysisResponse>> runPotholeAnalysis(
+            @PathVariable String id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        PotholeAnalysisResponse analysis = complaintService.runPotholeAnalysis(id, principal);
+        return ResponseEntity.ok(ApiResponse.success("Pothole computer vision analysis completed.", analysis));
+    }
+
+    @PostMapping("/{id}/ai/pothole-analysis/calibrate")
+    @PreAuthorize("hasAnyRole('OFFICER', 'SUPERVISOR', 'ADMIN')")
+    public ResponseEntity<ApiResponse<PotholeAnalysisResponse>> calibratePotholeAnalysis(
+            @PathVariable String id,
+            @Valid @RequestBody CalibrationRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        PotholeAnalysisResponse analysis = complaintService.calibratePotholeAnalysis(id, request, principal);
+        return ResponseEntity.ok(ApiResponse.success("Pothole dimensions calibrated successfully.", analysis));
     }
 
     @PostMapping("/{id}/duplicates/link")

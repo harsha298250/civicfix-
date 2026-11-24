@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { useTranslation } from '../../context/LanguageContext';
 import LanguageToggle from '../../components/common/LanguageToggle';
 import { authService } from '../../services/authService';
+import { firebaseAuthService } from '../../services/firebaseAuth';
 import { isValidIndianPhone, formatIndianPhone } from '../../utils/phoneUtils';
 
 export const RegisterPage = () => {
@@ -119,13 +120,24 @@ export const RegisterPage = () => {
     setLoading(true);
 
     try {
-      const newUser = await authService.registerCitizen({
-        name: formData.name.trim(),
-        email: contactMethod === 'EMAIL' ? formData.email.trim() : (formData.email.trim() || null),
-        phone: contactMethod === 'MOBILE' ? formData.phone.trim() : (formData.phone.trim() || null),
-        ward: formData.ward ? formData.ward.trim() : 'Zone 09, Anna Nagar, Chennai',
-        password: formData.password
-      });
+      let newUser;
+      if (contactMethod === 'EMAIL' && firebaseAuthService.isConfigured()) {
+        newUser = await authService.registerWithFirebase({
+          email: formData.email.trim(),
+          password: formData.password,
+          name: formData.name.trim(),
+          ward: formData.ward ? formData.ward.trim() : 'Zone 09, Anna Nagar, Chennai',
+          phone: formData.phone ? formData.phone.trim() : null
+        });
+      } else {
+        newUser = await authService.registerCitizen({
+          name: formData.name.trim(),
+          email: contactMethod === 'EMAIL' ? formData.email.trim() : (formData.email.trim() || null),
+          phone: contactMethod === 'MOBILE' ? formData.phone.trim() : (formData.phone.trim() || null),
+          ward: formData.ward ? formData.ward.trim() : 'Zone 09, Anna Nagar, Chennai',
+          password: formData.password
+        });
+      }
 
       setCurrentUser(newUser);
       showToast('Citizen account registered successfully!', 'success');

@@ -459,6 +459,7 @@ public class LoginLockoutService {
         return cleanupExpiredAttempts(Duration.ofHours(24), 500);
     }
 
+    @Transactional
     @Scheduled(cron = "${civicfix.rate-limit.cleanup-cron:0 0 3 * * *}")
     public void scheduledCleanup() {
         cleanupExpiredAttempts();

@@ -39,6 +39,7 @@ export const AdminLayout = () => {
       badgeColor: 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
     },
     { label: t('nav.rolesMatrix'), path: '/admin/roles', icon: 'verified_user' },
+    { label: 'SLA & Performance Analytics', path: '/admin/analytics', icon: 'monitoring' },
     { label: t('nav.platformAnalytics'), path: '/admin/activity', icon: 'analytics' },
     { label: t('nav.auditLedger'), path: '/admin/audit-logs', icon: 'receipt_long' },
     { label: t('nav.systemSettings'), path: '/admin/settings', icon: 'settings' },

@@ -18,6 +18,11 @@ public class SupervisorWorkerResponse {
     private String department;
     private String ward;
     private String accountStatus;
+    private long activeOrdersCount;
+    private long pendingOrdersCount;
+    private long inProgressOrdersCount;
+    private long completedOrdersCount;
+    private long overdueOrdersCount;
 
     public SupervisorWorkerResponse() {}
 
@@ -78,5 +83,45 @@ public class SupervisorWorkerResponse {
 
     public void setAccountStatus(String accountStatus) {
         this.accountStatus = accountStatus;
+    }
+
+    public long getActiveOrdersCount() {
+        return activeOrdersCount;
+    }
+
+    public void setActiveOrdersCount(long activeOrdersCount) {
+        this.activeOrdersCount = activeOrdersCount;
+    }
+
+    public long getPendingOrdersCount() {
+        return pendingOrdersCount;
+    }
+
+    public void setPendingOrdersCount(long pendingOrdersCount) {
+        this.pendingOrdersCount = pendingOrdersCount;
+    }
+
+    public long getInProgressOrdersCount() {
+        return inProgressOrdersCount;
+    }
+
+    public void setInProgressOrdersCount(long inProgressOrdersCount) {
+        this.inProgressOrdersCount = inProgressOrdersCount;
+    }
+
+    public long getCompletedOrdersCount() {
+        return completedOrdersCount;
+    }
+
+    public void setCompletedOrdersCount(long completedOrdersCount) {
+        this.completedOrdersCount = completedOrdersCount;
+    }
+
+    public long getOverdueOrdersCount() {
+        return overdueOrdersCount;
+    }
+
+    public void setOverdueOrdersCount(long overdueOrdersCount) {
+        this.overdueOrdersCount = overdueOrdersCount;
     }
 }

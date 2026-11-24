@@ -283,6 +283,24 @@ export const complaintService = {
     return await apiClient.complaints.downloadReceipt(idOrRef);
   },
 
+  // Nearby Complaints: Returns issues within a given radius in kilometers
+  getNearbyComplaints: async (params = {}) => {
+    try {
+      const response = await apiClient.complaints.getNearby(params);
+      const data = response?.data || response;
+      return Array.isArray(data) ? data : (data?.content || []);
+    } catch (err) {
+      if (err.status === 401 || err.status === 403) {
+        try {
+          const pubRes = await apiClient.complaints.getPublicNearby(params);
+          const pubData = pubRes?.data || pubRes;
+          return Array.isArray(pubData) ? pubData : (pubData?.content || []);
+        } catch (ignored) {}
+      }
+      throw err;
+    }
+  },
+
   // Officer GIS map feed: Returns complaints for operational spatial tracking
   getOfficerMapComplaints: async (params = {}) => {
     try {
@@ -659,5 +677,45 @@ export const complaintService = {
     const response = await apiClient.complaints.linkDuplicate(id, payload);
     const data = response?.data || response;
     return mapBackendComplaintToFrontend(data);
+  },
+
+  /**
+   * Phase 4: Fetch structured AI executive summary for municipal staff
+   */
+  getAiSummary: async (id) => {
+    const response = await apiClient.complaints.getAiSummary(id);
+    return response?.data || response;
+  },
+
+  /**
+   * Phase 4: Request live backend category suggestion with fallback
+   */
+  suggestCategory: async (text, language = 'en') => {
+    const response = await apiClient.complaints.suggestCategory({ text, language });
+    return response?.data || response;
+  },
+
+  /**
+   * Phase 5: Fetch pothole computer vision analysis
+   */
+  getPotholeAnalysis: async (id) => {
+    const response = await apiClient.complaints.getPotholeAnalysis(id);
+    return response?.data || response;
+  },
+
+  /**
+   * Phase 5: Trigger / re-run pothole computer vision analysis
+   */
+  runPotholeAnalysis: async (id) => {
+    const response = await apiClient.complaints.runPotholeAnalysis(id);
+    return response?.data || response;
+  },
+
+  /**
+   * Phase 5: Calibrate pothole dimensions using an in-frame reference target
+   */
+  calibratePotholeAnalysis: async (id, calibrationPayload) => {
+    const response = await apiClient.complaints.calibratePotholeAnalysis(id, calibrationPayload);
+    return response?.data || response;
   }
 };

@@ -1,9 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import { hasValidCoordinates } from '../../services/complaintService';
 import tamilNaduStateGeoJson from '../../data/gis/tamil_nadu_state.json';
 import chennaiGccZonesGeoJson from '../../data/gis/chennai_gcc_zones.json';
+import { clusterComplaints, createClusterMarkerIcon } from '../../utils/gisClustering';
+import { computeDensityHotspots, createHotspotLayerGroup } from '../../utils/gisHeatmap';
+import { TAMIL_NADU_DISTRICTS, TN_CENTER, TN_BOUNDS } from '../../constants/tamilNaduDistricts';
 
 const escapeHtml = (str) => {
   if (str === null || str === undefined) return '';
@@ -80,10 +83,15 @@ export const TamilNaduOverviewMap = ({
   const searchMarkerRef = useRef(null);
   const stateLayerRef = useRef(null);
   const zonesLayerRef = useRef(null);
+  const heatmapLayerRef = useRef(null);
 
   const [tileError, setTileError] = useState(false);
   const [showStateBoundary, setShowStateBoundary] = useState(false);
   const [showGccZones, setShowGccZones] = useState(true);
+  const [enableClustering, setEnableClustering] = useState(true);
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [currentZoom, setCurrentZoom] = useState(7);
+  const [selectedDistrict, setSelectedDistrict] = useState('');
 
   // Initialize Map
   useEffect(() => {
@@ -109,6 +117,10 @@ export const TamilNaduOverviewMap = ({
       });
 
       tileLayer.addTo(map);
+
+      map.on('zoomend', () => {
+        setCurrentZoom(map.getZoom());
+      });
 
       const markersGroup = L.layerGroup().addTo(map);
       markersGroupRef.current = markersGroup;
@@ -161,21 +173,99 @@ export const TamilNaduOverviewMap = ({
     const bounds = [];
     let selectedMarker = null;
 
-    complaints.forEach((c) => {
-      // Never render a marker if location is suppressed for resident privacy
-      if (c.locationSuppressed) return;
+    const validComplaints = complaints.filter(
+      (c) => !c.locationSuppressed && hasValidCoordinates(c.location?.coordinates)
+    );
 
-      const lat = Number(c.location?.coordinates?.lat);
-      const lng = Number(c.location?.coordinates?.lng);
+    if (enableClustering) {
+      const clusters = clusterComplaints(validComplaints, map.getZoom(), 45);
+      clusters.forEach((item) => {
+        if (item.isCluster) {
+          const hasSelected = selectedComplaintId && item.items.some((i) => i.id === selectedComplaintId);
+          const marker = L.marker([item.lat, item.lng], {
+            icon: createClusterMarkerIcon(item, hasSelected, L),
+            zIndexOffset: hasSelected ? 1200 : 400
+          });
 
-      if (hasValidCoordinates(c.location?.coordinates)) {
+          const clusterPopup = document.createElement('div');
+          clusterPopup.className = 'p-1 text-xs font-sans';
+          clusterPopup.innerHTML = `
+            <div style="font-family: inherit; min-width: 160px;">
+              <div style="font-size: 12px; font-weight: 700; color: #137A70; margin-bottom: 4px;">
+                ${item.count} Complaints Cluster
+              </div>
+              <div style="font-size: 11px; color: #667384; margin-bottom: 6px;">
+                Highest Severity: <b style="color: #18232F;">${escapeHtml(item.highestPriority)}</b>
+              </div>
+              <div style="font-size: 10px; color: #94A3B8;">
+                Click bubble to zoom into this cluster
+              </div>
+            </div>
+          `;
+          marker.bindPopup(clusterPopup);
+
+          marker.on('click', () => {
+            map.flyTo([item.lat, item.lng], Math.min(map.getZoom() + 2, 17), { duration: 0.8 });
+          });
+
+          markersGroup.addLayer(marker);
+          bounds.push([item.lat, item.lng]);
+        } else {
+          const c = item.complaint;
+          const isSelected = selectedComplaintId === c.id;
+          const marker = L.marker([item.lat, item.lng], {
+            icon: createComplaintMarkerIcon(c.priority, isSelected),
+            zIndexOffset: isSelected ? 1000 : 100
+          });
+
+          const safeCategory = escapeHtml(c.category || 'Civic Infrastructure');
+          const safeWard = escapeHtml(c.ward || c.location?.ward || 'Tamil Nadu');
+          const safeStatus = escapeHtml(c.status || 'SUBMITTED');
+
+          const popupContent = document.createElement('div');
+          popupContent.className = 'p-1 text-xs font-sans';
+          popupContent.innerHTML = `
+            <div style="font-family: inherit; min-width: 170px;">
+              <div style="font-size: 11px; color: #137A70; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
+                ${safeCategory}
+              </div>
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; font-size: 11px;">
+                <span style="color: #667384;">Status:</span>
+                <span style="font-weight: 600; color: #18232F;">${safeStatus}</span>
+              </div>
+              <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
+                <span style="color: #667384;">Ward:</span>
+                <span style="font-weight: 600; color: #18232F;">${safeWard}</span>
+              </div>
+            </div>
+          `;
+
+          marker.bindPopup(popupContent, { maxWidth: 260 });
+
+          marker.on('click', () => {
+            if (onSelectComplaint) {
+              onSelectComplaint(c);
+            }
+          });
+
+          markersGroup.addLayer(marker);
+          bounds.push([item.lat, item.lng]);
+
+          if (isSelected) {
+            selectedMarker = marker;
+          }
+        }
+      });
+    } else {
+      validComplaints.forEach((c) => {
+        const lat = Number(c.location?.coordinates?.lat);
+        const lng = Number(c.location?.coordinates?.lng);
         const isSelected = selectedComplaintId === c.id;
         const marker = L.marker([lat, lng], {
           icon: createComplaintMarkerIcon(c.priority, isSelected),
           zIndexOffset: isSelected ? 1000 : 100
         });
 
-        // Popup HTML: Strictly non-sensitive, shows category, status and ward only
         const safeCategory = escapeHtml(c.category || 'Civic Infrastructure');
         const safeWard = escapeHtml(c.ward || c.location?.ward || 'Tamil Nadu');
         const safeStatus = escapeHtml(c.status || 'SUBMITTED');
@@ -212,8 +302,8 @@ export const TamilNaduOverviewMap = ({
         if (isSelected) {
           selectedMarker = marker;
         }
-      }
-    });
+      });
+    }
 
     // Fly to selected complaint when changed
     if (selectedComplaintId) {
@@ -235,7 +325,22 @@ export const TamilNaduOverviewMap = ({
         // ignore bound edge cases
       }
     }
-  }, [complaints, selectedComplaintId]);
+  }, [complaints, selectedComplaintId, enableClustering, currentZoom]);
+
+  const handleSelectDistrict = (districtName) => {
+    setSelectedDistrict(districtName);
+    const d = TAMIL_NADU_DISTRICTS.find((dist) => dist.name === districtName);
+    if (d && mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo([d.lat, d.lng], d.zoom, { duration: 1.2 });
+    }
+  };
+
+  const handleResetToState = () => {
+    setSelectedDistrict('');
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo([TN_CENTER.lat, TN_CENTER.lng], TN_CENTER.zoom, { duration: 1.2 });
+    }
+  };
 
   // Handle external searched location pin
   useEffect(() => {
@@ -286,7 +391,25 @@ export const TamilNaduOverviewMap = ({
     }
   }, [searchedLocation]);
 
-  // Manage Administrative Boundary Layers
+  // Manage Heatmap Density Layer
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    if (heatmapLayerRef.current) {
+      if (map.hasLayer(heatmapLayerRef.current)) {
+        map.removeLayer(heatmapLayerRef.current);
+      }
+      heatmapLayerRef.current = null;
+    }
+
+    if (showHeatmap && complaints.length > 0) {
+      const hotspots = computeDensityHotspots(complaints);
+      const layer = createHotspotLayerGroup(hotspots, L);
+      layer.addTo(map);
+      heatmapLayerRef.current = layer;
+    }
+  }, [showHeatmap, complaints]);
   useEffect(() => {
     if (!mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
@@ -356,8 +479,8 @@ export const TamilNaduOverviewMap = ({
         className="w-full h-full min-h-[480px] z-0 flex-1"
       />
 
-      {/* GIS Boundary Controls */}
-      <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-xs px-2.5 py-1.5 rounded-xl border border-[#E2E7ED] z-10 shadow-sm flex items-center gap-2 text-xs">
+      {/* GIS Controls: Boundaries, Clusters, and District Jump */}
+      <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-xs px-2.5 py-1.5 rounded-xl border border-[#E2E7ED] z-10 shadow-sm flex flex-wrap items-center gap-2 text-xs max-w-[90%]">
         <span className="font-semibold text-slate-700 flex items-center gap-1">
           <span className="material-symbols-outlined text-[16px] text-teal-600">layers</span>
           <span>Boundaries:</span>
@@ -386,6 +509,73 @@ export const TamilNaduOverviewMap = ({
         >
           GCC Zones (15)
         </button>
+
+        <span className="text-slate-300">|</span>
+
+        {/* Cluster Toggle */}
+        <button
+          type="button"
+          aria-pressed={enableClustering}
+          onClick={() => setEnableClustering((prev) => !prev)}
+          className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors flex items-center gap-1 ${
+            enableClustering
+              ? 'bg-purple-100 text-purple-700 border border-purple-300'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+          title="Group nearby complaint markers into clusters"
+        >
+          <span className="material-symbols-outlined text-[14px]">
+            {enableClustering ? 'bubble_chart' : 'scatter_plot'}
+          </span>
+          <span>{enableClustering ? 'Clusters ON' : 'Clusters OFF'}</span>
+        </button>
+
+        <span className="text-slate-300">|</span>
+
+        {/* Heatmap Toggle */}
+        <button
+          type="button"
+          aria-pressed={showHeatmap}
+          onClick={() => setShowHeatmap((prev) => !prev)}
+          className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors flex items-center gap-1 ${
+            showHeatmap
+              ? 'bg-rose-100 text-rose-700 border border-rose-300'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+          title="Highlight high-density complaint clusters with thermal hotspot circles"
+        >
+          <span className="material-symbols-outlined text-[14px]">
+            {showHeatmap ? 'local_fire_department' : 'whatshot'}
+          </span>
+          <span>{showHeatmap ? 'Heatmap ON' : 'Heatmap'}</span>
+        </button>
+
+        <span className="text-slate-300">|</span>
+
+        {/* District Jump Dropdown */}
+        <div className="flex items-center gap-1">
+          <select
+            value={selectedDistrict}
+            onChange={(e) => handleSelectDistrict(e.target.value)}
+            className="px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-700 font-medium border border-slate-200 focus:outline-none"
+            title="Focus map on Tamil Nadu district"
+          >
+            <option value="">Jump to District (38)...</option>
+            {TAMIL_NADU_DISTRICTS.map((d) => (
+              <option key={d.name} value={d.name}>
+                {d.name} ({d.region})
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleResetToState}
+            className="px-2 py-0.5 rounded text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium transition-colors"
+            title="Reset map view to full Tamil Nadu state"
+          >
+            Fit TN
+          </button>
+        </div>
       </div>
 
       {tileError && (

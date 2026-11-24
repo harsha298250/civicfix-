@@ -94,6 +94,7 @@ public interface LoginAttemptRepository extends JpaRepository<LoginAttempt, UUID
      * Bounded cleanup of expired login attempt records.
      * Guarantees active lockouts are NEVER deleted.
      */
+    @org.springframework.transaction.annotation.Transactional
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
         DELETE FROM login_attempts

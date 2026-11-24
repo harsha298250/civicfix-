@@ -9,6 +9,7 @@ import { PriorityBadge } from '../../components/common/PriorityBadge';
 import { SlaBadge } from '../../components/common/SlaBadge.jsx';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { LocationMiniMap } from '../../components/common/LocationMiniMap';
+import { PotholeDetectionOverlay } from '../../components/common/PotholeDetectionOverlay';
 import { hasValidCoordinates, formatCoordinates } from '../../services/complaintService';
 import { COMPLAINT_STATUS } from '../../constants/statusConstants';
 
@@ -111,6 +112,65 @@ export const ComplaintReviewPage = () => {
   const [escalating, setEscalating] = useState(false);
   const [escalateError, setEscalateError] = useState(null);
 
+  // Phase 5: Pothole Computer Vision State
+  const [potholeAnalysis, setPotholeAnalysis] = useState(null);
+  const [loadingPothole, setLoadingPothole] = useState(false);
+  const [showCalibrateModal, setShowCalibrateModal] = useState(false);
+  const [calibrating, setCalibrating] = useState(false);
+  const [calibrationRefType, setCalibrationRefType] = useState('A4_SHEET');
+  const [knownDimensionCm, setKnownDimensionCm] = useState(29.7);
+
+  const loadPotholeAnalysis = async (cid) => {
+    if (!cid) return;
+    setLoadingPothole(true);
+    try {
+      const data = await apiClient.complaints.getPotholeAnalysis(cid);
+      const res = data?.data || data;
+      setPotholeAnalysis(res);
+    } catch (err) {
+      console.warn('Failed to load pothole analysis:', err);
+    } finally {
+      setLoadingPothole(false);
+    }
+  };
+
+  const handleTriggerPotholeAnalysis = async () => {
+    if (!complaint) return;
+    setLoadingPothole(true);
+    try {
+      const cid = complaint.backendId || complaint.id;
+      const data = await apiClient.complaints.runPotholeAnalysis(cid);
+      const res = data?.data || data;
+      setPotholeAnalysis(res);
+    } catch (err) {
+      console.error('Failed to trigger pothole analysis:', err);
+    } finally {
+      setLoadingPothole(false);
+    }
+  };
+
+  const handleApplyCalibration = async (e) => {
+    e.preventDefault();
+    if (!complaint) return;
+    setCalibrating(true);
+    try {
+      const cid = complaint.backendId || complaint.id;
+      const payload = {
+        referenceType: calibrationRefType,
+        knownDimensionCm: parseFloat(knownDimensionCm),
+        referenceBox: { ymin: 0.6, xmin: 0.1, ymax: 0.8, xmax: 0.15 }
+      };
+      const data = await apiClient.complaints.calibratePotholeAnalysis(cid, payload);
+      const res = data?.data || data;
+      setPotholeAnalysis(res);
+      setShowCalibrateModal(false);
+    } catch (err) {
+      console.error('Failed to calibrate pothole dimensions:', err);
+    } finally {
+      setCalibrating(false);
+    }
+  };
+
   const loadDuplicates = async (cid) => {
     if (!cid) return;
     setLoadingDuplicates(true);
@@ -142,6 +202,9 @@ export const ComplaintReviewPage = () => {
       setComplaint(data);
       if (data) {
         loadDuplicates(data.backendId || data.id);
+        if (data.photos && data.photos.length > 0) {
+          loadPotholeAnalysis(data.backendId || data.id);
+        }
         setOverrideCategory(data.aiTriage?.detectedCategory || data.category || 'ROADS');
         setOverridePriority(data.aiTriage?.recommendedPriority || data.priority || 'MEDIUM');
       }
@@ -624,6 +687,154 @@ export const ComplaintReviewPage = () => {
                     </div>
                   ))}
                 </div>
+
+                {/* Phase 5: Computer Vision Pothole & Surface Damage Inspection */}
+                <div className="pt-4 border-t border-outline-variant/30 space-y-3" data-testid="pothole-vision-section">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[20px] text-primary-container">camera_enhance</span>
+                      <div>
+                        <h4 className="font-bold text-xs text-on-surface uppercase tracking-wider">
+                          Computer Vision Pothole & Surface Damage Inspection
+                        </h4>
+                        <span className="text-[10px] text-tertiary">
+                          2D Bounding Box Localization, Metric Dimension & Severity Assessment
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={loadingPothole}
+                      onClick={handleTriggerPotholeAnalysis}
+                      className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-surface-container hover:bg-surface-container-high border border-outline-variant/40 text-on-surface transition-all flex items-center gap-1.5 shadow-sm"
+                    >
+                      <span className={`material-symbols-outlined text-sm ${loadingPothole ? 'animate-spin' : ''}`}>
+                        refresh
+                      </span>
+                      <span>{loadingPothole ? 'Analyzing...' : 'Re-run CV Analysis'}</span>
+                    </button>
+                  </div>
+
+                  {potholeAnalysis?.status === 'UNAVAILABLE' ? (
+                    <div className="p-4 rounded-xl bg-surface-container-low text-xs text-on-surface-variant flex items-center justify-between border border-outline-variant/30">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-sm text-tertiary">cloud_off</span>
+                        <span>{potholeAnalysis.severity?.explanation || 'Computer vision pothole detection is unavailable (provider is disabled or unconfigured).'}</span>
+                      </div>
+                      <span className="text-[10px] text-tertiary font-mono bg-surface-container px-2 py-0.5 rounded">Service Unavailable</span>
+                    </div>
+                  ) : potholeAnalysis?.status === 'SAFETY_BLOCKED' ? (
+                    <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-900 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-sm text-amber-600">shield</span>
+                        <span>{potholeAnalysis.severity?.explanation || 'Photo evidence was halted by content safety policy.'}</span>
+                      </div>
+                      <span className="text-[10px] text-amber-700 font-mono bg-amber-500/20 px-2 py-0.5 rounded">Safety Blocked</span>
+                    </div>
+                  ) : potholeAnalysis?.status === 'ANALYSIS_FAILED' ? (
+                    <div className="p-4 rounded-xl bg-error-container/20 border border-error/30 text-xs text-on-error-container flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-sm text-error">error</span>
+                        <span>{potholeAnalysis.severity?.explanation || 'Automated road inspection failed.'}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleTriggerPotholeAnalysis}
+                        className="text-primary font-semibold hover:underline text-xs"
+                      >
+                        Retry Analysis
+                      </button>
+                    </div>
+                  ) : potholeAnalysis && potholeAnalysis.boxes && potholeAnalysis.boxes.length > 0 ? (
+                    <div className="space-y-3">
+                      <PotholeDetectionOverlay
+                        photoUrl={potholeAnalysis.photoUrl || complaint.photos[0]}
+                        boxes={potholeAnalysis.boxes}
+                        severity={potholeAnalysis.severity?.severity}
+                        imageCoveragePercent={potholeAnalysis.measurement?.imageCoveragePercent}
+                        isCalibrated={potholeAnalysis.measurement?.calibrated}
+                        metricAreaSqm={potholeAnalysis.measurement?.metricAreaSqm}
+                        onCalibrateClick={() => setShowCalibrateModal(true)}
+                      />
+
+                      {/* Inspection Breakdown */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                        <div className="p-3 rounded-xl bg-surface-container-low space-y-1">
+                          <span className="text-tertiary block text-[10px] uppercase font-bold tracking-wider">Potholes Localized</span>
+                          <span className="font-bold text-on-surface text-sm font-mono">
+                            {potholeAnalysis.potholeCount} {potholeAnalysis.potholeCount === 1 ? 'Defect' : 'Defects'}
+                          </span>
+                        </div>
+                        <div className="p-3 rounded-xl bg-surface-container-low space-y-1">
+                          <span className="text-tertiary block text-[10px] uppercase font-bold tracking-wider">Visual Severity</span>
+                          <span className={`font-bold text-sm ${
+                            potholeAnalysis.severity?.severity === 'CRITICAL' ? 'text-red-500' :
+                            potholeAnalysis.severity?.severity === 'HIGH' ? 'text-orange-500' :
+                            potholeAnalysis.severity?.severity === 'MODERATE' ? 'text-amber-500' : 'text-blue-500'
+                          }`}>
+                            {potholeAnalysis.severity?.severity || 'INCONCLUSIVE'}
+                          </span>
+                        </div>
+                        <div className="p-3 rounded-xl bg-surface-container-low space-y-1">
+                          <span className="text-tertiary block text-[10px] uppercase font-bold tracking-wider">Frame Coverage</span>
+                          <span className="font-bold text-on-surface text-sm font-mono">
+                            {potholeAnalysis.measurement?.imageCoveragePercent || 0}%
+                          </span>
+                        </div>
+                        <div className="p-3 rounded-xl bg-surface-container-low space-y-1">
+                          <span className="text-tertiary block text-[10px] uppercase font-bold tracking-wider">Calibration</span>
+                          <span className="font-bold text-sm">
+                            {potholeAnalysis.measurement?.calibrated ? (
+                              <span className="text-emerald-500">Target Calibrated (Provisional)</span>
+                            ) : (
+                              <span className="text-tertiary italic">Uncalibrated</span>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Explanatory Rationale */}
+                      {potholeAnalysis.severity?.explanation && (
+                        <div className="p-3 rounded-xl bg-surface-container-low/60 border border-outline-variant/30 text-xs space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-tertiary block text-[10px] uppercase font-bold tracking-wider">
+                              CV Severity Assessment Rationale
+                            </span>
+                            {potholeAnalysis.modelName && (
+                              <span className="text-[10px] text-tertiary font-mono bg-surface-container px-2 py-0.5 rounded">
+                                Model: {potholeAnalysis.modelName}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-on-surface italic leading-relaxed">
+                            "{potholeAnalysis.severity.explanation}"
+                          </p>
+                          <p className="text-[11px] text-outline pt-1">
+                            Measurement Note: {potholeAnalysis.measurement?.statusMessage}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-xl bg-surface-container-low text-xs text-on-surface-variant flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-sm text-tertiary">check_circle</span>
+                        <span>No major pothole cavitations detected in photo evidence.</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleTriggerPotholeAnalysis}
+                        className="text-primary-container font-semibold hover:underline text-xs"
+                      >
+                        Run Analysis Now
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="text-[10px] text-tertiary italic flex items-center justify-between">
+                    <span>Advisory Computer Vision: Inspection evidence strictly aids officer review and does not alter official complaint status. Physical dimensions and hazard severity require field verification.</span>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -725,6 +936,19 @@ export const ComplaintReviewPage = () => {
                     </span>
                     <p className="text-on-surface italic leading-relaxed">
                       "{complaint.aiTriage.explanation}"
+                    </p>
+                  </div>
+                )}
+
+                {/* AI Structured Executive Summary */}
+                {complaint.aiTriage.summary && (
+                  <div className="p-3.5 rounded-xl bg-primary/5 border border-primary/20 space-y-1.5 text-xs animate-fade-in" data-testid="ai-summary-card">
+                    <div className="flex items-center gap-1.5 text-primary-container font-bold text-[11px] uppercase tracking-wider">
+                      <span className="material-symbols-outlined text-[16px]">summarize</span>
+                      <span>AI Issue Briefing (Advisory Synthesis)</span>
+                    </div>
+                    <p className="text-on-surface leading-relaxed text-xs">
+                      {complaint.aiTriage.summary}
                     </p>
                   </div>
                 )}
@@ -1600,6 +1824,67 @@ export const ComplaintReviewPage = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Phase 5: Calibration Modal */}
+      {showCalibrateModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <form
+            onSubmit={handleApplyCalibration}
+            className="bg-surface-container-lowest rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 border border-outline-variant/40"
+          >
+            <div className="flex items-center gap-2 text-primary-container">
+              <span className="material-symbols-outlined text-2xl">straighten</span>
+              <h3 className="font-title text-base font-bold text-on-surface">Calibrate Real-World Metric Dimensions</h3>
+            </div>
+            <p className="text-xs text-on-surface-variant leading-relaxed">
+              Provide a known in-frame physical reference object (e.g. municipal calibration target, standard marker, or known dimension) to convert pixel area into real-world metric dimensions (centimeters / m²).
+            </p>
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-tertiary uppercase mb-1">Reference Object Type</label>
+                <select
+                  value={calibrationRefType}
+                  onChange={(e) => setCalibrationRefType(e.target.value)}
+                  className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs text-on-surface border border-outline-variant/40 font-semibold"
+                >
+                  <option value="A4_SHEET">Standard A4 Sheet (29.7 cm Long Side)</option>
+                  <option value="STANDARD_CAN">Standard Beverage Can (12.2 cm Height)</option>
+                  <option value="KNOWN_MARKER">Municipal Survey Marker (50.0 cm Span)</option>
+                  <option value="CUSTOM_LENGTH">Custom Known Distance (cm)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-tertiary uppercase mb-1">Known Dimension (cm)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="1"
+                  value={knownDimensionCm}
+                  onChange={(e) => setKnownDimensionCm(e.target.value)}
+                  className="w-full p-2.5 bg-surface-container-low rounded-xl text-xs text-on-surface border border-outline-variant/40 font-semibold"
+                  required
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-outline-variant/30">
+              <button
+                type="button"
+                onClick={() => setShowCalibrateModal(false)}
+                className="px-4 py-2 bg-surface-container rounded-xl text-xs font-semibold text-on-surface hover:bg-surface-container-high"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={calibrating}
+                className="px-4 py-2 bg-primary-container text-white rounded-xl text-xs font-semibold hover:bg-primary disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
+              >
+                {calibrating ? 'Calculating...' : 'Apply Calibration'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

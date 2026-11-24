@@ -82,12 +82,26 @@ public class SecurityConfig {
         requestHandler.setCsrfRequestAttributeName(null);
 
         http
+            .headers(headers -> headers
+                .referrerPolicy(referrer -> referrer
+                    .policy(org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN)
+                )
+                .frameOptions(frame -> frame.deny())
+                .contentTypeOptions(org.springframework.security.config.Customizer.withDefaults())
+                .httpStrictTransportSecurity(hsts -> hsts
+                    .includeSubDomains(true)
+                    .maxAgeInSeconds(31536000)
+                )
+                .permissionsPolicy(permissions -> permissions
+                    .policy("camera=(self), microphone=(), geolocation=(self)")
+                )
+            )
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             // Cookie-based CSRF protection with readable XSRF-TOKEN for frontend SPA
             .csrf(csrf -> csrf
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(requestHandler)
-                .ignoringRequestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/forgot-password", "/api/auth/reset-password", "/api/health", "/actuator/**")
+                .ignoringRequestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/staff-activation/**", "/api/auth/firebase/session", "/api/webhooks/**", "/api/health", "/actuator/**")
             )
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint(authenticationEntryPoint)
@@ -103,8 +117,12 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/api/health", "/actuator/health", "/actuator/info").permitAll()
 
-                // Public Authentication & Password Recovery
-                .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register", "/api/auth/forgot-password", "/api/auth/reset-password").permitAll()
+                // Public Webhooks
+                .requestMatchers(HttpMethod.POST, "/api/webhooks/**").permitAll()
+
+                // Public Authentication & Password Recovery & Staff Activation & Firebase Auth
+                .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register", "/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/firebase/session").permitAll()
+                .requestMatchers("/api/auth/staff-activation/**").permitAll()
 
                 // Authenticated User Session operations
                 .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
@@ -116,6 +134,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/supervisor/**").hasAnyRole("SUPERVISOR", "ADMIN")
                 // Public Sanitized Complaint GIS Map Feed & GIS Services & Public Transparency Trust Scores & Features
                 .requestMatchers(HttpMethod.GET, "/api/complaints/public/map").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/complaints/public/nearby").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/complaints/public/trust").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/complaints/*/receipt/verify").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/gis/**").permitAll()

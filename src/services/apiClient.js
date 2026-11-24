@@ -156,7 +156,14 @@ export const apiClient = {
     logout: () => apiRequest('/auth/logout', { method: 'POST' }),
     getCurrentUser: () => apiRequest('/auth/me'),
     forgotPassword: (email) => apiRequest('/auth/forgot-password', { method: 'POST', body: { email } }),
-    resetPassword: (payload) => apiRequest('/auth/reset-password', { method: 'POST', body: payload })
+    resetPassword: (payload) => apiRequest('/auth/reset-password', { method: 'POST', body: payload }),
+    verifyStaffActivation: (token) => apiRequest('/auth/staff-activation/verify', { method: 'POST', body: { token } }),
+    activateStaff: (payload) => apiRequest('/auth/staff-activation/activate', { method: 'POST', body: payload }),
+    createFirebaseSession: (idToken, metadata = {}) =>
+      apiRequest('/auth/firebase/session', {
+        method: 'POST',
+        body: { idToken, ...metadata }
+      })
   },
 
   // Complaint Endpoints
@@ -188,6 +195,28 @@ export const apiClient = {
       if (params.limit !== undefined) query.append('limit', params.limit);
       const qs = query.toString();
       return apiRequest(`/complaints/public/map${qs ? '?' + qs : ''}`);
+    },
+    getNearby: (params = {}) => {
+      const query = new URLSearchParams();
+      if (params.lat !== undefined && params.lat !== null) query.append('lat', params.lat);
+      if (params.lng !== undefined && params.lng !== null) query.append('lng', params.lng);
+      if (params.radiusKm !== undefined && params.radiusKm !== null) query.append('radiusKm', params.radiusKm);
+      if (params.category) query.append('category', params.category);
+      if (params.status) query.append('status', params.status);
+      if (params.limit !== undefined) query.append('limit', params.limit);
+      const qs = query.toString();
+      return apiRequest(`/complaints/nearby${qs ? '?' + qs : ''}`);
+    },
+    getPublicNearby: (params = {}) => {
+      const query = new URLSearchParams();
+      if (params.lat !== undefined && params.lat !== null) query.append('lat', params.lat);
+      if (params.lng !== undefined && params.lng !== null) query.append('lng', params.lng);
+      if (params.radiusKm !== undefined && params.radiusKm !== null) query.append('radiusKm', params.radiusKm);
+      if (params.category) query.append('category', params.category);
+      if (params.status) query.append('status', params.status);
+      if (params.limit !== undefined) query.append('limit', params.limit);
+      const qs = query.toString();
+      return apiRequest(`/complaints/public/nearby${qs ? '?' + qs : ''}`);
     },
     getById: (id) => apiRequest(`/complaints/${encodeURIComponent(id)}`),
     getHistory: (id) => apiRequest(`/complaints/${encodeURIComponent(id)}/history`),
@@ -224,6 +253,15 @@ export const apiClient = {
       method: 'POST',
       body: payload
     }),
+    getPotholeAnalysis: (id) => apiRequest(`/complaints/${encodeURIComponent(id)}/ai/pothole-analysis`),
+    runPotholeAnalysis: (id) => apiRequest(`/complaints/${encodeURIComponent(id)}/ai/pothole-analysis`, {
+      method: 'POST'
+    }),
+    calibratePotholeAnalysis: (id, payload) => apiRequest(`/complaints/${encodeURIComponent(id)}/ai/pothole-analysis/calibrate`, {
+      method: 'POST',
+      body: payload
+    }),
+    getAiSummary: (id) => apiRequest(`/complaints/${encodeURIComponent(id)}/ai/summary`),
     getDuplicates: (id) => apiRequest(`/complaints/${encodeURIComponent(id)}/duplicates`),
     linkDuplicate: (id, payload) => apiRequest(`/complaints/${encodeURIComponent(id)}/duplicates/link`, {
       method: 'POST',
@@ -410,7 +448,54 @@ export const apiClient = {
     },
     getSlaPolicies: () => apiRequest('/admin/sla-policies'),
     getDemoStatus: () => apiRequest('/admin/demo/status'),
-    resetDemoData: () => apiRequest('/admin/demo/reset', { method: 'POST' })
+    resetDemoData: () => apiRequest('/admin/demo/reset', { method: 'POST' }),
+    getStaffPerformance: (params = {}) => {
+      const query = new URLSearchParams();
+      if (params.department && params.department !== 'ALL') query.append('department', params.department);
+      if (params.startDate) query.append('startDate', params.startDate);
+      if (params.endDate) query.append('endDate', params.endDate);
+      const qs = query.toString();
+      return apiRequest(`/admin/analytics/staff-performance${qs ? '?' + qs : ''}`);
+    },
+    getAreaPerformance: (params = {}) => {
+      const query = new URLSearchParams();
+      if (params.ward && params.ward !== 'ALL') query.append('ward', params.ward);
+      if (params.startDate) query.append('startDate', params.startDate);
+      if (params.endDate) query.append('endDate', params.endDate);
+      const qs = query.toString();
+      return apiRequest(`/admin/analytics/area-performance${qs ? '?' + qs : ''}`);
+    },
+    getCategoryPerformance: (params = {}) => {
+      const query = new URLSearchParams();
+      if (params.startDate) query.append('startDate', params.startDate);
+      if (params.endDate) query.append('endDate', params.endDate);
+      const qs = query.toString();
+      return apiRequest(`/admin/analytics/category-performance${qs ? '?' + qs : ''}`);
+    },
+    getMonthlyAnalytics: (params = {}) => {
+      const query = new URLSearchParams();
+      if (params.year) query.append('year', params.year);
+      const qs = query.toString();
+      return apiRequest(`/admin/analytics/monthly${qs ? '?' + qs : ''}`);
+    },
+    getYearlyAnalytics: () => apiRequest('/admin/analytics/yearly'),
+    downloadAnalyticsCsv: async (params = {}) => {
+      const query = new URLSearchParams();
+      if (params.reportType) query.append('reportType', params.reportType);
+      if (params.department && params.department !== 'ALL') query.append('department', params.department);
+      if (params.ward && params.ward !== 'ALL') query.append('ward', params.ward);
+      if (params.year) query.append('year', params.year);
+      if (params.startDate) query.append('startDate', params.startDate);
+      if (params.endDate) query.append('endDate', params.endDate);
+      const qs = query.toString();
+      const baseUrl = getApiBaseUrl();
+      const url = `${baseUrl.startsWith('http') ? baseUrl : ''}/admin/analytics/export/csv${qs ? '?' + qs : ''}`;
+      const res = await fetch(url, { method: 'GET', credentials: 'include' });
+      if (!res.ok) {
+        throw new Error(`Failed to export CSV: HTTP ${res.status}`);
+      }
+      return await res.blob();
+    }
   }
 };
 

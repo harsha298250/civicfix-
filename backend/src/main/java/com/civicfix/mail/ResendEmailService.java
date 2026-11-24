@@ -1,5 +1,7 @@
 package com.civicfix.mail;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +16,7 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -79,22 +82,39 @@ public class ResendEmailService implements EmailService {
         return this.restClient;
     }
 
+    public record ResendDispatchResult(
+            boolean success,
+            String providerMessageId,
+            int statusCode,
+            String errorMessage,
+            boolean retryable
+    ) {}
+
     /**
      * Core transactional email dispatch method to Resend's HTTP API.
      */
     public boolean sendEmail(String toEmail, String subject, String htmlContent) {
+        return sendEmailWithDetails(toEmail, subject, htmlContent, null, null).success();
+    }
+
+    /**
+     * Enterprise transactional email dispatch method to Resend's HTTP API with Idempotency-Key
+     * header support, event tracking tags, and fine-grained response classification.
+     */
+    public ResendDispatchResult sendEmailWithDetails(String toEmail, String subject, String htmlContent,
+                                                    String idempotencyKey, Map<String, String> tags) {
         if (toEmail == null || !toEmail.contains("@")) {
             log.warn("[RESEND] Delivery skipped: recipient email address is invalid or empty.");
-            return false;
+            return new ResendDispatchResult(false, null, 400, "Invalid or empty recipient email", false);
         }
 
         String maskedRecipient = maskEmail(toEmail);
 
-        // Return false when API key is missing or blank, logging a clear warning without failing callers
+        // Return false/unconfigured when API key is missing or blank
         if (apiKey == null || apiKey.trim().isEmpty()) {
             log.warn("[RESEND] Outbound email delivery aborted: RESEND_API_KEY is not configured. Recipient: {}, Subject: '{}'",
                     maskedRecipient, subject);
-            return false;
+            return new ResendDispatchResult(false, null, 0, "RESEND_API_KEY is not configured", false);
         }
 
         String sender = (fromEmail != null && !fromEmail.isBlank())
@@ -111,41 +131,76 @@ public class ResendEmailService implements EmailService {
         payload.put("subject", subject != null ? subject : "CivicFix Notification");
         payload.put("html", htmlContent);
 
+        if (tags != null && !tags.isEmpty()) {
+            List<Map<String, String>> tagList = new ArrayList<>();
+            for (Map.Entry<String, String> entry : tags.entrySet()) {
+                if (entry.getKey() != null && entry.getValue() != null) {
+                    Map<String, String> tagMap = new HashMap<>();
+                    tagMap.put("name", entry.getKey());
+                    tagMap.put("value", entry.getValue());
+                    tagList.add(tagMap);
+                }
+            }
+            if (!tagList.isEmpty()) {
+                payload.put("tags", tagList);
+            }
+        }
+
         try {
-            ResponseEntity<String> response = getRestClient().post()
+            var request = getRestClient().post()
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey.trim())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(payload)
+                    .contentType(MediaType.APPLICATION_JSON);
+
+            if (idempotencyKey != null && !idempotencyKey.trim().isEmpty()) {
+                request.header("Idempotency-Key", idempotencyKey.trim());
+            }
+
+            ResponseEntity<String> response = request.body(payload)
                     .retrieve()
                     .toEntity(String.class);
 
             if (response.getStatusCode().is2xxSuccessful()) {
-                log.info("[RESEND] Email accepted by provider for recipient: {}. Response: {}",
-                        maskedRecipient, response.getBody());
-                return true;
+                String body = response.getBody();
+                String messageId = extractMessageId(body);
+                log.info("[RESEND] Email accepted by provider for recipient: {}. Provider ID: {}",
+                        maskedRecipient, messageId);
+                return new ResendDispatchResult(true, messageId, response.getStatusCode().value(), null, false);
             } else {
                 log.warn("[RESEND] Provider returned non-2xx status for recipient {}: {}",
                         maskedRecipient, response.getStatusCode());
-                return false;
+                return new ResendDispatchResult(false, null, response.getStatusCode().value(),
+                        "Non-2xx status: " + response.getStatusCode(), true);
             }
         } catch (RestClientResponseException rex) {
+            int code = rex.getStatusCode().value();
+            boolean retryable = (code == 429 || code >= 500);
             log.warn("[RESEND] Provider rejected email for recipient {}. HTTP {}: {}",
                     maskedRecipient, rex.getStatusCode(), rex.getResponseBodyAsString());
-            return false;
+            return new ResendDispatchResult(false, null, code, rex.getResponseBodyAsString(), retryable);
         } catch (ResourceAccessException rae) {
             log.warn("[RESEND] Network or socket timeout connecting to Resend API for recipient {}: {}",
                     maskedRecipient, rae.getMessage());
-            return false;
+            return new ResendDispatchResult(false, null, 0, "Network timeout: " + rae.getMessage(), true);
         } catch (Exception ex) {
             log.warn("[RESEND] Unexpected exception dispatching email to recipient {}: {}",
                     maskedRecipient, ex.getMessage());
-            return false;
+            return new ResendDispatchResult(false, null, 0, "Unexpected error: " + ex.getMessage(), true);
         }
     }
 
-    @Override
-    public boolean sendPasswordResetEmail(String toEmail, String resetUrl) {
-        String htmlBody = wrapTemplate(
+    private String extractMessageId(String json) {
+        if (json == null || json.isBlank()) return null;
+        try {
+            JsonNode root = new ObjectMapper().readTree(json);
+            if (root.has("id")) {
+                return root.get("id").asText();
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    public String buildPasswordResetHtml(String resetUrl) {
+        return wrapTemplate(
                 "CivicFix Account Security",
                 "Password Reset Instructions",
                 "<p>A password reset was requested for your CivicFix account.</p>"
@@ -153,13 +208,11 @@ public class ResendEmailService implements EmailService {
                         + "<p style=\"margin: 24px 0;\"><a href=\"" + resetUrl + "\" style=\"display: inline-block; background-color: #137A70; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;\">Reset Password</a></p>"
                         + "<p style=\"font-size: 12px; color: #667384;\">If you did not request this reset, you can safely ignore this email. Your current password remains secure.</p>"
         );
-        return sendEmail(toEmail, "CivicFix Password Reset Request", htmlBody);
     }
 
-    @Override
-    public boolean sendPasswordResetConfirmationEmail(String toEmail, String name) {
+    public String buildPasswordResetConfirmationHtml(String name) {
         String displayName = (name != null && !name.isBlank()) ? name : "Citizen";
-        String htmlBody = wrapTemplate(
+        return wrapTemplate(
                 "CivicFix Account Security",
                 "Password Changed Successfully",
                 "<p>Hello " + escapeHtml(displayName) + ",</p>"
@@ -167,13 +220,11 @@ public class ResendEmailService implements EmailService {
                         + "<p>All existing active sessions across other devices have been invalidated for your security.</p>"
                         + "<p style=\"font-size: 12px; color: #DC2626; margin-top: 16px;\"><strong>Notice:</strong> If you did not authorize this change, please contact municipal administrators immediately.</p>"
         );
-        return sendEmail(toEmail, "CivicFix Account Security: Password Changed", htmlBody);
     }
 
-    @Override
-    public boolean sendWelcomeEmail(String toEmail, String name) {
+    public String buildWelcomeHtml(String name) {
         String displayName = (name != null && !name.isBlank()) ? name : "Citizen";
-        String htmlBody = wrapTemplate(
+        return wrapTemplate(
                 "CivicFix Citizen Portal",
                 "Welcome to CivicFix",
                 "<p>Hello " + escapeHtml(displayName) + ",</p>"
@@ -182,12 +233,10 @@ public class ResendEmailService implements EmailService {
                         + "<p style=\"margin: 24px 0;\"><a href=\"https://civicfix-red.vercel.app/login\" style=\"display: inline-block; background-color: #137A70; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;\">Go to Citizen Dashboard</a></p>"
                         + "<p style=\"font-size: 12px; color: #667384;\">Note: Official email verification is not required for basic incident intake. When formal verification workflows are enabled for your municipal ward, a notification will be provided.</p>"
         );
-        return sendEmail(toEmail, "Welcome to CivicFix Platform", htmlBody);
     }
 
-    @Override
-    public boolean sendComplaintSubmittedEmail(String toEmail, String citizenName, String referenceId, String title, String category, String ward) {
-        String htmlBody = wrapTemplate(
+    public String buildComplaintSubmittedHtml(String citizenName, String referenceId, String title, String category, String ward) {
+        return wrapTemplate(
                 "Municipal Issue Intake",
                 "Complaint Receipt #" + escapeHtml(referenceId),
                 "<p>Hello " + escapeHtml(citizenName != null ? citizenName : "Resident") + ",</p>"
@@ -200,16 +249,14 @@ public class ResendEmailService implements EmailService {
                         + "</table>"
                         + "<p>Municipal officers have been notified and will review your ticket for field assignment.</p>"
         );
-        return sendEmail(toEmail, "CivicFix Complaint Receipt #" + referenceId, htmlBody);
     }
 
-    @Override
-    public boolean sendComplaintStatusUpdateEmail(String toEmail, String citizenName, String referenceId, String title, String oldStatus, String newStatus, String notes) {
+    public String buildComplaintStatusUpdateHtml(String citizenName, String referenceId, String title, String oldStatus, String newStatus, String notes) {
         String notesBlock = (notes != null && !notes.isBlank())
                 ? "<div style=\"background: #F8FAFC; padding: 12px; border-radius: 8px; margin: 12px 0; font-size: 12px; color: #334155;\"><strong>Remarks:</strong> " + escapeHtml(notes) + "</div>"
                 : "";
 
-        String htmlBody = wrapTemplate(
+        return wrapTemplate(
                 "Civic Remediation Progress",
                 "Status Update: Complaint #" + escapeHtml(referenceId),
                 "<p>Hello " + escapeHtml(citizenName != null ? citizenName : "Resident") + ",</p>"
@@ -219,12 +266,10 @@ public class ResendEmailService implements EmailService {
                         + notesBlock
                         + "<p style=\"font-size: 12px; color: #667384;\">You can view complete progress logs and photos directly on your citizen dashboard.</p>"
         );
-        return sendEmail(toEmail, "Status Update: Complaint #" + referenceId + " is now " + newStatus, htmlBody);
     }
 
-    @Override
-    public boolean sendComplaintAssignmentEmail(String toEmail, String recipientName, String role, String referenceId, String title, String priority, String ward) {
-        String htmlBody = wrapTemplate(
+    public String buildComplaintAssignmentHtml(String recipientName, String role, String referenceId, String title, String priority, String ward) {
+        return wrapTemplate(
                 "Field Operations Dispatch",
                 "Task Assignment #" + escapeHtml(referenceId),
                 "<p>Hello " + escapeHtml(recipientName != null ? recipientName : "Field Technician") + ",</p>"
@@ -237,12 +282,10 @@ public class ResendEmailService implements EmailService {
                         + "</table>"
                         + "<p>Please review safety requirements and log site arrival when commencing work.</p>"
         );
-        return sendEmail(toEmail, "Task Assigned: Complaint #" + referenceId + " (" + priority + ")", htmlBody);
     }
 
-    @Override
-    public boolean sendNewComplaintAlertEmail(String toEmail, String officerName, String referenceId, String title, String priority, String ward) {
-        String htmlBody = wrapTemplate(
+    public String buildNewComplaintAlertHtml(String officerName, String referenceId, String title, String priority, String ward) {
+        return wrapTemplate(
                 "Municipal Intake Alert",
                 "New Intake Defect: #" + escapeHtml(referenceId),
                 "<p>Hello Officer " + escapeHtml(officerName != null ? officerName : "") + ",</p>"
@@ -251,6 +294,47 @@ public class ResendEmailService implements EmailService {
                         + "<p>Assessed Priority: <strong>" + escapeHtml(priority) + "</strong></p>"
                         + "<p style=\"margin: 20px 0;\"><a href=\"https://civicfix-red.vercel.app/officer/complaints/" + referenceId + "/review\" style=\"display: inline-block; background-color: #137A70; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: bold;\">Review Intake Ticket</a></p>"
         );
+    }
+
+    @Override
+    public boolean sendPasswordResetEmail(String toEmail, String resetUrl) {
+        String htmlBody = buildPasswordResetHtml(resetUrl);
+        return sendEmail(toEmail, "CivicFix Password Reset Request", htmlBody);
+    }
+
+    @Override
+    public boolean sendPasswordResetConfirmationEmail(String toEmail, String name) {
+        String htmlBody = buildPasswordResetConfirmationHtml(name);
+        return sendEmail(toEmail, "CivicFix Account Security: Password Changed", htmlBody);
+    }
+
+    @Override
+    public boolean sendWelcomeEmail(String toEmail, String name) {
+        String htmlBody = buildWelcomeHtml(name);
+        return sendEmail(toEmail, "Welcome to CivicFix Platform", htmlBody);
+    }
+
+    @Override
+    public boolean sendComplaintSubmittedEmail(String toEmail, String citizenName, String referenceId, String title, String category, String ward) {
+        String htmlBody = buildComplaintSubmittedHtml(citizenName, referenceId, title, category, ward);
+        return sendEmail(toEmail, "CivicFix Complaint Receipt #" + referenceId, htmlBody);
+    }
+
+    @Override
+    public boolean sendComplaintStatusUpdateEmail(String toEmail, String citizenName, String referenceId, String title, String oldStatus, String newStatus, String notes) {
+        String htmlBody = buildComplaintStatusUpdateHtml(citizenName, referenceId, title, oldStatus, newStatus, notes);
+        return sendEmail(toEmail, "Status Update: Complaint #" + referenceId + " is now " + newStatus, htmlBody);
+    }
+
+    @Override
+    public boolean sendComplaintAssignmentEmail(String toEmail, String recipientName, String role, String referenceId, String title, String priority, String ward) {
+        String htmlBody = buildComplaintAssignmentHtml(recipientName, role, referenceId, title, priority, ward);
+        return sendEmail(toEmail, "Task Assigned: Complaint #" + referenceId + " (" + priority + ")", htmlBody);
+    }
+
+    @Override
+    public boolean sendNewComplaintAlertEmail(String toEmail, String officerName, String referenceId, String title, String priority, String ward) {
+        String htmlBody = buildNewComplaintAlertHtml(officerName, referenceId, title, priority, ward);
         return sendEmail(toEmail, "New Complaint Alert: #" + referenceId + " in " + ward, htmlBody);
     }
 

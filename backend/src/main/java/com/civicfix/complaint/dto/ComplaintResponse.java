@@ -156,6 +156,15 @@ public class ComplaintResponse {
                 this.citizen.remove("email");
                 this.citizen.remove("phone");
             }
+
+            if (isStaff && isDetailView && this.aiTriage != null && !this.aiTriage.containsKey("summary")) {
+                String brief = String.format("[%s] %s in %s. Status: %s. Action: Review & Dispatch.",
+                        c.getReferenceId() != null ? c.getReferenceId() : "N/A",
+                        c.getTitle() != null ? c.getTitle() : "Issue",
+                        c.getWard() != null ? c.getWard() : "General",
+                        c.getStatus() != null ? c.getStatus().name() : "SUBMITTED");
+                this.aiTriage.put("summary", brief);
+            }
         }
     }
 

@@ -231,6 +231,7 @@ public class SupervisorService {
         OffsetDateTime newDeadline = baseTime.plusHours(req.getAdditionalHours());
 
         complaint.setSlaDueAt(newDeadline);
+        complaint.setSlaWarningSentAt(null);
         complaint.setUpdatedAt(now);
 
         String historyNote = "SLA deadline extended by " + req.getAdditionalHours() + "h from " +
@@ -296,6 +297,7 @@ public class SupervisorService {
         OffsetDateTime minimumSafeDeadline = now.plusHours(graceHours);
         if (complaint.getSlaDueAt() == null || complaint.getSlaDueAt().isBefore(minimumSafeDeadline)) {
             complaint.setSlaDueAt(minimumSafeDeadline);
+            complaint.setSlaWarningSentAt(null);
         }
         complaint.setUpdatedAt(now);
 
@@ -327,7 +329,7 @@ public class SupervisorService {
     @Transactional(readOnly = true)
     public List<SupervisorWorkerResponse> getActiveWorkers() {
         return userRepository.findActiveUsersByRoleName(RoleName.WORKER).stream()
-                .map(SupervisorWorkerResponse::fromEntity)
+                .map(this::toWorkerResponseWithWorkload)
                 .toList();
     }
 
@@ -364,8 +366,46 @@ public class SupervisorService {
         }
 
         return workers.stream()
-                .map(SupervisorWorkerResponse::fromEntity)
+                .map(this::toWorkerResponseWithWorkload)
                 .toList();
+    }
+
+    private SupervisorWorkerResponse toWorkerResponseWithWorkload(User u) {
+        SupervisorWorkerResponse resp = SupervisorWorkerResponse.fromEntity(u);
+        if (resp == null || u == null) return resp;
+
+        if (complaintRepository != null) {
+            OffsetDateTime now = OffsetDateTime.now();
+            long active = complaintRepository.countByAssignedWorkerIdAndStatusIn(
+                    u.getId(),
+                    List.of(
+                            com.civicfix.complaint.ComplaintStatus.ASSIGNED,
+                            com.civicfix.complaint.ComplaintStatus.IN_PROGRESS,
+                            com.civicfix.complaint.ComplaintStatus.REWORK_REQUESTED
+                    )
+            );
+            long pending = complaintRepository.countByAssignedWorkerIdAndStatus(
+                    u.getId(), com.civicfix.complaint.ComplaintStatus.ASSIGNED);
+            long inProgress = complaintRepository.countByAssignedWorkerIdAndStatus(
+                    u.getId(), com.civicfix.complaint.ComplaintStatus.IN_PROGRESS);
+            long completed = complaintRepository.countByAssignedWorkerIdAndStatusIn(
+                    u.getId(),
+                    List.of(
+                            com.civicfix.complaint.ComplaintStatus.RESOLUTION_SUBMITTED,
+                            com.civicfix.complaint.ComplaintStatus.PENDING_CITIZEN_CONFIRMATION,
+                            com.civicfix.complaint.ComplaintStatus.RESOLVED
+                    )
+            );
+            long overdue = complaintRepository.countOverdueByAssignedWorkerId(u.getId(), now);
+
+            resp.setActiveOrdersCount(active);
+            resp.setPendingOrdersCount(pending);
+            resp.setInProgressOrdersCount(inProgress);
+            resp.setCompletedOrdersCount(completed);
+            resp.setOverdueOrdersCount(overdue);
+        }
+
+        return resp;
     }
 
     private Complaint resolveComplaint(String idOrRef) {

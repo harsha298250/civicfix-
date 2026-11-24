@@ -6,6 +6,7 @@ import { PriorityBadge } from '../../components/common/PriorityBadge';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { TamilNaduOverviewMap } from '../../components/common/TamilNaduOverviewMap';
 import { CATEGORIES } from '../../constants/statusConstants';
+import { TAMIL_NADU_DISTRICTS } from '../../constants/tamilNaduDistricts';
 
 export const CitizenIssueMapPage = () => {
   const [complaints, setComplaints] = useState([]);
@@ -15,6 +16,7 @@ export const CitizenIssueMapPage = () => {
   const [viewMode, setViewMode] = useState('split'); // 'split', 'map'
   const [activeCategory, setActiveCategory] = useState('ALL');
   const [activeStatus, setActiveStatus] = useState('ALL');
+  const [activeDistrict, setActiveDistrict] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
   const fetchComplaints = useCallback(() => {
@@ -55,8 +57,12 @@ export const CitizenIssueMapPage = () => {
 
     const matchesCategory = activeCategory === 'ALL' || c.category === activeCategory || c.categoryId === activeCategory;
     const matchesStatus = activeStatus === 'ALL' || c.status === activeStatus;
+    const matchesDistrict = activeDistrict === 'ALL' ||
+      (c.ward && c.ward.toLowerCase().includes(activeDistrict.toLowerCase())) ||
+      (c.location?.address && c.location.address.toLowerCase().includes(activeDistrict.toLowerCase())) ||
+      (c.location?.ward && c.location.ward.toLowerCase().includes(activeDistrict.toLowerCase()));
 
-    return matchesSearch && matchesCategory && matchesStatus;
+    return matchesSearch && matchesCategory && matchesStatus && matchesDistrict;
   });
 
   // Filter valid geographic coordinates
@@ -183,6 +189,22 @@ export const CitizenIssueMapPage = () => {
               <option value="IN_PROGRESS">Repairs In Progress</option>
               <option value="RESOLUTION_SUBMITTED">Awaiting Verification</option>
               <option value="RESOLVED">Resolved</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-tertiary text-[11px] font-semibold uppercase">District:</label>
+            <select
+              value={activeDistrict}
+              onChange={(e) => setActiveDistrict(e.target.value)}
+              className="px-2.5 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant/40 text-xs text-on-surface"
+            >
+              <option value="ALL">All Districts (38)</option>
+              {TAMIL_NADU_DISTRICTS.map((d) => (
+                <option key={d.name} value={d.name}>
+                  {d.name} ({d.region})
+                </option>
+              ))}
             </select>
           </div>
 

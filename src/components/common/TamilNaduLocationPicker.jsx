@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { geolocationService } from '../../services/geolocationService';
+import { MAJOR_TN_DISTRICTS, TAMIL_NADU_DISTRICTS } from '../../constants/tamilNaduDistricts';
 
 // Leaflet custom pin generator
 const createPinIcon = (color = '#137A70', icon = 'location_on') => {
@@ -49,13 +50,7 @@ export const TamilNaduLocationPicker = ({
   const [searching, setSearching] = useState(false);
 
   // Tamil Nadu Key Districts for Quick Pan
-  const TN_DISTRICTS = [
-    { name: 'Chennai', lat: 13.0827, lng: 80.2707, zoom: 13 },
-    { name: 'Coimbatore', lat: 11.0168, lng: 76.9558, zoom: 13 },
-    { name: 'Madurai', lat: 9.9252, lng: 78.1198, zoom: 13 },
-    { name: 'Trichy', lat: 10.7905, lng: 78.7047, zoom: 13 },
-    { name: 'Salem', lat: 11.6643, lng: 78.1460, zoom: 13 }
-  ];
+  const quickDistricts = MAJOR_TN_DISTRICTS;
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -256,18 +251,35 @@ export const TamilNaduLocationPicker = ({
           </button>
         </form>
 
-        <div className="flex items-center gap-1 shrink-0 overflow-x-auto pb-0.5">
-          <span className="text-[10px] text-tertiary font-bold uppercase mr-0.5">Districts:</span>
-          {TN_DISTRICTS.map((d, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => handlePanToDistrict(d)}
-              className="px-2 py-0.5 rounded text-[11px] bg-surface-container-low hover:bg-surface-container text-on-surface font-medium border border-outline-variant/30 transition-colors whitespace-nowrap"
-            >
-              {d.name}
-            </button>
-          ))}
+        <div className="flex items-center gap-1.5 shrink-0 overflow-x-auto pb-0.5">
+          <span className="text-[10px] text-tertiary font-bold uppercase mr-0.5">District:</span>
+          <select
+            onChange={(e) => {
+              const selected = TAMIL_NADU_DISTRICTS.find(d => d.name === e.target.value);
+              if (selected) handlePanToDistrict(selected);
+            }}
+            defaultValue=""
+            className="px-2 py-1 rounded-lg text-[11px] bg-surface-container-low text-on-surface font-medium border border-outline-variant/30 focus:outline-none"
+            title="Jump to Tamil Nadu District"
+          >
+            <option value="" disabled>All 38 Districts...</option>
+            {TAMIL_NADU_DISTRICTS.map((d) => (
+              <option key={d.name} value={d.name}>{d.name} ({d.region})</option>
+            ))}
+          </select>
+
+          <div className="hidden md:flex items-center gap-1">
+            {quickDistricts.slice(0, 5).map((d, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => handlePanToDistrict(d)}
+                className="px-2 py-0.5 rounded text-[11px] bg-surface-container-low hover:bg-surface-container text-on-surface font-medium border border-outline-variant/30 transition-colors whitespace-nowrap"
+              >
+                {d.name}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

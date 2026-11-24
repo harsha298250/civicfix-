@@ -22,8 +22,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByEmailIgnoreCaseWithLock(@Param("email") String email);
 
     Optional<User> findByPhone(String phone);
+    Optional<User> findByFirebaseUid(String firebaseUid);
     boolean existsByEmailIgnoreCase(String email);
     boolean existsByPhone(String phone);
+    boolean existsByFirebaseUid(String firebaseUid);
 
     @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = :roleName AND u.accountStatus = 'ACTIVE'")
     List<User> findActiveUsersByRoleName(@Param("roleName") RoleName roleName);

@@ -223,18 +223,24 @@ class SupervisorServiceTest {
     }
 
     @Test
-    @DisplayName("SLA extension fails with invalid hours or reason")
+    @DisplayName("SLA extension fails with invalid hours or reason and leaves warning timestamp untouched")
     void testExtendSla_ValidationErrors() {
+        java.time.OffsetDateTime initialWarning = java.time.OffsetDateTime.now().minusHours(2);
+        testComplaint.setSlaWarningSentAt(initialWarning);
+
         assertThrows(BadRequestException.class, () ->
                 supervisorService.extendSla(testComplaint.getId().toString(), new ExtendSlaRequest(0, "Weather delay hold"), supervisorPrincipal, "127.0.0.1"));
 
         assertThrows(BadRequestException.class, () ->
                 supervisorService.extendSla(testComplaint.getId().toString(), new ExtendSlaRequest(24, "no"), supervisorPrincipal, "127.0.0.1"));
+
+        assertEquals(initialWarning, testComplaint.getSlaWarningSentAt(), "Warning timestamp must remain untouched on validation errors");
     }
 
     @Test
-    @DisplayName("Successful SLA extension updates slaDueAt and writes audit log")
+    @DisplayName("Successful SLA extension updates slaDueAt, resets slaWarningSentAt, and writes audit log")
     void testExtendSla_Success() {
+        testComplaint.setSlaWarningSentAt(java.time.OffsetDateTime.now().minusHours(3));
         ExtendSlaRequest req = new ExtendSlaRequest(48, "Material supply chain delay");
         req.setVersion(1L);
 
@@ -242,6 +248,7 @@ class SupervisorServiceTest {
 
         assertNotNull(response);
         assertNotNull(testComplaint.getSlaDueAt());
+        assertNull(testComplaint.getSlaWarningSentAt(), "slaWarningSentAt must be reset to null on SLA extension to allow new warning cycle");
         assertTrue(auditLogged.get(), "Audit log must be written for SLA extension");
     }
 
@@ -256,9 +263,10 @@ class SupervisorServiceTest {
     }
 
     @Test
-    @DisplayName("Successful de-escalation clears escalatedAt, sets minimum grace window and writes audit log")
+    @DisplayName("Successful de-escalation clears escalatedAt, resets slaWarningSentAt, sets minimum grace window and writes audit log")
     void testDeEscalate_Success() {
         testComplaint.setEscalatedAt(java.time.OffsetDateTime.now().minusHours(2));
+        testComplaint.setSlaWarningSentAt(java.time.OffsetDateTime.now().minusHours(1));
         DeEscalateRequest req = new DeEscalateRequest("Issue investigated and verified under control", 48);
         req.setVersion(1L);
 
@@ -266,6 +274,7 @@ class SupervisorServiceTest {
 
         assertNotNull(response);
         assertNull(testComplaint.getEscalatedAt(), "EscalatedAt must be cleared on de-escalation");
+        assertNull(testComplaint.getSlaWarningSentAt(), "slaWarningSentAt must be reset to null on de-escalation");
         assertNotNull(testComplaint.getSlaDueAt(), "SlaDueAt must be safe in the future to prevent re-escalation");
         assertTrue(testComplaint.getSlaDueAt().isAfter(java.time.OffsetDateTime.now().plusHours(24)));
         assertTrue(auditLogged.get(), "Audit log must be written for de-escalation");

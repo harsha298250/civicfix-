@@ -5,6 +5,7 @@ import { useTranslation } from '../../context/LanguageContext';
 import LanguageToggle from '../../components/common/LanguageToggle';
 import InstallPwaButton from '../../components/common/InstallPwaButton';
 import { authService, isDemoModeEnabled } from '../../services/authService';
+import { firebaseAuthService } from '../../services/firebaseAuth';
 import { apiClient } from '../../services/apiClient';
 import { detectContactType, formatIndianPhone, isValidIndianPhone } from '../../utils/phoneUtils';
 
@@ -85,6 +86,42 @@ export const LoginPage = () => {
       else navigate('/citizen/dashboard');
     } catch (err) {
       setErrorMsg(err.message || 'Login failed. Please verify your credentials.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFirebaseSubmit = async (e) => {
+    e.preventDefault();
+    if (!identifier.trim()) {
+      setErrorMsg('Please enter your registered email address.');
+      return;
+    }
+    if (contactType === 'PHONE') {
+      setErrorMsg('Firebase authentication requires an email address.');
+      return;
+    }
+    if (!password) {
+      setErrorMsg('Please enter your account password.');
+      return;
+    }
+
+    setLoading(true);
+    setErrorMsg('');
+
+    try {
+      const user = await authService.loginWithFirebase(identifier.trim(), password);
+      setCurrentUser(user);
+      showToast(`Welcome back, ${user.name}! (Firebase Authenticated)`, 'success');
+
+      if (user.role === 'CITIZEN') navigate('/citizen/dashboard');
+      else if (user.role === 'OFFICER') navigate('/officer/dashboard');
+      else if (user.role === 'SUPERVISOR') navigate('/supervisor/escalations');
+      else if (user.role === 'WORKER') navigate('/worker/dashboard');
+      else if (user.role === 'ADMIN') navigate('/admin/dashboard');
+      else navigate('/citizen/dashboard');
+    } catch (err) {
+      setErrorMsg(err.message || 'Firebase authentication failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }
@@ -323,6 +360,19 @@ export const LoginPage = () => {
                 <span>{t('auth.signInButton')}</span>
               )}
             </button>
+
+            {/* Optional Firebase Email Authentication Action */}
+            {firebaseAuthService.isConfigured() && contactType !== 'PHONE' && (
+              <button
+                type="button"
+                onClick={handleFirebaseSubmit}
+                disabled={loading}
+                className="w-full min-h-[44px] py-2.5 bg-slate-50 hover:bg-slate-100 text-[#18232F] text-sm font-semibold rounded-xl border border-[#CBD5E1] shadow-xs transition-all flex items-center justify-center gap-2 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#137A70]"
+              >
+                <span className="material-symbols-outlined text-[#F58220] text-[20px]">local_fire_department</span>
+                <span>Sign In with Firebase Email</span>
+              </button>
+            )}
           </form>
 
           {/* Quick Demo Account Presets (Active exclusively when VITE_DEMO_MODE=true) */}

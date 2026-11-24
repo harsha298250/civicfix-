@@ -2,6 +2,7 @@ package com.civicfix.complaint;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -23,8 +24,10 @@ public interface ComplaintRepository extends JpaRepository<Complaint, UUID> {
     Optional<Complaint> findByIdOrReferenceId(@Param("id") UUID id, @Param("ref") String ref);
 
     // Citizen: own complaints only
+    @EntityGraph(attributePaths = {"citizen", "assignedOfficer", "assignedWorker"})
     Page<Complaint> findByCitizenIdOrderByCreatedAtDesc(UUID citizenId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"citizen", "assignedOfficer", "assignedWorker"})
     List<Complaint> findByCitizenIdOrderByCreatedAtDesc(UUID citizenId);
 
     @Query("SELECT c FROM Complaint c WHERE c.citizen.id = :citizenId AND " +
@@ -41,8 +44,10 @@ public interface ComplaintRepository extends JpaRepository<Complaint, UUID> {
             Pageable pageable);
 
     // Worker: assigned tasks only
+    @EntityGraph(attributePaths = {"citizen", "assignedOfficer", "assignedWorker"})
     Page<Complaint> findByAssignedWorkerIdOrderByCreatedAtDesc(UUID workerId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"citizen", "assignedOfficer", "assignedWorker"})
     Page<Complaint> findByAssignedWorkerIdAndStatusOrderByCreatedAtDesc(UUID workerId, ComplaintStatus status, Pageable pageable);
 
     @Query("SELECT c FROM Complaint c WHERE c.assignedWorker.id = :workerId AND " +
@@ -59,12 +64,16 @@ public interface ComplaintRepository extends JpaRepository<Complaint, UUID> {
             Pageable pageable);
 
     // Officer / Admin: all complaints with optional filtering
+    @EntityGraph(attributePaths = {"citizen", "assignedOfficer", "assignedWorker"})
     Page<Complaint> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
+    @EntityGraph(attributePaths = {"citizen", "assignedOfficer", "assignedWorker"})
     Page<Complaint> findByStatusOrderByCreatedAtDesc(ComplaintStatus status, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"citizen", "assignedOfficer", "assignedWorker"})
     Page<Complaint> findByCategoryIgnoreCaseOrderByCreatedAtDesc(String category, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"citizen", "assignedOfficer", "assignedWorker"})
     Page<Complaint> findByWardIgnoreCaseOrderByCreatedAtDesc(String ward, Pageable pageable);
 
     @Query("SELECT c FROM Complaint c WHERE " +
@@ -254,4 +263,33 @@ public interface ComplaintRepository extends JpaRepository<Complaint, UUID> {
     @Query(value = "UPDATE complaints SET deleted_at = NULL, deleted_by = NULL, deletion_reason = NULL, updated_at = NOW() WHERE id = :id AND deleted_at IS NOT NULL",
            nativeQuery = true)
     int restoreSoftDeletedComplaintNative(@Param("id") UUID id);
+
+    // Phase 6: Worker Workload Counts
+    long countByAssignedWorkerIdAndStatusIn(UUID workerId, java.util.Collection<ComplaintStatus> statuses);
+
+    long countByAssignedWorkerIdAndStatus(UUID workerId, ComplaintStatus status);
+
+    @Query("SELECT COUNT(c) FROM Complaint c WHERE c.assignedWorker.id = :workerId AND c.status NOT IN (com.civicfix.complaint.ComplaintStatus.RESOLVED, com.civicfix.complaint.ComplaintStatus.REJECTED) AND c.slaDueAt IS NOT NULL AND c.slaDueAt < :now")
+    long countOverdueByAssignedWorkerId(@Param("workerId") UUID workerId, @Param("now") OffsetDateTime now);
+
+    // Phase 6: SLA Approaching Deadline Query (Dual Threshold: <= 4h remaining OR >= 80% SLA duration elapsed)
+    @Query(value = "SELECT id FROM complaints " +
+            "WHERE deleted_at IS NULL " +
+            "AND status NOT IN ('RESOLVED', 'REJECTED', 'PENDING_CITIZEN_CONFIRMATION', 'CLOSED') " +
+            "AND sla_due_at IS NOT NULL " +
+            "AND sla_due_at > :now " +
+            "AND sla_warning_sent_at IS NULL " +
+            "AND ( " +
+            "    sla_due_at <= :threshold " +
+            "    OR ( " +
+            "        sla_due_at > created_at " +
+            "        AND EXTRACT(EPOCH FROM (sla_due_at - :now)) <= 0.20 * EXTRACT(EPOCH FROM (sla_due_at - created_at)) " +
+            "    ) " +
+            ") ORDER BY sla_due_at ASC",
+            nativeQuery = true)
+    List<UUID> findApproachingDeadlineComplaintIds(@Param("now") OffsetDateTime now, @Param("threshold") OffsetDateTime threshold, Pageable pageable);
+
+    @Modifying
+    @Query("UPDATE Complaint c SET c.slaWarningSentAt = :now WHERE c.id = :id AND c.slaWarningSentAt IS NULL")
+    int markSlaWarningSent(@Param("id") UUID id, @Param("now") OffsetDateTime now);
 }

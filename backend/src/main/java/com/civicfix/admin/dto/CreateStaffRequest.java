@@ -18,8 +18,7 @@ public class CreateStaffRequest {
     @Pattern(regexp = "^$|^(\\+91[\\-\\s]?)?[6-9]\\d{9}$", message = "Phone must be a valid 10-digit Indian mobile number.")
     private String phone;
 
-    @NotBlank(message = "Temporary staff password is required.")
-    @Size(min = 8, max = 100, message = "Password must be at least 8 characters.")
+    @Size(max = 100, message = "Password must be at most 100 characters.")
     private String password;
 
     @NotBlank(message = "Staff role assignment is required (OFFICER or WORKER).")

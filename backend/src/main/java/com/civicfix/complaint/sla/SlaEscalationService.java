@@ -79,5 +79,35 @@ public class SlaEscalationService {
         log.info("Complaint #{} ({}) successfully escalated. Reason: {}", complaint.getReferenceId(), complaintId, reason);
         return true;
     }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean warnApproachingDeadline(UUID complaintId) {
+        OffsetDateTime now = OffsetDateTime.now();
+        int rowsUpdated = complaintRepository.markSlaWarningSent(complaintId, now);
+        if (rowsUpdated == 0) {
+            return false;
+        }
+
+        Complaint complaint = complaintRepository.findById(complaintId).orElse(null);
+        if (complaint == null) {
+            return false;
+        }
+
+        auditService.logAction(
+                null,
+                "SYSTEM",
+                "SYSTEM",
+                "SLA_WARNING_DISPATCHED",
+                "COMPLAINT",
+                complaint.getId().toString(),
+                "Dispatched SLA approaching-deadline warning for complaint #" + complaint.getReferenceId(),
+                "127.0.0.1",
+                "SUCCESS"
+        );
+
+        notificationService.notifySlaApproachingDeadline(complaint);
+        log.info("Complaint #{} ({}) successfully flagged with SLA approaching-deadline warning.", complaint.getReferenceId(), complaintId);
+        return true;
+    }
 }
 

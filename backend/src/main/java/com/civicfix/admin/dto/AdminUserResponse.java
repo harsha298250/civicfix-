@@ -25,6 +25,8 @@ public class AdminUserResponse {
     private Set<String> roles;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
+    private String activationToken;
+    private StaffWorkloadSummary workload;
 
     public AdminUserResponse() {}
 
@@ -133,6 +135,22 @@ public class AdminUserResponse {
 
     public void setUpdatedAt(OffsetDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getActivationToken() {
+        return activationToken;
+    }
+
+    public void setActivationToken(String activationToken) {
+        this.activationToken = activationToken;
+    }
+
+    public StaffWorkloadSummary getWorkload() {
+        return workload;
+    }
+
+    public void setWorkload(StaffWorkloadSummary workload) {
+        this.workload = workload;
     }
 }
 

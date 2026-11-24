@@ -1,12 +1,32 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { apiClient } from '../../services/apiClient';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriorityBadge } from '../../components/common/PriorityBadge';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 
 export const AssignmentsPage = () => {
   const { complaints, complaintsError, refreshComplaints } = useApp();
+  const [workers, setWorkers] = useState([]);
+  const [loadingWorkers, setLoadingWorkers] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    apiClient.supervisor.getWorkers()
+      .then(res => {
+        if (isMounted && res?.data) {
+          setWorkers(res.data);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to load workers for assignment dashboard:', err);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingWorkers(false);
+      });
+    return () => { isMounted = false; };
+  }, []);
 
   const assignedComplaints = complaints.filter(c => c.assignedWorker);
 
@@ -39,24 +59,39 @@ export const AssignmentsPage = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[
-          { name: 'Marcus Chen', unit: 'SDOT Rapid Asphalt 4', active: 2, rig: 'Van #14 (Roller T-12)' },
-          { name: 'David Kalu', unit: 'Sanitation Emergency', active: 1, rig: 'Compactor Rig 3' },
-          { name: 'Suresh Kumar', unit: 'High Voltage Grid Service', active: 1, rig: 'Aerial Lift Truck 9' }
-        ].map((lead, idx) => (
-          <div key={idx} className="bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-outline-variant/30 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-sm text-on-surface">{lead.name}</span>
-              <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold">
-                {lead.active} Active Orders
-              </span>
-            </div>
-            <p className="text-xs text-tertiary">{lead.unit}</p>
-            <p className="text-[11px] text-on-surface-variant font-code bg-surface-container-low p-2 rounded-lg">
-              {lead.rig}
-            </p>
+        {loadingWorkers ? (
+          <div className="col-span-3 p-8 text-center text-xs text-on-surface-variant bg-surface-container-lowest rounded-2xl border border-outline-variant/30 flex items-center justify-center gap-2">
+            <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+            <span>Loading active field workers...</span>
           </div>
-        ))}
+        ) : workers.length === 0 ? (
+          <div className="col-span-3 p-6 text-center text-xs text-tertiary bg-surface-container-lowest rounded-2xl border border-outline-variant/30">
+            No active field workers registered in the municipal database.
+          </div>
+        ) : (
+          workers.map((worker) => (
+            <div key={worker.id} className="bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-outline-variant/30 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-sm text-on-surface">{worker.fullName}</span>
+                <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold">
+                  {worker.activeOrdersCount || 0} Active Orders
+                </span>
+              </div>
+              <p className="text-xs text-tertiary">{worker.department || 'Municipal Operations'}</p>
+              <div className="flex items-center gap-2 text-[11px] text-on-surface-variant font-code bg-surface-container-low p-2 rounded-lg">
+                <span>Pending: {worker.pendingOrdersCount || 0}</span>
+                <span>•</span>
+                <span>In Progress: {worker.inProgressOrdersCount || 0}</span>
+                {worker.overdueOrdersCount > 0 && (
+                  <>
+                    <span>•</span>
+                    <span className="text-rose-600 font-bold">{worker.overdueOrdersCount} Overdue</span>
+                  </>
+                )}
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-sm border border-outline-variant/30 space-y-4">

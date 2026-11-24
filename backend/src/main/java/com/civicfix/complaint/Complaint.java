@@ -116,6 +116,9 @@ public class Complaint {
     @Column(name = "sla_due_at")
     private OffsetDateTime slaDueAt;
 
+    @Column(name = "sla_warning_sent_at")
+    private OffsetDateTime slaWarningSentAt;
+
     @Column(name = "escalated_at")
     private OffsetDateTime escalatedAt;
 
@@ -445,6 +448,14 @@ public class Complaint {
 
     public void setSlaDueAt(OffsetDateTime slaDueAt) {
         this.slaDueAt = slaDueAt;
+    }
+
+    public OffsetDateTime getSlaWarningSentAt() {
+        return slaWarningSentAt;
+    }
+
+    public void setSlaWarningSentAt(OffsetDateTime slaWarningSentAt) {
+        this.slaWarningSentAt = slaWarningSentAt;
     }
 
     public OffsetDateTime getEscalatedAt() {

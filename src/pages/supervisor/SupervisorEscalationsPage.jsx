@@ -721,7 +721,7 @@ export const SupervisorEscalationsPage = () => {
                     const wDept = w.department || 'Field Tech';
                     return (
                       <option key={w.id} value={w.id} disabled={isCurrent}>
-                        {wName} — {wDept} {isCurrent ? '(Currently Assigned)' : ''}
+                        {wName} — {wDept} | {w.activeOrdersCount !== undefined ? `${w.activeOrdersCount} active` : 'Active'} {w.overdueOrdersCount > 0 ? `(${w.overdueOrdersCount} overdue)` : ''} {isCurrent ? '(Currently Assigned)' : ''}
                       </option>
                     );
                   })}

@@ -54,7 +54,15 @@ public class GisService {
 
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
-    private final Map<String, ReverseGeocodeResponse> cache = new ConcurrentHashMap<>();
+    public static final int MAX_CACHE_ENTRIES = 5000;
+    private final Map<String, ReverseGeocodeResponse> cache = Collections.synchronizedMap(
+            new java.util.LinkedHashMap<String, ReverseGeocodeResponse>(128, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, ReverseGeocodeResponse> eldest) {
+                    return size() > MAX_CACHE_ENTRIES;
+                }
+            }
+    );
 
     // Configurable rate limit parameters
     private final boolean rateLimiterEnabled;
@@ -586,10 +594,8 @@ public class GisService {
                 result.setState(state);
                 result.setPostcode(postcode);
 
-                // Cache successful response (limit size to prevent memory bloat)
-                if (cache.size() < 5000) {
-                    cache.put(cacheKey, result);
-                }
+                // Cache successful response (LRU eviction bounded)
+                cache.put(cacheKey, result);
                 return result;
             } else if (response.statusCode() == 429 || response.statusCode() == 503) {
                 cooldownUntilTimestamp = System.currentTimeMillis() + cooldownMs;

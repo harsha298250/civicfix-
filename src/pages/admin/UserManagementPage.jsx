@@ -155,6 +155,7 @@ const UserManagementPage = () => {
             <option value="CITIZEN">Citizens</option>
             <option value="OFFICER">Municipal Officers</option>
             <option value="WORKER">Field Workers</option>
+            <option value="SUPERVISOR">Department Supervisors</option>
             <option value="ADMIN">System Admins</option>
           </select>
 
@@ -168,6 +169,7 @@ const UserManagementPage = () => {
           >
             <option value="ALL">All Statuses</option>
             <option value="ACTIVE">Active</option>
+            <option value="PENDING_ACTIVATION">Pending Activation</option>
             <option value="SUSPENDED">Suspended</option>
             <option value="PENDING_APPROVAL">Pending Approval</option>
           </select>
@@ -243,28 +245,44 @@ const UserManagementPage = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-[#667384] font-medium text-xs">
-                          {user.department || 'N/A'}
+                          <div>{user.department || 'N/A'}</div>
+                          {user.workload && user.workload.activeOrdersCount !== undefined && (
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200" title="Active tasks">
+                                {user.workload.activeOrdersCount} active
+                              </span>
+                              {user.workload.overdueOrdersCount > 0 && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200" title="Overdue tasks">
+                                  {user.workload.overdueOrdersCount} overdue
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4">
                           <span
                             className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
                               user.status === 'ACTIVE'
                                 ? 'bg-emerald-100 text-emerald-800'
+                                : user.status === 'PENDING_ACTIVATION'
+                                ? 'bg-amber-100 text-amber-900 border border-amber-300'
                                 : user.status === 'SUSPENDED'
                                 ? 'bg-rose-100 text-rose-800'
-                                : 'bg-amber-100 text-amber-800'
+                                : 'bg-slate-100 text-slate-800'
                             }`}
                           >
                             <span
                               className={`w-1.5 h-1.5 rounded-full ${
                                 user.status === 'ACTIVE'
                                   ? 'bg-emerald-500'
+                                  : user.status === 'PENDING_ACTIVATION'
+                                  ? 'bg-amber-500'
                                   : user.status === 'SUSPENDED'
                                   ? 'bg-rose-500'
-                                  : 'bg-amber-500'
+                                  : 'bg-slate-500'
                               }`}
                             />
-                            {user.status}
+                            {user.status === 'PENDING_ACTIVATION' ? 'Pending Activation' : user.status}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-[#667384] text-xs">

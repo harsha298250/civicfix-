@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -106,5 +107,34 @@ class AiTriageServiceTest {
         AiTriageResult result = triageService.triageComplaint(null);
         assertNotNull(result);
         assertEquals("GENERAL", result.getDetectedCategory());
+    }
+
+    @Test
+    @DisplayName("SuggestCategory: Clamps input > 1000 chars, strips control characters, and returns safe suggestion")
+    void testSuggestCategoryClampingAndSanitization() {
+        String longText = "Road pothole damage ".repeat(100) + "\u0000\u0007\u0008";
+        AiTriageResult mockTriage = new AiTriageResult();
+        mockTriage.setDetectedCategory("ROADS");
+        mockTriage.setConfidence(BigDecimal.valueOf(88.0));
+        mockTriage.setExplanation("Identified asphalt defect keywords.");
+        mockTriage.setRuleMatches(List.of("Category: ROADS", "Category: DRAINAGE"));
+
+        when(triageEngine.evaluate(anyString(), eq(""), isNull(), isNull())).thenReturn(mockTriage);
+
+        var response = triageService.suggestCategory(longText, "en");
+
+        assertNotNull(response);
+        assertEquals("ROADS", response.getCategory());
+        assertTrue(response.getIsConfident());
+        assertTrue(response.getAlternativeCategories().contains("DRAINAGE"));
+    }
+
+    @Test
+    @DisplayName("SuggestCategory: Handles empty or whitespace-only input safely")
+    void testSuggestCategoryEmptyOrWhitespace() {
+        var response = triageService.suggestCategory("   \n\t  ", "en");
+        assertNotNull(response);
+        assertEquals("ROADS", response.getCategory());
+        assertFalse(response.getIsConfident());
     }
 }

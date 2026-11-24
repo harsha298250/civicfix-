@@ -75,6 +75,18 @@ public class NotificationController {
     }
 
     /**
+     * POST /api/notifications/{id}/read
+     * Alias endpoint providing backward-compatibility with alternative REST clients.
+     */
+    @PostMapping("/{id}/read")
+    public ResponseEntity<ApiResponse<NotificationResponse>> markNotificationAsReadPostAlias(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        NotificationResponse response = notificationService.markAsRead(id, principal);
+        return ResponseEntity.ok(ApiResponse.success("Notification marked as read.", response));
+    }
+
+    /**
      * PATCH /api/notifications/read-all
      * Marks all unread notifications for the authenticated user as read.
      */

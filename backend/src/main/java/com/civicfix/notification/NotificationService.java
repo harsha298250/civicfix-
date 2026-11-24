@@ -33,18 +33,27 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final com.civicfix.mail.EmailService emailService;
+    private final com.civicfix.mail.EmailOutboxService emailOutboxService;
 
     @org.springframework.beans.factory.annotation.Autowired
     public NotificationService(NotificationRepository notificationRepository,
                                UserRepository userRepository,
-                               @org.springframework.beans.factory.annotation.Autowired(required = false) com.civicfix.mail.EmailService emailService) {
+                               @org.springframework.beans.factory.annotation.Autowired(required = false) com.civicfix.mail.EmailService emailService,
+                               @org.springframework.beans.factory.annotation.Autowired(required = false) com.civicfix.mail.EmailOutboxService emailOutboxService) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.emailService = emailService;
+        this.emailOutboxService = emailOutboxService;
+    }
+
+    public NotificationService(NotificationRepository notificationRepository,
+                               UserRepository userRepository,
+                               com.civicfix.mail.EmailService emailService) {
+        this(notificationRepository, userRepository, emailService, null);
     }
 
     public NotificationService(NotificationRepository notificationRepository, UserRepository userRepository) {
-        this(notificationRepository, userRepository, null);
+        this(notificationRepository, userRepository, null, null);
     }
 
     /**
@@ -75,16 +84,9 @@ public class NotificationService {
                             NotificationSeverity.INFO,
                             "/citizen/complaints/" + refId
                     );
-                    if (emailService != null && complaint.getCitizen() != null && complaint.getCitizen().getEmail() != null) {
+                    if (complaint.getCitizen() != null && complaint.getCitizen().getEmail() != null) {
                         try {
-                            emailService.sendComplaintSubmittedEmail(
-                                    complaint.getCitizen().getEmail(),
-                                    complaint.getCitizen().getFullName(),
-                                    refId,
-                                    complaint.getTitle(),
-                                    complaint.getCategory() != null ? complaint.getCategory() : "General",
-                                    complaint.getWard()
-                            );
+                            dispatchComplaintSubmittedEmail(complaint, refId);
                         } catch (Exception ex) {
                             log.warn("Non-fatal email error on complaint intake receipt #{}: {}", refId, ex.getMessage());
                         }
@@ -108,16 +110,9 @@ public class NotificationService {
                                 officerSeverity,
                                 "/officer/complaints/" + refId + "/review"
                         );
-                        if (emailService != null && officer.getEmail() != null && !officer.getEmail().isBlank()) {
+                        if (officer.getEmail() != null && !officer.getEmail().isBlank()) {
                             try {
-                                emailService.sendNewComplaintAlertEmail(
-                                        officer.getEmail(),
-                                        officer.getFullName(),
-                                        refId,
-                                        complaint.getTitle(),
-                                        complaint.getPriority() != null ? complaint.getPriority().name() : "MEDIUM",
-                                        wardDesc
-                                );
+                                dispatchNewComplaintAlertEmail(officer, complaint, refId, wardDesc);
                             } catch (Exception ex) {
                                 log.warn("Non-fatal email alert to officer {}: {}", officer.getEmail(), ex.getMessage());
                             }
@@ -139,17 +134,9 @@ public class NotificationService {
                                 NotificationSeverity.INFO,
                                 "/worker/tasks/" + refId
                         );
-                        if (emailService != null && complaint.getAssignedWorker().getEmail() != null) {
+                        if (complaint.getAssignedWorker().getEmail() != null) {
                             try {
-                                emailService.sendComplaintAssignmentEmail(
-                                        complaint.getAssignedWorker().getEmail(),
-                                        complaint.getAssignedWorker().getFullName(),
-                                        "FIELD_WORKER",
-                                        refId,
-                                        complaint.getTitle(),
-                                        complaint.getPriority() != null ? complaint.getPriority().name() : "MEDIUM",
-                                        complaint.getWard()
-                                );
+                                dispatchComplaintAssignmentEmail(complaint.getAssignedWorker(), complaint, refId);
                             } catch (Exception ex) {
                                 log.warn("Non-fatal email dispatch to technician: {}", ex.getMessage());
                             }
@@ -169,17 +156,9 @@ public class NotificationService {
                             NotificationSeverity.INFO,
                             "/citizen/complaints/" + refId
                     );
-                    if (emailService != null && complaint.getCitizen() != null && complaint.getCitizen().getEmail() != null) {
+                    if (complaint.getCitizen() != null && complaint.getCitizen().getEmail() != null) {
                         try {
-                            emailService.sendComplaintStatusUpdateEmail(
-                                    complaint.getCitizen().getEmail(),
-                                    complaint.getCitizen().getFullName(),
-                                    refId,
-                                    complaint.getTitle(),
-                                    "SUBMITTED",
-                                    "WORKER_ASSIGNED",
-                                    "Technician " + workerName + " has been assigned to your ticket."
-                            );
+                            dispatchStatusUpdateEmail(complaint.getCitizen(), complaint, refId, "SUBMITTED", "WORKER_ASSIGNED", "Technician " + workerName + " has been assigned to your ticket.");
                         } catch (Exception ex) {
                             log.warn("Non-fatal email to citizen on worker assignment: {}", ex.getMessage());
                         }
@@ -187,7 +166,7 @@ public class NotificationService {
                     break;
 
                 case WORK_STARTED:
-                    // Notify citizen that repairs began
+                    // 1. Notify citizen that repairs began
                     sendNotification(
                             complaint.getCitizen(),
                             actor,
@@ -199,20 +178,27 @@ public class NotificationService {
                             NotificationSeverity.INFO,
                             "/citizen/complaints/" + refId
                     );
-                    if (emailService != null && complaint.getCitizen() != null && complaint.getCitizen().getEmail() != null) {
+                    if (complaint.getCitizen() != null && complaint.getCitizen().getEmail() != null) {
                         try {
-                            emailService.sendComplaintStatusUpdateEmail(
-                                    complaint.getCitizen().getEmail(),
-                                    complaint.getCitizen().getFullName(),
-                                    refId,
-                                    complaint.getTitle(),
-                                    "ASSIGNED",
-                                    "WORK_STARTED",
-                                    "Field technician has arrived on scene and begun repair operations."
-                            );
+                            dispatchStatusUpdateEmail(complaint.getCitizen(), complaint, refId, "ASSIGNED", "WORK_STARTED", "Field technician has arrived on scene and begun repair operations.");
                         } catch (Exception ex) {
                             log.warn("Non-fatal email error on work started #{}: {}", refId, ex.getMessage());
                         }
+                    }
+
+                    // 2. Notify assigned officer
+                    if (complaint.getAssignedOfficer() != null) {
+                        sendNotification(
+                                complaint.getAssignedOfficer(),
+                                actor,
+                                complaint,
+                                refId,
+                                "Repair Work Started #" + refId,
+                                "Field technician has arrived on scene and begun repair operations.",
+                                NotificationType.STATUS_CHANGED,
+                                NotificationSeverity.INFO,
+                                "/officer/complaints/" + refId + "/review"
+                        );
                     }
                     break;
 
@@ -259,17 +245,9 @@ public class NotificationService {
                             NotificationSeverity.INFO,
                             "/citizen/complaints/" + refId
                     );
-                    if (emailService != null && complaint.getCitizen() != null && complaint.getCitizen().getEmail() != null) {
+                    if (complaint.getCitizen() != null && complaint.getCitizen().getEmail() != null) {
                         try {
-                            emailService.sendComplaintStatusUpdateEmail(
-                                    complaint.getCitizen().getEmail(),
-                                    complaint.getCitizen().getFullName(),
-                                    refId,
-                                    complaint.getTitle(),
-                                    "IN_PROGRESS",
-                                    "RESOLUTION_SUBMITTED",
-                                    "Field repairs have completed. Municipal officer verification is underway."
-                            );
+                            dispatchStatusUpdateEmail(complaint.getCitizen(), complaint, refId, "IN_PROGRESS", "RESOLUTION_SUBMITTED", "Field repairs have completed. Municipal officer verification is underway.");
                         } catch (Exception ex) {
                             log.warn("Non-fatal email error on resolution submission #{}: {}", refId, ex.getMessage());
                         }
@@ -289,17 +267,9 @@ public class NotificationService {
                             NotificationSeverity.SUCCESS,
                             "/citizen/complaints/" + refId
                     );
-                    if (emailService != null && complaint.getCitizen() != null && complaint.getCitizen().getEmail() != null) {
+                    if (complaint.getCitizen() != null && complaint.getCitizen().getEmail() != null) {
                         try {
-                            emailService.sendComplaintStatusUpdateEmail(
-                                    complaint.getCitizen().getEmail(),
-                                    complaint.getCitizen().getFullName(),
-                                    refId,
-                                    complaint.getTitle(),
-                                    "VERIFIED",
-                                    "RESOLVED",
-                                    "Resolution evidence has been verified and formally closed."
-                            );
+                            dispatchStatusUpdateEmail(complaint.getCitizen(), complaint, refId, "VERIFIED", "RESOLVED", "Resolution evidence has been verified and formally closed.");
                         } catch (Exception ex) {
                             log.warn("Non-fatal email error on complaint resolution #{}: {}", refId, ex.getMessage());
                         }
@@ -357,17 +327,9 @@ public class NotificationService {
                             NotificationSeverity.WARNING,
                             "/citizen/complaints/" + refId
                     );
-                    if (emailService != null && complaint.getCitizen() != null && complaint.getCitizen().getEmail() != null) {
+                    if (complaint.getCitizen() != null && complaint.getCitizen().getEmail() != null) {
                         try {
-                            emailService.sendComplaintStatusUpdateEmail(
-                                    complaint.getCitizen().getEmail(),
-                                    complaint.getCitizen().getFullName(),
-                                    refId,
-                                    complaint.getTitle(),
-                                    "UNDER_REVIEW",
-                                    "REJECTED",
-                                    "Complaint closed without action: " + rejectReason
-                            );
+                            dispatchStatusUpdateEmail(complaint.getCitizen(), complaint, refId, "UNDER_REVIEW", "REJECTED", "Complaint closed without action: " + rejectReason);
                         } catch (Exception ex) {
                             log.warn("Non-fatal email error on complaint rejection #{}: {}", refId, ex.getMessage());
                         }
@@ -454,7 +416,21 @@ public class NotificationService {
                                 "/officer/complaints/" + refId + "/review"
                         );
                     }
-                    // 2. Notify all active supervisors
+                    // 2. Notify assigned worker if present
+                    if (complaint.getAssignedWorker() != null) {
+                        sendNotification(
+                                complaint.getAssignedWorker(),
+                                actor,
+                                complaint,
+                                refId,
+                                "Resolution Rejected by Citizen #" + refId,
+                                "Citizen reported issue is not fixed: \"" + rejReason + "\". Additional repair work required.",
+                                NotificationType.RESOLUTION_REJECTED,
+                                NotificationSeverity.WARNING,
+                                "/worker/tasks/" + refId + "/progress"
+                        );
+                    }
+                    // 3. Notify all active supervisors
                     List<User> supervisors = userRepository.findActiveUsersByRoleName(RoleName.SUPERVISOR);
                     for (User sup : supervisors) {
                         sendNotification(
@@ -465,6 +441,77 @@ public class NotificationService {
                                 "Citizen Rejected Fix #" + refId,
                                 "Citizen reported issue is not fixed on ticket #" + refId + ": " + rejReason,
                                 NotificationType.RESOLUTION_REJECTED,
+                                NotificationSeverity.ACTION_REQUIRED,
+                                "/supervisor/escalations"
+                        );
+                    }
+                    break;
+
+                case COMPLAINT_REOPENED:
+                    String reopenReason = event.getNotes() != null && !event.getNotes().isBlank()
+                            ? event.getNotes().trim()
+                            : "Complaint reopened for additional remediation.";
+                    // 1. Notify reporting citizen
+                    sendNotification(
+                            complaint.getCitizen(),
+                            actor,
+                            complaint,
+                            refId,
+                            "Complaint Reopened #" + refId,
+                            "Your complaint has been reopened: " + reopenReason,
+                            NotificationType.COMPLAINT_REOPENED,
+                            NotificationSeverity.INFO,
+                            "/citizen/complaints/" + refId
+                    );
+                    if (complaint.getCitizen() != null && complaint.getCitizen().getEmail() != null) {
+                        try {
+                            dispatchStatusUpdateEmail(complaint.getCitizen(), complaint, refId, "RESOLVED", "REOPENED", reopenReason);
+                        } catch (Exception ex) {
+                            log.warn("Non-fatal email error on complaint reopen #{}: {}", refId, ex.getMessage());
+                        }
+                    }
+
+                    // 2. Notify assigned officer
+                    if (complaint.getAssignedOfficer() != null) {
+                        sendNotification(
+                                complaint.getAssignedOfficer(),
+                                actor,
+                                complaint,
+                                refId,
+                                "Complaint Reopened #" + refId,
+                                "Complaint #" + refId + " was reopened: " + reopenReason,
+                                NotificationType.COMPLAINT_REOPENED,
+                                NotificationSeverity.WARNING,
+                                "/officer/complaints/" + refId + "/review"
+                        );
+                    }
+
+                    // 3. Notify assigned worker if present
+                    if (complaint.getAssignedWorker() != null) {
+                        sendNotification(
+                                complaint.getAssignedWorker(),
+                                actor,
+                                complaint,
+                                refId,
+                                "Work Order Reopened #" + refId,
+                                "Work order #" + refId + " was reopened: " + reopenReason,
+                                NotificationType.COMPLAINT_REOPENED,
+                                NotificationSeverity.WARNING,
+                                "/worker/tasks/" + refId + "/progress"
+                        );
+                    }
+
+                    // 4. Notify supervisors
+                    List<User> activeSupervisors = userRepository.findActiveUsersByRoleName(RoleName.SUPERVISOR);
+                    for (User sup : activeSupervisors) {
+                        sendNotification(
+                                sup,
+                                actor,
+                                complaint,
+                                refId,
+                                "Reopened Complaint Alert #" + refId,
+                                "Complaint #" + refId + " was reopened. Reason: " + reopenReason,
+                                NotificationType.COMPLAINT_REOPENED,
                                 NotificationSeverity.ACTION_REQUIRED,
                                 "/supervisor/escalations"
                         );
@@ -726,6 +773,161 @@ public class NotificationService {
         }
 
         return notificationRepository.markAllAsReadByRecipientId(principal.getId(), OffsetDateTime.now());
+    }
+
+    private void dispatchComplaintSubmittedEmail(Complaint complaint, String refId) {
+        if (complaint.getCitizen() == null || complaint.getCitizen().getEmail() == null || complaint.getCitizen().getEmail().isBlank()) {
+            return;
+        }
+        String toEmail = complaint.getCitizen().getEmail();
+        String citizenName = complaint.getCitizen().getFullName();
+        String title = complaint.getTitle();
+        String category = complaint.getCategory() != null ? complaint.getCategory() : "General";
+        String ward = complaint.getWard();
+
+        if (emailOutboxService != null) {
+            String idemKey = "intake_" + complaint.getId();
+            emailOutboxService.enqueueEmail(
+                    idemKey,
+                    toEmail,
+                    "CivicFix Complaint Receipt #" + refId,
+                    "COMPLAINT_SUBMITTED",
+                    java.util.Map.of(
+                            "citizenName", citizenName != null ? citizenName : "Resident",
+                            "referenceId", refId != null ? refId : "",
+                            "title", title != null ? title : "",
+                            "category", category,
+                            "ward", ward != null ? ward : ""
+                    )
+            );
+        } else if (emailService != null) {
+            emailService.sendComplaintSubmittedEmail(toEmail, citizenName, refId, title, category, ward);
+        }
+    }
+
+    private void dispatchNewComplaintAlertEmail(User officer, Complaint complaint, String refId, String wardDesc) {
+        if (officer == null || officer.getEmail() == null || officer.getEmail().isBlank()) {
+            return;
+        }
+        String toEmail = officer.getEmail();
+        String officerName = officer.getFullName();
+        String title = complaint.getTitle();
+        String priority = complaint.getPriority() != null ? complaint.getPriority().name() : "MEDIUM";
+
+        if (emailOutboxService != null) {
+            String idemKey = "alert_" + complaint.getId() + "_" + officer.getId();
+            emailOutboxService.enqueueEmail(
+                    idemKey,
+                    toEmail,
+                    "New Complaint Alert: #" + refId + " in " + wardDesc,
+                    "NEW_COMPLAINT_ALERT",
+                    java.util.Map.of(
+                            "officerName", officerName != null ? officerName : "",
+                            "referenceId", refId != null ? refId : "",
+                            "title", title != null ? title : "",
+                            "priority", priority,
+                            "ward", wardDesc != null ? wardDesc : ""
+                    )
+            );
+        } else if (emailService != null) {
+            emailService.sendNewComplaintAlertEmail(toEmail, officerName, refId, title, priority, wardDesc);
+        }
+    }
+
+    private void dispatchComplaintAssignmentEmail(User worker, Complaint complaint, String refId) {
+        if (worker == null || worker.getEmail() == null || worker.getEmail().isBlank()) {
+            return;
+        }
+        String toEmail = worker.getEmail();
+        String recipientName = worker.getFullName();
+        String role = "FIELD_WORKER";
+        String title = complaint.getTitle();
+        String priority = complaint.getPriority() != null ? complaint.getPriority().name() : "MEDIUM";
+        String ward = complaint.getWard();
+
+        if (emailOutboxService != null) {
+            String idemKey = "assign_" + complaint.getId() + "_" + worker.getId() + "_" + System.currentTimeMillis();
+            emailOutboxService.enqueueEmail(
+                    idemKey,
+                    toEmail,
+                    "Task Assigned: Complaint #" + refId + " (" + priority + ")",
+                    "COMPLAINT_ASSIGNMENT",
+                    java.util.Map.of(
+                            "recipientName", recipientName != null ? recipientName : "Field Technician",
+                            "role", role,
+                            "referenceId", refId != null ? refId : "",
+                            "title", title != null ? title : "",
+                            "priority", priority,
+                            "ward", ward != null ? ward : ""
+                    )
+            );
+        } else if (emailService != null) {
+            emailService.sendComplaintAssignmentEmail(toEmail, recipientName, role, refId, title, priority, ward);
+        }
+    }
+
+    private void dispatchStatusUpdateEmail(User citizen, Complaint complaint, String refId, String oldStatus, String newStatus, String notes) {
+        if (citizen == null || citizen.getEmail() == null || citizen.getEmail().isBlank()) {
+            return;
+        }
+        String toEmail = citizen.getEmail();
+        String citizenName = citizen.getFullName();
+        String title = complaint.getTitle();
+
+        if (emailOutboxService != null) {
+            String idemKey = "status_" + complaint.getId() + "_" + newStatus + "_" + System.currentTimeMillis();
+            emailOutboxService.enqueueEmail(
+                    idemKey,
+                    toEmail,
+                    "Status Update: Complaint #" + refId + " is now " + newStatus,
+                    "COMPLAINT_STATUS_UPDATE",
+                    java.util.Map.of(
+                            "citizenName", citizenName != null ? citizenName : "Resident",
+                            "referenceId", refId != null ? refId : "",
+                            "title", title != null ? title : "",
+                            "oldStatus", oldStatus != null ? oldStatus : "",
+                            "newStatus", newStatus != null ? newStatus : "",
+                            "notes", notes != null ? notes : ""
+                    )
+            );
+        } else if (emailService != null) {
+            emailService.sendComplaintStatusUpdateEmail(toEmail, citizenName, refId, title, oldStatus, newStatus, notes);
+        }
+    }
+
+    public void notifySlaApproachingDeadline(Complaint complaint) {
+        if (complaint == null) return;
+        String refId = complaint.getReferenceId();
+        String title = "SLA Approaching Deadline #" + refId;
+        String message = "Complaint #" + refId + " (" + complaint.getTitle() + ") is nearing its SLA resolution deadline.";
+
+        if (complaint.getAssignedOfficer() != null) {
+            sendNotification(
+                    complaint.getAssignedOfficer(),
+                    null,
+                    complaint,
+                    refId,
+                    title,
+                    message,
+                    NotificationType.SLA_APPROACHING_DEADLINE,
+                    NotificationSeverity.WARNING,
+                    "/officer/complaints/" + refId + "/review"
+            );
+        }
+
+        if (complaint.getAssignedWorker() != null) {
+            sendNotification(
+                    complaint.getAssignedWorker(),
+                    null,
+                    complaint,
+                    refId,
+                    "Task Approaching Deadline #" + refId,
+                    "Assigned task #" + refId + " is nearing its SLA resolution deadline. Please submit repair evidence.",
+                    NotificationType.SLA_APPROACHING_DEADLINE,
+                    NotificationSeverity.WARNING,
+                    "/worker/tasks/" + refId + "/progress"
+            );
+        }
     }
 }
 

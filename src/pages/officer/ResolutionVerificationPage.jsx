@@ -435,7 +435,9 @@ export const ResolutionVerificationPage = () => {
             </span>
           </div>
           <div>
-            <span className="text-tertiary block text-[10px] uppercase">Inspecting Officer</span>
+            <span className="text-tertiary block text-[10px] uppercase">
+              {currentUser?.role === 'SUPERVISOR' ? 'Inspecting Supervisor' : 'Inspecting Officer'}
+            </span>
             <span className="font-bold text-on-surface">{currentUser?.name || 'Elena Vance'}</span>
           </div>
         </div>

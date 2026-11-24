@@ -4,6 +4,7 @@ import com.civicfix.admin.dto.*;
 import com.civicfix.audit.AuditLog;
 import com.civicfix.audit.AuditLogRepository;
 import com.civicfix.audit.AuditService;
+import com.civicfix.auth.StaffActivationService;
 import com.civicfix.common.exception.BadRequestException;
 import com.civicfix.common.exception.ResourceNotFoundException;
 import com.civicfix.complaint.ComplaintRepository;
@@ -12,6 +13,8 @@ import com.civicfix.complaint.sla.SlaPolicyRepository;
 import com.civicfix.user.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -34,6 +37,8 @@ public class AdminService {
     private final AuditService auditService;
     private final PasswordEncoder passwordEncoder;
     private final SlaPolicyRepository slaPolicyRepository;
+    private final StaffActivationService staffActivationService;
+    private final Environment environment;
 
     public AdminService(
             UserRepository userRepository,
@@ -44,6 +49,21 @@ public class AdminService {
             PasswordEncoder passwordEncoder,
             SlaPolicyRepository slaPolicyRepository
     ) {
+        this(userRepository, roleRepository, complaintRepository, auditLogRepository, auditService, passwordEncoder, slaPolicyRepository, null, null);
+    }
+
+    @Autowired
+    public AdminService(
+            UserRepository userRepository,
+            RoleRepository roleRepository,
+            ComplaintRepository complaintRepository,
+            AuditLogRepository auditLogRepository,
+            AuditService auditService,
+            PasswordEncoder passwordEncoder,
+            SlaPolicyRepository slaPolicyRepository,
+            @Autowired(required = false) StaffActivationService staffActivationService,
+            @Autowired(required = false) Environment environment
+    ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.complaintRepository = complaintRepository;
@@ -51,6 +71,23 @@ public class AdminService {
         this.auditService = auditService;
         this.passwordEncoder = passwordEncoder;
         this.slaPolicyRepository = slaPolicyRepository;
+        this.staffActivationService = staffActivationService;
+        this.environment = environment;
+    }
+
+    private StaffWorkloadSummary getWorkerWorkload(UUID workerId) {
+        if (complaintRepository == null || workerId == null) {
+            return new StaffWorkloadSummary(0, 0, 0, 0, 0);
+        }
+        long active = complaintRepository.countByAssignedWorkerIdAndStatusIn(
+                workerId, List.of(ComplaintStatus.ASSIGNED, ComplaintStatus.IN_PROGRESS, ComplaintStatus.REWORK_REQUESTED));
+        long pending = complaintRepository.countByAssignedWorkerIdAndStatus(workerId, ComplaintStatus.ASSIGNED);
+        long inProgress = complaintRepository.countByAssignedWorkerIdAndStatus(workerId, ComplaintStatus.IN_PROGRESS);
+        long completed = complaintRepository.countByAssignedWorkerIdAndStatusIn(
+                workerId, List.of(ComplaintStatus.RESOLUTION_SUBMITTED, ComplaintStatus.PENDING_CITIZEN_CONFIRMATION, ComplaintStatus.RESOLVED));
+        long overdue = complaintRepository.countOverdueByAssignedWorkerId(
+                workerId, OffsetDateTime.now());
+        return new StaffWorkloadSummary(active, pending, inProgress, completed, overdue);
     }
 
     /**
@@ -72,7 +109,13 @@ public class AdminService {
         String statusTrimmed = (status != null && !status.isBlank() && !status.equalsIgnoreCase("ALL")) ? status.trim() : null;
 
         Page<User> users = userRepository.findUsersWithFilters(roleName, statusTrimmed, searchTrimmed, pageable);
-        return users.map(AdminUserResponse::fromEntity);
+        return users.map(u -> {
+            AdminUserResponse resp = AdminUserResponse.fromEntity(u);
+            if (u.getRoles() != null && u.getRoles().stream().anyMatch(r -> r.getName() == RoleName.WORKER)) {
+                resp.setWorkload(getWorkerWorkload(u.getId()));
+            }
+            return resp;
+        });
     }
 
     /**
@@ -82,7 +125,11 @@ public class AdminService {
     public AdminUserResponse getUserById(UUID id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + id));
-        return AdminUserResponse.fromEntity(user);
+        AdminUserResponse resp = AdminUserResponse.fromEntity(user);
+        if (user.getRoles() != null && user.getRoles().stream().anyMatch(r -> r.getName() == RoleName.WORKER)) {
+            resp.setWorkload(getWorkerWorkload(user.getId()));
+        }
+        return resp;
     }
 
     /**
@@ -122,10 +169,15 @@ public class AdminService {
         user.setFullName(req.getFullName().trim());
         user.setEmail(req.getEmail().trim().toLowerCase());
         user.setPhone(req.getPhone() != null && !req.getPhone().isBlank() ? req.getPhone().trim() : null);
-        user.setPasswordHash(passwordEncoder.encode(req.getPassword()));
+
+        String initialPassword = (req.getPassword() != null && !req.getPassword().isBlank())
+                ? req.getPassword()
+                : UUID.randomUUID().toString();
+        user.setPasswordHash(passwordEncoder.encode(initialPassword));
+
         user.setDepartment(req.getDepartment() != null ? req.getDepartment().trim() : "Municipal Operations");
         user.setWard(req.getWard() != null ? req.getWard().trim() : "Headquarters");
-        user.setAccountStatus("ACTIVE");
+        user.setAccountStatus(staffActivationService != null ? "PENDING_ACTIVATION" : "ACTIVE");
         user.setTrustScore(100);
         user.setRoles(Set.of(role));
 
@@ -145,7 +197,18 @@ public class AdminService {
         );
 
         log.info("Administrator {} successfully provisioned new {} staff account ID: {}", adminName, targetRole, saved.getId());
-        return AdminUserResponse.fromEntity(saved);
+        AdminUserResponse response = AdminUserResponse.fromEntity(saved);
+
+        if (staffActivationService != null) {
+            User adminUser = adminId != null ? userRepository.findById(adminId).orElse(null) : null;
+            String rawToken = staffActivationService.createActivationToken(saved, adminUser);
+            if (environment != null && Arrays.stream(environment.getActiveProfiles())
+                    .anyMatch(p -> p.equalsIgnoreCase("dev") || p.equalsIgnoreCase("test"))) {
+                response.setActivationToken(rawToken);
+            }
+        }
+
+        return response;
     }
 
     /**

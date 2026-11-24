@@ -10,7 +10,7 @@ import { ImageUploadManager } from '../../components/common/ImageUploadManager';
 import { TamilNaduLocationPicker } from '../../components/common/TamilNaduLocationPicker';
 import { geolocationService } from '../../services/geolocationService';
 import VoiceInputButton from '../../components/common/VoiceInputButton';
-import { suggestCategoryFromText } from '../../utils/triageUtils';
+import { suggestCategoryFromText, mapBackendCategoryToFrontendId } from '../../utils/triageUtils';
 
 export const ReportComplaintPage = () => {
   const navigate = useNavigate();
@@ -224,13 +224,104 @@ export const ReportComplaintPage = () => {
     }
   };
 
+  const [backendCategorySuggestion, setBackendCategorySuggestion] = useState(null);
+  const [backendCategoryLoading, setBackendCategoryLoading] = useState(false);
+
+  useEffect(() => {
+    const text = (formData.title + ' ' + formData.description).trim();
+    if (!text || text.length < 5) {
+      setBackendCategorySuggestion(null);
+      return;
+    }
+
+    let active = true;
+    const timer = setTimeout(async () => {
+      setBackendCategoryLoading(true);
+      try {
+        const res = await complaintService.suggestCategory(text, i18n.language || 'en');
+        if (active && res && res.category) {
+          const frontId = mapBackendCategoryToFrontendId(res.category);
+          setBackendCategorySuggestion({
+            id: frontId,
+            category: res.category,
+            confidence: res.confidence,
+            explanation: res.explanation,
+            alternatives: res.alternativeCategories || []
+          });
+        }
+      } catch (err) {
+        // Safe graceful degradation: client-side fallback continues working seamlessly
+        console.debug('Backend category suggestion fallback to local lexicon:', err);
+      } finally {
+        if (active) setBackendCategoryLoading(false);
+      }
+    }, 400);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [formData.title, formData.description, i18n.language]);
+
   const suggestedCategory = useMemo(() => {
+    if (backendCategorySuggestion && backendCategorySuggestion.id) {
+      return backendCategorySuggestion.id;
+    }
     return suggestCategoryFromText(formData.title + ' ' + formData.description);
-  }, [formData.title, formData.description]);
+  }, [backendCategorySuggestion, formData.title, formData.description]);
 
   const suggestedCategoryObj = useMemo(() => {
     return CATEGORIES.find((c) => c.id === suggestedCategory) || null;
   }, [suggestedCategory]);
+
+  const [duplicateWarning, setDuplicateWarning] = useState(null);
+
+  useEffect(() => {
+    if (!formData.coordinates?.lat || !formData.coordinates?.lng) {
+      setDuplicateWarning(null);
+      return;
+    }
+
+    let active = true;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await apiClient.complaints.getPublicNearby({
+          lat: formData.coordinates.lat,
+          lng: formData.coordinates.lng,
+          radiusKm: 0.1, // 100 meters
+          limit: 5
+        });
+        const items = res?.data || res || [];
+        if (active && Array.isArray(items) && items.length > 0) {
+          const match = items.find((item) => {
+            if (!item.referenceId) return false;
+            const catMatches = !formData.categoryId ||
+              (item.category && item.category.toLowerCase().includes(formData.categoryId.toLowerCase()));
+            return catMatches;
+          }) || items[0];
+
+          if (match && match.referenceId) {
+            setDuplicateWarning({
+              referenceId: match.referenceId,
+              category: match.category,
+              distanceMeters: match.distanceMeters || 50
+            });
+          } else {
+            setDuplicateWarning(null);
+          }
+        } else if (active) {
+          setDuplicateWarning(null);
+        }
+      } catch (err) {
+        if (active) setDuplicateWarning(null);
+      }
+    }, 500);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [formData.coordinates?.lat, formData.coordinates?.lng, formData.categoryId]);
 
   const selectedCategoryObj = CATEGORIES.find((c) => c.id === formData.categoryId) || CATEGORIES[0];
 
@@ -783,6 +874,20 @@ export const ReportComplaintPage = () => {
                     </span>
                   </div>
 
+                  {duplicateWarning && (
+                    <div data-testid="citizen-duplicate-warning-step3" className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 text-xs flex items-start gap-2.5 animate-fade-in">
+                      <span className="material-symbols-outlined text-[18px] text-amber-600 shrink-0 mt-0.5">info</span>
+                      <div className="space-y-1">
+                        <p className="font-semibold text-amber-950">
+                          Similar active report nearby (#{duplicateWarning.referenceId})
+                        </p>
+                        <p className="text-amber-900/80 leading-relaxed">
+                          An active {duplicateWarning.category || 'civic'} issue was recently reported approximately {Math.round(duplicateWarning.distanceMeters)}m from your location. You can still proceed and submit your complaint if this is a separate defect.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Explicit User Confirmation */}
                   <label className="flex items-start gap-2.5 cursor-pointer text-xs text-on-surface pt-1">
                     <input
@@ -805,6 +910,20 @@ export const ReportComplaintPage = () => {
               {currentStep === 4 && (
                 <div className="space-y-5 animate-fade-in">
                   <h3 className="font-title text-base font-bold text-on-surface">{t('reportComplaint.step4Heading')}</h3>
+
+                  {duplicateWarning && (
+                    <div data-testid="citizen-duplicate-warning" className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 text-xs flex items-start gap-2.5 animate-fade-in">
+                      <span className="material-symbols-outlined text-[18px] text-amber-600 shrink-0 mt-0.5">info</span>
+                      <div className="space-y-1">
+                        <p className="font-semibold text-amber-950">
+                          Similar active report nearby (#{duplicateWarning.referenceId})
+                        </p>
+                        <p className="text-amber-900/80 leading-relaxed">
+                          An active {duplicateWarning.category || 'civic'} issue was recently reported approximately {Math.round(duplicateWarning.distanceMeters)}m from your location. You can still proceed and submit your complaint if this is a separate defect.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="p-4 rounded-xl bg-surface-container-low space-y-3 border border-outline-variant/30 text-xs">
                     <div className="flex justify-between items-start">

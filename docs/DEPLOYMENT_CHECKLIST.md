@@ -41,3 +41,11 @@ Service workers and the native PWA application installation flow require a secur
 - **Mandatory HTTPS**: In production, CivicFix MUST be served over HTTPS (TLS 1.2+). Modern browsers strictly block service worker registration, offline precaching, and the `beforeinstallprompt` install banner over plain HTTP (only `localhost` is permitted as a development exception).
 - **SSL Termination**: Configure Nginx, AWS ALB, or your Cloudflare ingress with automated TLS certificates (e.g. Let's Encrypt).
 
+## 5. Neon Database & Connection Pool Settings
+- **HikariCP Pool Limit**: In `application-prod.yml`, maximum pool size is set to `10` with `minimum-idle: 2` and `max-lifetime: 1200000` (20 minutes) to accommodate Neon PostgreSQL autoscaling compute suspension without connection drops.
+- **Flyway Migrations**: Applied up to `V25` (`V25__add_performance_and_created_at_indexes.sql`). Do not edit existing migration scripts.
+
+## 6. Edge Security Headers & Request Correlation
+- **Security Headers**: HSTS, X-Content-Type-Options: nosniff, X-Frame-Options: DENY, and Permissions-Policy are enforced via `SecurityConfig.java` and `vercel.json`.
+- **Request Tracing**: `CorrelationIdFilter` captures or generates `X-Request-ID` and returns it in response headers. Backend exceptions in `GlobalExceptionHandler` automatically include the `requestId` in error responses.
+

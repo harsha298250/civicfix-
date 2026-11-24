@@ -3,6 +3,7 @@ package com.civicfix.complaint.sla;
 import com.civicfix.complaint.ComplaintRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -24,17 +25,29 @@ public class SlaEscalationScheduler {
     private final ComplaintRepository complaintRepository;
     private final SlaEscalationService slaEscalationService;
     private final boolean enabled;
+    private final boolean warningJobEnabled;
     private final int batchSize;
 
+    @Autowired
     public SlaEscalationScheduler(
             ComplaintRepository complaintRepository,
             SlaEscalationService slaEscalationService,
             @Value("${civicfix.sla.escalation-job.enabled:true}") boolean enabled,
+            @Value("${civicfix.sla.warning-job.enabled:false}") boolean warningJobEnabled,
             @Value("${civicfix.sla.escalation-job.batch-size:50}") int batchSize) {
         this.complaintRepository = complaintRepository;
         this.slaEscalationService = slaEscalationService;
         this.enabled = enabled;
+        this.warningJobEnabled = warningJobEnabled;
         this.batchSize = batchSize;
+    }
+
+    public SlaEscalationScheduler(
+            ComplaintRepository complaintRepository,
+            SlaEscalationService slaEscalationService,
+            boolean enabled,
+            int batchSize) {
+        this(complaintRepository, slaEscalationService, enabled, false, batchSize);
     }
 
     @Scheduled(fixedDelayString = "${civicfix.sla.escalation-job.interval-ms:300000}")
@@ -66,6 +79,35 @@ public class SlaEscalationScheduler {
             }
         }
         return escalatedCount;
+    }
+
+    @Scheduled(fixedDelayString = "${civicfix.sla.warning-job.interval-ms:300000}")
+    public int checkAndNotifyApproachingDeadlines() {
+        if (!warningJobEnabled) {
+            return 0;
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime threshold = now.plusHours(4);
+        List<UUID> approachingIds = complaintRepository.findApproachingDeadlineComplaintIds(
+                now, threshold, PageRequest.of(0, Math.max(1, batchSize)));
+
+        if (approachingIds.isEmpty()) {
+            return 0;
+        }
+
+        log.info("SLA Scanner: Found {} complaint(s) approaching resolution deadline.", approachingIds.size());
+        int count = 0;
+        for (UUID id : approachingIds) {
+            try {
+                if (slaEscalationService.warnApproachingDeadline(id)) {
+                    count++;
+                }
+            } catch (Exception ex) {
+                log.error("Failed to process SLA warning for complaint {}: {}", id, ex.getMessage());
+            }
+        }
+        return count;
     }
 
     public boolean isEnabled() {

@@ -112,6 +112,26 @@ describe('Notification Service Integration & Unit Tests (Phase 5, Stage 5)', () 
       const mapped = mapBackendNotificationToFrontend(backendNotification);
       assert.equal(mapped.read, true);
     });
+
+    test('accurately maps COMPLAINT_REOPENED notification type with target URL', () => {
+      const backendNotification = {
+        id: 'c819f7f4-8a43-4e4c-b437-d2050f4439c2',
+        referenceId: 'CF-2026-0099',
+        title: 'Complaint Reopened #CF-2026-0099',
+        message: 'Your complaint has been reopened: Asphalt patch failed',
+        notificationType: 'COMPLAINT_REOPENED',
+        severity: 'WARNING',
+        read: false,
+        targetUrl: '/citizen/complaints/CF-2026-0099',
+        createdAt: '2026-11-23T10:00:00Z'
+      };
+
+      const mapped = mapBackendNotificationToFrontend(backendNotification);
+      assert.equal(mapped.type, 'COMPLAINT_REOPENED');
+      assert.equal(mapped.severity, 'warning');
+      assert.equal(mapped.link, '/citizen/complaints/CF-2026-0099');
+      assert.equal(mapped.read, false);
+    });
   });
 
   describe('getNotifications API calls', () => {

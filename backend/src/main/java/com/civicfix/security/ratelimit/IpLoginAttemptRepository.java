@@ -19,6 +19,7 @@ public interface IpLoginAttemptRepository extends JpaRepository<IpLoginAttempt, 
     @Query("DELETE FROM IpLoginAttempt i WHERE i.ipAddress = :ipAddress")
     void deleteByIpAddress(@Param("ipAddress") String ipAddress);
 
+    @org.springframework.transaction.annotation.Transactional
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
         INSERT INTO ip_login_attempts (id, ip_address, failed_attempts, first_attempt_at, last_attempt_at, locked_until)
@@ -62,6 +63,7 @@ public interface IpLoginAttemptRepository extends JpaRepository<IpLoginAttempt, 
             @Param("baseDurationSeconds") long baseDurationSeconds
     );
 
+    @org.springframework.transaction.annotation.Transactional
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
         DELETE FROM ip_login_attempts

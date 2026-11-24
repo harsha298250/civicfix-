@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useApp } from './context/AppContext';
 import { useTranslation } from './context/LanguageContext';
@@ -6,6 +6,7 @@ import { authService } from './services/authService';
 import DemoRoleSwitcher from './components/common/DemoRoleSwitcher';
 import OfflineScreen from './components/common/OfflineScreen';
 import ReloadPrompt from './components/common/ReloadPrompt';
+import SkeletonLoader from './components/common/SkeletonLoader';
 
 // Layouts
 import { PublicLayout } from './components/layout/PublicLayout';
@@ -15,66 +16,68 @@ import { WorkerLayout } from './components/layout/WorkerLayout';
 import { AdminLayout } from './components/layout/AdminLayout';
 import { SupervisorLayout } from './components/layout/SupervisorLayout';
 
-// Public Pages
-import { LandingPage } from './pages/public/LandingPage';
-import { LoginPage } from './pages/public/LoginPage';
-import { RegisterPage } from './pages/public/RegisterPage';
-import { ForgotPasswordPage } from './pages/public/ForgotPasswordPage';
-import { ResetPasswordPage } from './pages/public/ResetPasswordPage';
+// Public Pages (Route Code-Split)
+const LandingPage = lazy(() => import('./pages/public/LandingPage').then(m => ({ default: m.LandingPage })));
+const LoginPage = lazy(() => import('./pages/public/LoginPage').then(m => ({ default: m.LoginPage })));
+const RegisterPage = lazy(() => import('./pages/public/RegisterPage').then(m => ({ default: m.RegisterPage })));
+const ForgotPasswordPage = lazy(() => import('./pages/public/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage = lazy(() => import('./pages/public/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
+const StaffActivationPage = lazy(() => import('./pages/public/StaffActivationPage'));
+const PublicMapPage = lazy(() => import('./pages/public/PublicMapPage').then(m => ({ default: m.PublicMapPage })));
+const TermsOfServicePage = lazy(() => import('./pages/public/TermsOfServicePage').then(m => ({ default: m.TermsOfServicePage })));
+const PrivacyPolicyPage = lazy(() => import('./pages/public/PrivacyPolicyPage').then(m => ({ default: m.PrivacyPolicyPage })));
 
-// Citizen Pages
-import { CitizenDashboard } from './pages/citizen/CitizenDashboard';
-import { ReportComplaintPage } from './pages/citizen/ReportComplaintPage';
-import { MyComplaintsPage } from './pages/citizen/MyComplaintsPage';
-import { ComplaintDetailsPage } from './pages/citizen/ComplaintDetailsPage';
-import { CitizenIssueMapPage } from './pages/citizen/CitizenIssueMapPage';
-import { CitizenNotificationsPage } from './pages/citizen/CitizenNotificationsPage';
-import { CitizenProfilePage } from './pages/citizen/CitizenProfilePage';
+// Citizen Pages (Route Code-Split)
+const CitizenDashboard = lazy(() => import('./pages/citizen/CitizenDashboard').then(m => ({ default: m.CitizenDashboard })));
+const ReportComplaintPage = lazy(() => import('./pages/citizen/ReportComplaintPage').then(m => ({ default: m.ReportComplaintPage })));
+const MyComplaintsPage = lazy(() => import('./pages/citizen/MyComplaintsPage').then(m => ({ default: m.MyComplaintsPage })));
+const ComplaintDetailsPage = lazy(() => import('./pages/citizen/ComplaintDetailsPage').then(m => ({ default: m.ComplaintDetailsPage })));
+const CitizenIssueMapPage = lazy(() => import('./pages/citizen/CitizenIssueMapPage').then(m => ({ default: m.CitizenIssueMapPage })));
+const CitizenNotificationsPage = lazy(() => import('./pages/citizen/CitizenNotificationsPage').then(m => ({ default: m.CitizenNotificationsPage })));
+const CitizenProfilePage = lazy(() => import('./pages/citizen/CitizenProfilePage').then(m => ({ default: m.CitizenProfilePage })));
 
-// Municipal Officer Pages
-import { OfficerDashboard } from './pages/officer/OfficerDashboard';
-import { ComplaintQueuePage } from './pages/officer/ComplaintQueuePage';
-import { ComplaintReviewPage } from './pages/officer/ComplaintReviewPage';
-import { AssignmentsPage } from './pages/officer/AssignmentsPage';
-import { VerificationQueuePage } from './pages/officer/VerificationQueuePage';
-import { ResolutionVerificationPage } from './pages/officer/ResolutionVerificationPage';
-import { CivicIssueMapPage } from './pages/officer/CivicIssueMapPage';
-import { OfficerAnalyticsPage } from './pages/officer/OfficerAnalyticsPage';
-import { OfficerNotificationsPage } from './pages/officer/OfficerNotificationsPage';
-import { OfficerProfilePage } from './pages/officer/OfficerProfilePage';
+// Municipal Officer Pages (Route Code-Split)
+const OfficerDashboard = lazy(() => import('./pages/officer/OfficerDashboard').then(m => ({ default: m.OfficerDashboard })));
+const ComplaintQueuePage = lazy(() => import('./pages/officer/ComplaintQueuePage').then(m => ({ default: m.ComplaintQueuePage })));
+const ComplaintReviewPage = lazy(() => import('./pages/officer/ComplaintReviewPage').then(m => ({ default: m.ComplaintReviewPage })));
+const AssignmentsPage = lazy(() => import('./pages/officer/AssignmentsPage').then(m => ({ default: m.AssignmentsPage })));
+const VerificationQueuePage = lazy(() => import('./pages/officer/VerificationQueuePage').then(m => ({ default: m.VerificationQueuePage })));
+const ResolutionVerificationPage = lazy(() => import('./pages/officer/ResolutionVerificationPage').then(m => ({ default: m.ResolutionVerificationPage })));
+const CivicIssueMapPage = lazy(() => import('./pages/officer/CivicIssueMapPage').then(m => ({ default: m.CivicIssueMapPage })));
+const OfficerAnalyticsPage = lazy(() => import('./pages/officer/OfficerAnalyticsPage').then(m => ({ default: m.OfficerAnalyticsPage })));
+const OfficerNotificationsPage = lazy(() => import('./pages/officer/OfficerNotificationsPage').then(m => ({ default: m.OfficerNotificationsPage })));
+const OfficerProfilePage = lazy(() => import('./pages/officer/OfficerProfilePage').then(m => ({ default: m.OfficerProfilePage })));
 
-// Field Worker Pages
-import { WorkerDashboard } from './pages/worker/WorkerDashboard';
-import { AssignedTasksPage } from './pages/worker/AssignedTasksPage';
-import { TaskDetailsPage } from './pages/worker/TaskDetailsPage';
-import { TaskProgressPage } from './pages/worker/TaskProgressPage';
-import { SubmitEvidencePage } from './pages/worker/SubmitEvidencePage';
-import { WorkerNotificationsPage } from './pages/worker/WorkerNotificationsPage';
-import { WorkerProfilePage } from './pages/worker/WorkerProfilePage';
+// Field Worker Pages (Route Code-Split)
+const WorkerDashboard = lazy(() => import('./pages/worker/WorkerDashboard').then(m => ({ default: m.WorkerDashboard })));
+const AssignedTasksPage = lazy(() => import('./pages/worker/AssignedTasksPage').then(m => ({ default: m.AssignedTasksPage })));
+const TaskDetailsPage = lazy(() => import('./pages/worker/TaskDetailsPage').then(m => ({ default: m.TaskDetailsPage })));
+const TaskProgressPage = lazy(() => import('./pages/worker/TaskProgressPage').then(m => ({ default: m.TaskProgressPage })));
+const SubmitEvidencePage = lazy(() => import('./pages/worker/SubmitEvidencePage').then(m => ({ default: m.SubmitEvidencePage })));
+const WorkerNotificationsPage = lazy(() => import('./pages/worker/WorkerNotificationsPage').then(m => ({ default: m.WorkerNotificationsPage })));
+const WorkerProfilePage = lazy(() => import('./pages/worker/WorkerProfilePage').then(m => ({ default: m.WorkerProfilePage })));
 
-// Administrator Pages
-import { AdminDashboard } from './pages/admin/AdminDashboard';
-import UserManagementPage from './pages/admin/UserManagementPage';
-import UserDetailsPage from './pages/admin/UserDetailsPage';
-import CreateStaffPage from './pages/admin/CreateStaffPage';
-import RolesPermissionsPage from './pages/admin/RolesPermissionsPage';
-import PlatformActivityPage from './pages/admin/PlatformActivityPage';
-import AuditLogsPage from './pages/admin/AuditLogsPage';
-import SystemSettingsPage from './pages/admin/SystemSettingsPage';
-import AdminNotificationsPage from './pages/admin/AdminNotificationsPage';
-import AdminProfilePage from './pages/admin/AdminProfilePage';
+// Administrator Pages (Route Code-Split)
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const UserManagementPage = lazy(() => import('./pages/admin/UserManagementPage'));
+const UserDetailsPage = lazy(() => import('./pages/admin/UserDetailsPage'));
+const CreateStaffPage = lazy(() => import('./pages/admin/CreateStaffPage'));
+const RolesPermissionsPage = lazy(() => import('./pages/admin/RolesPermissionsPage'));
+const PlatformActivityPage = lazy(() => import('./pages/admin/PlatformActivityPage'));
+const AuditLogsPage = lazy(() => import('./pages/admin/AuditLogsPage'));
+const SystemSettingsPage = lazy(() => import('./pages/admin/SystemSettingsPage'));
+const AdminNotificationsPage = lazy(() => import('./pages/admin/AdminNotificationsPage'));
+const AdminProfilePage = lazy(() => import('./pages/admin/AdminProfilePage'));
+const AdminAnalyticsPage = lazy(() => import('./pages/admin/AdminAnalyticsPage'));
 
-// Supervisor Pages
-import { SupervisorEscalationsPage } from './pages/supervisor/SupervisorEscalationsPage';
+// Supervisor Pages (Route Code-Split)
+const SupervisorEscalationsPage = lazy(() => import('./pages/supervisor/SupervisorEscalationsPage').then(m => ({ default: m.SupervisorEscalationsPage })));
 
 // Legal & Public Utilities
-import { TermsOfServicePage } from './pages/public/TermsOfServicePage';
-import { PrivacyPolicyPage } from './pages/public/PrivacyPolicyPage';
-import { PublicMapPage } from './pages/public/PublicMapPage';
 import { RoleRoute } from './components/common/RoleRoute';
 
 // 404
-import NotFoundPage from './pages/NotFoundPage';
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 function App() {
   const { serverUnreachable, setServerUnreachable, refreshComplaints, setCurrentUser } = useApp();
@@ -120,7 +123,14 @@ function App() {
           </button>
         </div>
       )}
-      <Routes>
+      <Suspense fallback={
+        <div className="min-h-screen bg-surface p-6 sm:p-10 flex items-center justify-center">
+          <div className="w-full max-w-4xl space-y-6">
+            <SkeletonLoader type="card" count={3} />
+          </div>
+        </div>
+      }>
+        <Routes>
         {/* Public Routes */}
         <Route element={<PublicLayout />}>
           <Route path="/" element={<LandingPage />} />
@@ -131,6 +141,7 @@ function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/activate-staff" element={<StaffActivationPage />} />
         </Route>
 
         {/* Citizen Routes — Protected against unauthorized role traversal */}
@@ -223,6 +234,7 @@ function App() {
           <Route path="users/new" element={<CreateStaffPage />} />
           <Route path="roles" element={<RolesPermissionsPage />} />
           <Route path="activity" element={<PlatformActivityPage />} />
+          <Route path="analytics" element={<AdminAnalyticsPage />} />
           <Route path="audit-logs" element={<AuditLogsPage />} />
           <Route path="settings" element={<SystemSettingsPage />} />
           <Route path="notifications" element={<AdminNotificationsPage />} />
@@ -232,6 +244,7 @@ function App() {
         {/* Catch-all 404 Route */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+      </Suspense>
 
       {/* PWA Update Prompt and Offline Protection */}
       <ReloadPrompt />

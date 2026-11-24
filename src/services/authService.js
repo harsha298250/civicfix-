@@ -1,5 +1,6 @@
 import { INITIAL_USERS } from './mockData.js';
 import { apiClient } from './apiClient.js';
+import { firebaseAuthService } from './firebaseAuth.js';
 import {
   formatIndianPhone,
   normalizeIndianPhone,
@@ -39,13 +40,20 @@ export const authService = {
   },
 
   /**
-   * Terminate active user session
+   * Terminate active user session across both Firebase and Spring Boot
    */
   logout: async () => {
     activeSessionUser = null;
     try {
       localStorage.removeItem('civicfix_current_user_v1');
     } catch (e) {}
+    try {
+      if (firebaseAuthService && typeof firebaseAuthService.signOut === 'function') {
+        await firebaseAuthService.signOut();
+      }
+    } catch (e) {
+      // Ignore client-side Firebase teardown error
+    }
     try {
       await apiClient.auth.logout();
     } catch (e) {
@@ -161,6 +169,20 @@ export const authService = {
 
       throw new Error('Cannot reach the server. Nothing was saved.');
     }
+  },
+
+  /**
+   * Log in via Firebase Email/Password Authentication and establish Spring Boot session
+   */
+  loginWithFirebase: async (email, password) => {
+    return firebaseAuthService.signInWithEmail(email, password);
+  },
+
+  /**
+   * Register Citizen via Firebase Email/Password Authentication and establish Spring Boot session
+   */
+  registerWithFirebase: async (formData) => {
+    return firebaseAuthService.registerCitizen(formData);
   },
 
   /**

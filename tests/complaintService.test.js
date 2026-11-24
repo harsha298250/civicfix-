@@ -870,5 +870,50 @@ describe('Phase 4 AI Triage & Duplicate Management (ComplaintService)', () => {
       apiClient.complaints.linkDuplicate = originalLink;
     }
   });
+
+  test('Phase 4: getAiSummary delegates to apiClient.complaints.getAiSummary and returns structured summary', async () => {
+    const originalGetSummary = apiClient.complaints.getAiSummary;
+    try {
+      apiClient.complaints.getAiSummary = async (id) => ({
+        success: true,
+        data: {
+          complaintId: id,
+          referenceId: 'CF-2026-101',
+          defectCore: 'Deep pothole',
+          locationContext: 'Ward 04',
+          summary: 'Issue Briefing [CF-2026-101]: Deep pothole.'
+        }
+      });
+
+      const res = await complaintService.getAiSummary('c-101');
+      assert.equal(res.referenceId, 'CF-2026-101');
+      assert.equal(res.defectCore, 'Deep pothole');
+      assert.match(res.summary, /Issue Briefing/);
+    } finally {
+      apiClient.complaints.getAiSummary = originalGetSummary;
+    }
+  });
+
+  test('Phase 4: suggestCategory delegates to apiClient.complaints.suggestCategory', async () => {
+    const originalSuggest = apiClient.complaints.suggestCategory;
+    try {
+      apiClient.complaints.suggestCategory = async (payload) => ({
+        success: true,
+        data: {
+          category: 'ROADS',
+          confidence: 85.0,
+          explanation: 'Pothole detected',
+          isConfident: true
+        }
+      });
+
+      const res = await complaintService.suggestCategory('Heavy pothole on road', 'en');
+      assert.equal(res.category, 'ROADS');
+      assert.equal(res.isConfident, true);
+      assert.equal(res.confidence, 85.0);
+    } finally {
+      apiClient.complaints.suggestCategory = originalSuggest;
+    }
+  });
 });
 

@@ -81,7 +81,7 @@
   2. *Lexical Rigidity*: When relying purely on the deterministic engine, slang, typographical errors, or phrasing not present in the static lexicon default to `MEDIUM` priority and fallback categories.
   3. *External Model Latency & Rate Limits*: When the optional vision layer is active, visual analysis executes asynchronously against external cloud APIs with daily quota caps (default 200/day) and per-user throttling (10/min), and is skipped for WebP formats to protect resident privacy.
   4. *Human-in-the-Loop Requirement*: Model-assisted visual classifications are strictly advisory suggestions with disagreement detection (`disagreement` flag). Final dispatch decisions remain strictly with the human municipal officer.
-* **Future Work**: Train on-premise lightweight civic vision models (e.g., edge-deployed YOLOv8 or MobileNet-v4 fine-tuned on Indian municipal hazards) to eliminate external API costs, cloud latency, and third-party transmission risks.
+* **Future Work**: Train on-premise lightweight civic vision models (e.g., edge-deployed YOLOv8 or MobileNet-v4 fine-tuned on Indian municipal hazards) to eliminate external API costs, cloud latency, and third-party transmission risks. (Note: Hugging Face integrations and hosted inference APIs are permanently excluded by architectural decision).
 
 ### 4.2 Priority Recall Bias & Synthetic Test Set Caveats
 * **Current Implementation**: Evaluation against 100 synthetic cases in [`docs/evaluation/results.md`](file:///c:/Users/harsh/Downloads/stitch_civicfix_ai_platform_design/docs/evaluation/results.md) revealed:

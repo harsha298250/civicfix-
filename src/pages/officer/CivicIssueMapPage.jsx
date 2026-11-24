@@ -6,6 +6,7 @@ import { PriorityBadge } from '../../components/common/PriorityBadge';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { TamilNaduOverviewMap } from '../../components/common/TamilNaduOverviewMap';
 import { CATEGORIES } from '../../constants/statusConstants';
+import { TAMIL_NADU_DISTRICTS } from '../../constants/tamilNaduDistricts';
 import { geolocationService } from '../../services/geolocationService';
 import { complaintService, hasValidCoordinates } from '../../services/complaintService';
 
@@ -19,6 +20,7 @@ export const CivicIssueMapPage = () => {
   const [activeCategory, setActiveCategory] = useState('ALL');
   const [activePriority, setActivePriority] = useState('ALL');
   const [activeStatus, setActiveStatus] = useState('ALL');
+  const [activeDistrict, setActiveDistrict] = useState('ALL');
   const [searchGis, setSearchGis] = useState('');
   const [searchedLocation, setSearchedLocation] = useState(null);
   const [searchingLocation, setSearchingLocation] = useState(false);
@@ -61,8 +63,12 @@ export const CivicIssueMapPage = () => {
     const matchesCategory = activeCategory === 'ALL' || c.categoryId === activeCategory;
     const matchesPriority = activePriority === 'ALL' || c.priority === activePriority;
     const matchesStatus = activeStatus === 'ALL' || c.status === activeStatus;
+    const matchesDistrict = activeDistrict === 'ALL' ||
+      (c.ward && c.ward.toLowerCase().includes(activeDistrict.toLowerCase())) ||
+      (c.location?.address && c.location.address.toLowerCase().includes(activeDistrict.toLowerCase())) ||
+      (c.location?.ward && c.location.ward.toLowerCase().includes(activeDistrict.toLowerCase()));
 
-    return matchesSearch && matchesCategory && matchesPriority && matchesStatus;
+    return matchesSearch && matchesCategory && matchesPriority && matchesStatus && matchesDistrict;
   });
 
   const handleSearchGisSubmit = async (e) => {
@@ -279,6 +285,29 @@ export const CivicIssueMapPage = () => {
             <option value="IN_PROGRESS">In Progress</option>
             <option value="RESOLUTION_SUBMITTED">Resolution Submitted</option>
             <option value="RESOLVED">Resolved</option>
+          </select>
+
+          <span className="text-tertiary text-[11px] font-semibold uppercase ml-2">District:</span>
+          <select
+            value={activeDistrict}
+            onChange={(e) => {
+              const val = e.target.value;
+              setActiveDistrict(val);
+              if (val !== 'ALL') {
+                const d = TAMIL_NADU_DISTRICTS.find((dist) => dist.name === val);
+                if (d) {
+                  setSearchedLocation({ lat: d.lat, lng: d.lng, label: `${d.name} District Center` });
+                }
+              }
+            }}
+            className="px-2.5 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 text-xs text-on-surface"
+          >
+            <option value="ALL">All Districts (38)</option>
+            {TAMIL_NADU_DISTRICTS.map((d) => (
+              <option key={d.name} value={d.name}>
+                {d.name} ({d.region})
+              </option>
+            ))}
           </select>
 
           <span className="text-tertiary text-xs ml-auto font-mono">

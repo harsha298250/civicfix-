@@ -5,6 +5,8 @@ import com.civicfix.auth.dto.ForgotPasswordRequest;
 import com.civicfix.auth.dto.LoginRequest;
 import com.civicfix.auth.dto.RegisterCitizenRequest;
 import com.civicfix.auth.dto.ResetPasswordRequest;
+import com.civicfix.auth.dto.VerifyActivationTokenResponse;
+import com.civicfix.auth.dto.ActivateStaffRequest;
 import com.civicfix.common.ApiResponse;
 import com.civicfix.security.UserPrincipal;
 import com.civicfix.security.ratelimit.ClientIpResolver;
@@ -21,11 +23,19 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final StaffActivationService staffActivationService;
     private final ClientIpResolver clientIpResolver;
 
-    @org.springframework.beans.factory.annotation.Autowired
     public AuthController(AuthService authService, ClientIpResolver clientIpResolver) {
+        this(authService, null, clientIpResolver);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public AuthController(AuthService authService,
+                          StaffActivationService staffActivationService,
+                          ClientIpResolver clientIpResolver) {
         this.authService = authService;
+        this.staffActivationService = staffActivationService;
         this.clientIpResolver = clientIpResolver;
     }
 
@@ -78,5 +88,29 @@ public class AuthController {
             @Valid @RequestBody ResetPasswordRequest request) {
         String message = authService.resetPassword(request);
         return ResponseEntity.ok(ApiResponse.success(message, null));
+    }
+
+    @GetMapping("/staff-activation/verify")
+    public ResponseEntity<ApiResponse<VerifyActivationTokenResponse>> verifyStaffActivation(
+            @RequestParam("token") String token) {
+        VerifyActivationTokenResponse response = staffActivationService.verifyToken(token);
+        return ResponseEntity.ok(ApiResponse.success("Activation token verified successfully.", response));
+    }
+
+    @PostMapping("/staff-activation/verify")
+    public ResponseEntity<ApiResponse<VerifyActivationTokenResponse>> verifyStaffActivationPost(
+            @RequestBody(required = false) java.util.Map<String, String> body) {
+        String token = (body != null) ? body.get("token") : null;
+        VerifyActivationTokenResponse response = staffActivationService.verifyToken(token);
+        return ResponseEntity.ok(ApiResponse.success("Activation token verified successfully.", response));
+    }
+
+    @PostMapping("/staff-activation/activate")
+    public ResponseEntity<ApiResponse<Void>> activateStaff(
+            @Valid @RequestBody ActivateStaffRequest request,
+            HttpServletRequest httpRequest) {
+        String clientIp = clientIpResolver.resolveClientIp(httpRequest);
+        staffActivationService.activateStaff(request, clientIp);
+        return ResponseEntity.ok(ApiResponse.success("Staff account activated successfully. Please log in with your new password.", null));
     }
 }

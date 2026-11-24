@@ -21,6 +21,7 @@ public interface AccountLoginAttemptRepository extends JpaRepository<AccountLogi
     @Query("DELETE FROM AccountLoginAttempt a WHERE LOWER(a.identifier) = LOWER(:identifier)")
     void deleteByIdentifierIgnoreCase(@Param("identifier") String identifier);
 
+    @org.springframework.transaction.annotation.Transactional
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
         INSERT INTO account_login_attempts (id, identifier, failed_attempts, first_attempt_at, last_attempt_at, locked_until)
@@ -64,6 +65,7 @@ public interface AccountLoginAttemptRepository extends JpaRepository<AccountLogi
             @Param("baseDurationSeconds") long baseDurationSeconds
     );
 
+    @org.springframework.transaction.annotation.Transactional
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
         DELETE FROM account_login_attempts

@@ -8,6 +8,7 @@ import com.civicfix.common.exception.BadRequestException;
 import com.civicfix.common.exception.ConflictException;
 import com.civicfix.common.exception.ForbiddenException;
 import com.civicfix.common.exception.ResourceNotFoundException;
+import com.civicfix.common.util.GeoUtils;
 import com.civicfix.complaint.dto.*;
 import com.civicfix.complaint.sla.SlaEscalationService;
 import com.civicfix.complaint.sla.SlaService;
@@ -30,7 +31,12 @@ import com.civicfix.complaint.event.ComplaintEvent;
 import com.civicfix.complaint.event.ComplaintEventType;
 
 import com.civicfix.ai.dto.DuplicateCandidate;
+import com.civicfix.ai.summary.ComplaintSummaryResponse;
+import com.civicfix.ai.summary.ComplaintSummaryService;
 import com.civicfix.ai.vision.VisionTriageProperties;
+import com.civicfix.ai.vision.pothole.PotholeDetectionService;
+import com.civicfix.ai.vision.pothole.dto.CalibrationRequest;
+import com.civicfix.ai.vision.pothole.dto.PotholeAnalysisResponse;
 import com.civicfix.gis.GisService;
 import com.civicfix.gis.dto.WardValidationResult;
 import org.slf4j.Logger;
@@ -72,6 +78,8 @@ public class ComplaintService {
     private final SlaEscalationService slaEscalationService;
     private final VisionTriageProperties visionProperties;
     private GisService gisService;
+    @Autowired(required = false)
+    private PotholeDetectionService potholeDetectionService;
 
     @org.springframework.beans.factory.annotation.Value("${civicfix.evidence.max-distance-meters:100.0}")
     private double maxDistanceMeters = 100.0;
@@ -84,6 +92,13 @@ public class ComplaintService {
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private PdfReceiptService pdfReceiptService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.civicfix.storage.FileTransactionHelper fileTransactionHelper;
+
+    public void setFileTransactionHelper(com.civicfix.storage.FileTransactionHelper fileTransactionHelper) {
+        this.fileTransactionHelper = fileTransactionHelper;
+    }
 
     public void setMaxDistanceMeters(double maxDistanceMeters) {
         this.maxDistanceMeters = maxDistanceMeters;
@@ -197,6 +212,10 @@ public class ComplaintService {
         this.gisService = gisService;
     }
 
+    public void setPotholeDetectionService(PotholeDetectionService potholeDetectionService) {
+        this.potholeDetectionService = potholeDetectionService;
+    }
+
     private void publishEvent(ComplaintEvent event) {
         if (eventPublisher != null && event != null) {
             try {
@@ -294,10 +313,15 @@ public class ComplaintService {
             }
 
             List<String> storedUrls = new ArrayList<>();
+            String subDir = "complaints/" + saved.getId();
             try {
                 for (MultipartFile file : activeFiles) {
-                    String storedUrl = storageService.storeFile(file, "complaints/" + saved.getId());
+                    String storedUrl = storageService.storeFile(file, subDir);
                     storedUrls.add(storedUrl);
+                    String fname = storedUrl.substring(storedUrl.lastIndexOf('/') + 1);
+                    if (fileTransactionHelper != null) {
+                        fileTransactionHelper.registerRollbackCleanup(fname, subDir);
+                    }
 
                     ComplaintPhoto photo = new ComplaintPhoto();
                     photo.setComplaint(saved);
@@ -308,12 +332,13 @@ public class ComplaintService {
                     complaintPhotoRepository.save(photo);
                     saved.getPhotos().add(photo);
                 }
-            } catch (IOException e) {
+            } catch (Exception e) {
                 // Roll back any physical files created during this partial batch
                 for (String url : storedUrls) {
                     String fname = url.substring(url.lastIndexOf('/') + 1);
-                    storageService.deleteFile(fname, "complaints/" + saved.getId());
+                    storageService.deleteFile(fname, subDir);
                 }
+                if (e instanceof RuntimeException re) throw re;
                 throw new RuntimeException("Failed to store complaint photographs. Intake aborted.", e);
             }
         }
@@ -375,10 +400,15 @@ public class ComplaintService {
                 .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found."));
 
         List<String> storedUrls = new ArrayList<>();
+        String subDir = "complaints/" + complaint.getId();
         try {
             for (MultipartFile file : activeFiles) {
-                String storedUrl = storageService.storeFile(file, "complaints/" + complaint.getId());
+                String storedUrl = storageService.storeFile(file, subDir);
                 storedUrls.add(storedUrl);
+                String fname = storedUrl.substring(storedUrl.lastIndexOf('/') + 1);
+                if (fileTransactionHelper != null) {
+                    fileTransactionHelper.registerRollbackCleanup(fname, subDir);
+                }
 
                 ComplaintPhoto photo = new ComplaintPhoto();
                 photo.setComplaint(complaint);
@@ -389,11 +419,12 @@ public class ComplaintService {
                 complaintPhotoRepository.save(photo);
                 complaint.getPhotos().add(photo);
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             for (String url : storedUrls) {
                 String fname = url.substring(url.lastIndexOf('/') + 1);
-                storageService.deleteFile(fname, "complaints/" + complaint.getId());
+                storageService.deleteFile(fname, subDir);
             }
+            if (e instanceof RuntimeException re) throw re;
             throw new RuntimeException("Failed to store complaint photographs. Upload aborted.", e);
         }
 
@@ -621,6 +652,214 @@ public class ComplaintService {
         return result;
     }
 
+    @Transactional(readOnly = true)
+    public List<NearbyComplaintResponse> getNearbyComplaints(
+            BigDecimal lat,
+            BigDecimal lng,
+            Double radiusKm,
+            String category,
+            ComplaintStatus status,
+            Integer limit) {
+        return getNearbyComplaints(lat, lng, radiusKm, category, status, limit, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<NearbyComplaintResponse> getNearbyComplaints(
+            BigDecimal lat,
+            BigDecimal lng,
+            Double radiusKm,
+            String category,
+            ComplaintStatus status,
+            Integer limit,
+            UserPrincipal principal) {
+        if (lat == null || lng == null || !GeoUtils.isValidCoordinatePair(lat, lng)) {
+            throw new BadRequestException("Valid geographic coordinates (lat, lng) are required.");
+        }
+        if (radiusKm != null) {
+            if (Double.isNaN(radiusKm) || Double.isInfinite(radiusKm) || radiusKm < 0.1 || radiusKm > 50.0) {
+                throw new BadRequestException("Radius must be a finite positive number between 0.1 and 50.0 kilometers.");
+            }
+        }
+        if (limit != null && (limit < 1 || limit > 100)) {
+            throw new BadRequestException("Limit must be between 1 and 100.");
+        }
+        double safeRadiusKm = radiusKm != null ? radiusKm : 2.0;
+        int safeLimit = limit != null ? limit : 20;
+
+        // Bounding box approximation for 1 degree ~ 111.0 km
+        double dLat = safeRadiusKm / 111.0;
+        double dLng = safeRadiusKm / (111.0 * Math.max(0.1, Math.cos(Math.toRadians(lat.doubleValue()))));
+
+        BigDecimal minLat = lat.subtract(BigDecimal.valueOf(dLat));
+        BigDecimal maxLat = lat.add(BigDecimal.valueOf(dLat));
+        BigDecimal minLng = lng.subtract(BigDecimal.valueOf(dLng));
+        BigDecimal maxLng = lng.add(BigDecimal.valueOf(dLng));
+
+        org.springframework.data.domain.PageRequest pageable =
+                org.springframework.data.domain.PageRequest.of(0, Math.min(safeLimit * 4, 400));
+        List<Complaint> candidates;
+        if (status != null) {
+            candidates = complaintRepository.findPublicMapBySpatialBoundsAndStatus(minLat, maxLat, minLng, maxLng, status, pageable);
+        } else {
+            candidates = complaintRepository.findPublicMapBySpatialBounds(minLat, maxLat, minLng, maxLng, pageable);
+        }
+
+        // Role-based geographic authorization
+        if (principal != null) {
+            boolean isAdmin = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+            boolean isOfficer = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_OFFICER"));
+            boolean isSupervisor = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_SUPERVISOR"));
+            boolean isWorker = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_WORKER"));
+
+            if (isOfficer && !isAdmin) {
+                String officerWard = principal.getWard();
+                if (officerWard != null && !officerWard.isBlank() && !principal.hasActiveCrossWardAccess()) {
+                    candidates = candidates.stream()
+                            .filter(c -> c.getWard() != null && c.getWard().trim().equalsIgnoreCase(officerWard.trim()))
+                            .collect(Collectors.toList());
+                }
+            } else if (isSupervisor && !isAdmin) {
+                String dept = principal.getDepartment();
+                if (dept != null && !dept.isBlank() && !principal.hasActiveCrossDepartmentAccess()) {
+                    candidates = candidates.stream()
+                            .filter(c -> SupervisorService.isCategoryAllowedForDepartment(c.getCategory(), dept, principal))
+                            .collect(Collectors.toList());
+                }
+            } else if (isWorker && !isAdmin) {
+                // Strict assignment scoping: workers are strictly restricted to repair orders assigned to their account.
+                // Merely belonging to a ward does NOT expose unassigned complaints in that ward. Missing assignment fails closed.
+                candidates = candidates.stream()
+                        .filter(c -> c.getAssignedWorker() != null
+                                && c.getAssignedWorker().getId() != null
+                                && c.getAssignedWorker().getId().equals(principal.getId()))
+                        .collect(Collectors.toList());
+            }
+        }
+
+        double maxDistanceMeters = safeRadiusKm * 1000.0;
+        double queryLat = lat.doubleValue();
+        double queryLng = lng.doubleValue();
+
+        List<NearbyComplaintResponse> results = new ArrayList<>();
+        for (Complaint c : candidates) {
+            if (category != null && !category.isBlank()) {
+                if (c.getCategory() == null || !c.getCategory().equalsIgnoreCase(category.trim())) {
+                    continue;
+                }
+            }
+            if (c.getLatitude() != null && c.getLongitude() != null) {
+                double dist = GeoUtils.haversineDistance(queryLat, queryLng, c.getLatitude().doubleValue(), c.getLongitude().doubleValue());
+                if (dist <= maxDistanceMeters) {
+                    NearbyComplaintResponse resp = NearbyComplaintResponse.fromEntity(c, Math.round(dist * 10.0) / 10.0);
+                    // If caller is CITIZEN and doesn't own this complaint, apply public privacy sanitization
+                    if (principal != null) {
+                        boolean isCitizen = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_CITIZEN"));
+                        boolean isAdmin = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+                        boolean isOfficer = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_OFFICER"));
+                        boolean isWorker = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_WORKER"));
+                        boolean isSupervisor = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_SUPERVISOR"));
+                        if (isCitizen && !isAdmin && !isOfficer && !isWorker && !isSupervisor) {
+                            boolean isOwner = c.getCitizen() != null && c.getCitizen().getId() != null && c.getCitizen().getId().equals(principal.getId());
+                            if (!isOwner) {
+                                resp.sanitizeForPublic(false);
+                            }
+                        }
+                    }
+                    results.add(resp);
+                }
+            }
+        }
+
+        results.sort(Comparator.comparingDouble(NearbyComplaintResponse::getDistanceMeters));
+        if (results.size() > safeLimit) {
+            return results.subList(0, safeLimit);
+        }
+        return results;
+    }
+
+    @Transactional(readOnly = true)
+    public List<NearbyComplaintResponse> getPublicNearbyComplaints(
+            BigDecimal lat,
+            BigDecimal lng,
+            Double radiusKm,
+            String category,
+            ComplaintStatus status,
+            Integer limit) {
+        if (lat == null || lng == null || !GeoUtils.isValidCoordinatePair(lat, lng)) {
+            throw new BadRequestException("Valid geographic coordinates (lat, lng) are required.");
+        }
+        if (radiusKm != null) {
+            if (Double.isNaN(radiusKm) || Double.isInfinite(radiusKm) || radiusKm < 0.1 || radiusKm > 50.0) {
+                throw new BadRequestException("Radius must be a finite positive number between 0.1 and 50.0 kilometers.");
+            }
+        }
+        if (limit != null && (limit < 1 || limit > 100)) {
+            throw new BadRequestException("Limit must be between 1 and 100.");
+        }
+        double safeRadiusKm = radiusKm != null ? radiusKm : 2.0;
+        int safeLimit = limit != null ? limit : 20;
+
+        double dLat = safeRadiusKm / 111.0;
+        double dLng = safeRadiusKm / (111.0 * Math.max(0.1, Math.cos(Math.toRadians(lat.doubleValue()))));
+
+        BigDecimal minLat = lat.subtract(BigDecimal.valueOf(dLat));
+        BigDecimal maxLat = lat.add(BigDecimal.valueOf(dLat));
+        BigDecimal minLng = lng.subtract(BigDecimal.valueOf(dLng));
+        BigDecimal maxLng = lng.add(BigDecimal.valueOf(dLng));
+
+        org.springframework.data.domain.PageRequest pageable =
+                org.springframework.data.domain.PageRequest.of(0, Math.min(safeLimit * 4, 400));
+        List<Complaint> candidates;
+        if (status != null) {
+            candidates = complaintRepository.findPublicMapBySpatialBoundsAndStatus(minLat, maxLat, minLng, maxLng, status, pageable);
+        } else {
+            candidates = complaintRepository.findPublicMapBySpatialBounds(minLat, maxLat, minLng, maxLng, pageable);
+        }
+
+        double maxDistanceMeters = safeRadiusKm * 1000.0;
+        double queryLat = lat.doubleValue();
+        double queryLng = lng.doubleValue();
+
+        List<NearbyComplaintResponse> results = new ArrayList<>();
+        Map<String, List<NearbyComplaintResponse>> clusterMap = new LinkedHashMap<>();
+
+        for (Complaint c : candidates) {
+            if (category != null && !category.isBlank()) {
+                if (c.getCategory() == null || !c.getCategory().equalsIgnoreCase(category.trim())) {
+                    continue;
+                }
+            }
+            if (c.getLatitude() != null && c.getLongitude() != null) {
+                double dist = GeoUtils.haversineDistance(queryLat, queryLng, c.getLatitude().doubleValue(), c.getLongitude().doubleValue());
+                if (dist <= maxDistanceMeters) {
+                    NearbyComplaintResponse resp = NearbyComplaintResponse.fromEntity(c, Math.round(dist * 10.0) / 10.0);
+                    results.add(resp);
+                    String clusterKey = getSpatialAggregationKey(c);
+                    clusterMap.computeIfAbsent(clusterKey, k -> new ArrayList<>()).add(resp);
+                }
+            }
+        }
+
+        // K-Anonymity privacy enforcement for public nearby discovery:
+        // Enforce k >= 5 separately for every actual spatial cluster.
+        // Suppress coordinates for clusters containing fewer than 5 complaints.
+        // Do not rely on the aggregate search-radius count.
+        int threshold = this.publicMapMinimumGroupSize > 0 ? this.publicMapMinimumGroupSize : 5;
+        for (Map.Entry<String, List<NearbyComplaintResponse>> entry : clusterMap.entrySet()) {
+            boolean suppressForCluster = entry.getValue().size() < threshold;
+            for (NearbyComplaintResponse item : entry.getValue()) {
+                item.sanitizeForPublic(suppressForCluster);
+            }
+        }
+
+        results.sort(Comparator.comparingDouble(NearbyComplaintResponse::getDistanceMeters));
+        if (results.size() > safeLimit) {
+            results = new ArrayList<>(results.subList(0, safeLimit));
+        }
+
+        return results;
+    }
+
     private BigDecimal getStableGroupAnchorLat(String groupKey, List<Complaint> group) {
         if (groupKey.startsWith("GRID_")) {
             try {
@@ -740,6 +979,10 @@ public class ComplaintService {
             throw new BadRequestException("Assigned user must hold the WORKER persona.");
         }
 
+        if (!"ACTIVE".equalsIgnoreCase(worker.getAccountStatus())) {
+            throw new BadRequestException("Cannot assign complaint to field technician in '" + worker.getAccountStatus() + "' status. Account must be ACTIVE.");
+        }
+
         complaint.setAssignedOfficer(officer);
         complaint.setAssignedWorker(worker);
 
@@ -804,6 +1047,10 @@ public class ComplaintService {
 
         if (!worker.hasRole(RoleName.WORKER)) {
             throw new BadRequestException("Assigned user must hold the WORKER persona.");
+        }
+
+        if (!"ACTIVE".equalsIgnoreCase(worker.getAccountStatus())) {
+            throw new BadRequestException("Cannot assign complaint to field technician in '" + worker.getAccountStatus() + "' status. Account must be ACTIVE.");
         }
         if (!"ACTIVE".equalsIgnoreCase(worker.getAccountStatus())) {
             throw new BadRequestException("Selected field worker account is not active.");
@@ -946,8 +1193,12 @@ public class ComplaintService {
         // State Machine Governance Rules (Blueprint Rule #9)
         switch (newStatus) {
             case PENDING_CITIZEN_CONFIRMATION:
-                if (!isOfficer && !isAdmin) {
+                boolean isSupervisor = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_SUPERVISOR"));
+                if (!isOfficer && !isAdmin && !isSupervisor) {
                     throw new ForbiddenException("Only municipal officers and administrators can verify resolution evidence.");
+                }
+                if (isSupervisor) {
+                    enforceSupervisorDepartmentAccess(complaint, principal);
                 }
                 if (currentStatus != ComplaintStatus.RESOLUTION_SUBMITTED) {
                     throw new BadRequestException("Task cannot be transitioned to PENDING_CITIZEN_CONFIRMATION from status: " + currentStatus + ". Allowed previous status: RESOLUTION_SUBMITTED.");
@@ -981,8 +1232,12 @@ public class ComplaintService {
                 throw new ForbiddenException("Complaints cannot be directly marked RESOLVED. Citizen confirmation or auto-confirmation is required.");
 
             case REWORK_REQUESTED:
-                if (!isOfficer && !isAdmin) {
+                boolean isReworkSupervisor = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_SUPERVISOR"));
+                if (!isOfficer && !isAdmin && !isReworkSupervisor) {
                     throw new ForbiddenException("Only municipal officers and administrators can request rework on resolution evidence.");
+                }
+                if (isReworkSupervisor) {
+                    enforceSupervisorDepartmentAccess(complaint, principal);
                 }
                 if (currentStatus != ComplaintStatus.RESOLUTION_SUBMITTED) {
                     throw new BadRequestException("Task cannot be returned for rework from status: " + currentStatus + ". Allowed previous status: RESOLUTION_SUBMITTED.");
@@ -1292,20 +1547,26 @@ public class ComplaintService {
 
         // Store evidence files safely with rollback defense
         List<String> storedUrls = new ArrayList<>();
+        String subDir = "complaints/" + complaint.getId();
         try {
             for (MultipartFile file : files) {
                 if (file == null || file.isEmpty()) {
                     throw new BadRequestException("Uploaded evidence photo cannot be empty.");
                 }
-                String storedUrl = storageService.storeFile(file, "complaints/" + complaint.getId());
+                String storedUrl = storageService.storeFile(file, subDir);
                 storedUrls.add(storedUrl);
+                String fname = storedUrl.substring(storedUrl.lastIndexOf('/') + 1);
+                if (fileTransactionHelper != null) {
+                    fileTransactionHelper.registerRollbackCleanup(fname, subDir);
+                }
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             // Roll back any physical files created during this partial batch
             for (String url : storedUrls) {
                 String fname = url.substring(url.lastIndexOf('/') + 1);
-                storageService.deleteFile(fname, "complaints/" + complaint.getId());
+                storageService.deleteFile(fname, subDir);
             }
+            if (e instanceof RuntimeException re) throw re;
             throw new RuntimeException("Failed to store evidence photos. Upload aborted without modifying complaint status.", e);
         }
 
@@ -1552,6 +1813,73 @@ public class ComplaintService {
         }
 
         return aiTriageService.findDuplicateCandidates(complaint);
+    }
+
+    @Transactional(readOnly = true)
+    public ComplaintSummaryResponse getComplaintSummary(String idOrRef, UserPrincipal principal) {
+        boolean isOfficer = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_OFFICER"));
+        boolean isAdmin = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        boolean isSupervisor = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_SUPERVISOR"));
+        if (!isOfficer && !isAdmin && !isSupervisor) {
+            throw new ForbiddenException("Only municipal officers, supervisors and administrators can inspect AI complaint summaries.");
+        }
+
+        Complaint complaint = resolveComplaint(idOrRef);
+        enforceOfficerWardAccess(complaint, principal);
+
+        if (aiTriageService != null) {
+            return aiTriageService.generateSummary(complaint, principal);
+        }
+        return new ComplaintSummaryService().generateSummary(complaint, principal);
+    }
+
+    @Transactional(readOnly = true)
+    public PotholeAnalysisResponse getPotholeAnalysis(String idOrRef, UserPrincipal principal) {
+        boolean isOfficer = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_OFFICER"));
+        boolean isAdmin = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        boolean isSupervisor = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_SUPERVISOR"));
+        if (!isOfficer && !isAdmin && !isSupervisor) {
+            throw new ForbiddenException("Only municipal officers, supervisors and administrators can inspect pothole analysis.");
+        }
+        Complaint complaint = resolveComplaint(idOrRef);
+        enforceOfficerWardAccess(complaint, principal);
+        if (potholeDetectionService == null) {
+            throw new BadRequestException("Pothole detection service is not configured.");
+        }
+        return potholeDetectionService.getExistingAnalysis(complaint.getId())
+                .orElseGet(() -> potholeDetectionService.analyzePotholes(complaint.getId(), false));
+    }
+
+    @Transactional
+    public PotholeAnalysisResponse runPotholeAnalysis(String idOrRef, UserPrincipal principal) {
+        boolean isOfficer = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_OFFICER"));
+        boolean isAdmin = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        boolean isSupervisor = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_SUPERVISOR"));
+        if (!isOfficer && !isAdmin && !isSupervisor) {
+            throw new ForbiddenException("Only municipal officers, supervisors and administrators can execute pothole analysis.");
+        }
+        Complaint complaint = resolveComplaint(idOrRef);
+        enforceOfficerWardAccess(complaint, principal);
+        if (potholeDetectionService == null) {
+            throw new BadRequestException("Pothole detection service is not configured.");
+        }
+        return potholeDetectionService.analyzePotholes(complaint.getId(), true);
+    }
+
+    @Transactional
+    public PotholeAnalysisResponse calibratePotholeAnalysis(String idOrRef, CalibrationRequest request, UserPrincipal principal) {
+        boolean isOfficer = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_OFFICER"));
+        boolean isAdmin = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        boolean isSupervisor = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_SUPERVISOR"));
+        if (!isOfficer && !isAdmin && !isSupervisor) {
+            throw new ForbiddenException("Only municipal officers, supervisors and administrators can calibrate pothole measurements.");
+        }
+        Complaint complaint = resolveComplaint(idOrRef);
+        enforceOfficerWardAccess(complaint, principal);
+        if (potholeDetectionService == null) {
+            throw new BadRequestException("Pothole detection service is not configured.");
+        }
+        return potholeDetectionService.calibrateAnalysis(complaint.getId(), request);
     }
 
     @Transactional
@@ -1802,7 +2130,12 @@ public class ComplaintService {
         // Process optional citizen rejection photograph using existing validated StorageService
         if (photo != null && !photo.isEmpty()) {
             try {
-                String storedUrl = storageService.storeFile(photo, "complaints/" + complaint.getId());
+                String subDir = "complaints/" + complaint.getId();
+                String storedUrl = storageService.storeFile(photo, subDir);
+                String fname = storedUrl.substring(storedUrl.lastIndexOf('/') + 1);
+                if (fileTransactionHelper != null) {
+                    fileTransactionHelper.registerRollbackCleanup(fname, subDir);
+                }
                 ComplaintPhoto cp = new ComplaintPhoto(complaint, storedUrl);
                 complaintPhotoRepository.save(cp);
                 complaint.getPhotos().add(cp);

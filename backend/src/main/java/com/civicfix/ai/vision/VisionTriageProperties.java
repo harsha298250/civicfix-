@@ -18,7 +18,7 @@ public class VisionTriageProperties {
     private String provider = "gemini";
     private String googleApiKey = "";
     private String xaiApiKey = "";
-    private String geminiModel = "gemini-1.5-flash";
+    private String geminiModel = "gemini-3.8-flash";
     private String xaiModel = "grok-2-vision-1212";
     private int timeoutMs = 10000;
     private int dailyCap = 200;

@@ -28,8 +28,13 @@ civicfix:
       enabled: false
   security:
     trusted-proxy-enabled: false
+  outbox:
+    scheduler:
+      enabled: false
   sla:
     escalation-job:
+      enabled: false
+    warning-job:
       enabled: false
   auto-confirm:
     enabled: false

@@ -4,18 +4,25 @@ import com.civicfix.ai.dto.AiTriageResult;
 import com.civicfix.ai.dto.DuplicateCandidate;
 import com.civicfix.ai.dto.SuggestCategoryResponse;
 import com.civicfix.ai.duplicate.DuplicateDetectionEngine;
+import com.civicfix.ai.summary.ComplaintSummaryResponse;
+import com.civicfix.ai.summary.ComplaintSummaryService;
 import com.civicfix.ai.triage.DeterministicTriageEngine;
 import com.civicfix.complaint.Complaint;
+import com.civicfix.security.UserPrincipal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.regex.Pattern;
 
 /**
- * High-level AI triage service coordinating deterministic triage rules
- * and proximity-based duplicate detection.
+ * High-level AI triage service coordinating deterministic triage rules,
+ * proximity-based duplicate detection, and structured complaint summarization.
  * 
  * Safety Mandate: All evaluations produced by this service are advisory.
  * Official complaint category, priority, and status are never mutated without
@@ -26,12 +33,25 @@ public class AiTriageService {
 
     private static final Logger log = LoggerFactory.getLogger(AiTriageService.class);
 
+    private static final Pattern CONTROL_CHARS = Pattern.compile("[\\p{Cntrl}&&[^\r\n\t]]");
+    private static final int MAX_SUGGESTION_TEXT_LENGTH = 1000;
+
     private final DeterministicTriageEngine triageEngine;
     private final DuplicateDetectionEngine duplicateEngine;
+    private final ComplaintSummaryService summaryService;
 
     public AiTriageService(DeterministicTriageEngine triageEngine, DuplicateDetectionEngine duplicateEngine) {
+        this(triageEngine, duplicateEngine, new ComplaintSummaryService());
+    }
+
+    @Autowired
+    public AiTriageService(
+            DeterministicTriageEngine triageEngine,
+            DuplicateDetectionEngine duplicateEngine,
+            @Autowired(required = false) ComplaintSummaryService summaryService) {
         this.triageEngine = triageEngine;
         this.duplicateEngine = duplicateEngine;
+        this.summaryService = summaryService != null ? summaryService : new ComplaintSummaryService();
     }
 
     /**
@@ -99,7 +119,7 @@ public class AiTriageService {
      */
     public List<DuplicateCandidate> findDuplicateCandidates(Complaint complaint) {
         if (complaint == null) {
-            return java.util.Collections.emptyList();
+            return Collections.emptyList();
         }
         return duplicateEngine.findCandidates(
                 complaint.getId(),
@@ -115,17 +135,54 @@ public class AiTriageService {
     /**
      * Fast live category suggestion based on title/description text input.
      * Non-destructive and purely advisory for the citizen report intake form.
+     * Sanitizes inputs, clamps input length to 1000 characters, and computes alternatives.
      */
     public SuggestCategoryResponse suggestCategory(String text, String language) {
         if (text == null || text.isBlank()) {
-            return new SuggestCategoryResponse("ROADS", 50.0, "No text provided for evaluation.", List.of());
+            return new SuggestCategoryResponse("ROADS", 50.0, "No text provided for evaluation.", List.of(), Collections.emptyList(), false);
         }
-        AiTriageResult result = triageEngine.evaluate(text, "", null, null);
+
+        // 1. Input sanitization & clamping
+        String sanitized = CONTROL_CHARS.matcher(text.trim()).replaceAll("");
+        if (sanitized.length() > MAX_SUGGESTION_TEXT_LENGTH) {
+            sanitized = sanitized.substring(0, MAX_SUGGESTION_TEXT_LENGTH);
+        }
+
+        if (sanitized.isBlank()) {
+            return new SuggestCategoryResponse("ROADS", 50.0, "Input contained only whitespace or control characters.", List.of(), Collections.emptyList(), false);
+        }
+
+        AiTriageResult result = triageEngine.evaluate(sanitized, "", null, null);
+        double conf = result.getConfidence() != null ? result.getConfidence().doubleValue() : 50.0;
+        boolean isConfident = conf >= 65.0 && result.getRuleMatches() != null && !result.getRuleMatches().isEmpty();
+
+        List<String> alternatives = new ArrayList<>();
+        // Extract alternate categories if present in rule matches
+        if (result.getRuleMatches() != null) {
+            for (String match : result.getRuleMatches()) {
+                if (match != null && match.startsWith("Category:") && !match.contains(result.getDetectedCategory())) {
+                    String[] parts = match.split(":");
+                    if (parts.length > 1 && !alternatives.contains(parts[1].trim())) {
+                        alternatives.add(parts[1].trim());
+                    }
+                }
+            }
+        }
+
         return new SuggestCategoryResponse(
                 result.getDetectedCategory(),
-                result.getConfidence() != null ? result.getConfidence().doubleValue() : 50.0,
+                conf,
                 result.getExplanation(),
-                result.getRuleMatches()
+                result.getRuleMatches(),
+                alternatives,
+                isConfident
         );
+    }
+
+    /**
+     * Generate a structured executive summary for municipal staff.
+     */
+    public ComplaintSummaryResponse generateSummary(Complaint complaint, UserPrincipal principal) {
+        return summaryService.generateSummary(complaint, principal);
     }
 }

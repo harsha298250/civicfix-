@@ -26,6 +26,9 @@ public class User {
     @Column(name = "password_hash", length = 255, nullable = false)
     private String passwordHash;
 
+    @Column(name = "firebase_uid", length = 128, unique = true)
+    private String firebaseUid;
+
     @Column(name = "account_status", length = 50, nullable = false)
     private String accountStatus = "ACTIVE";
 
@@ -112,6 +115,14 @@ public class User {
 
     public void setPasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public String getFirebaseUid() {
+        return firebaseUid;
+    }
+
+    public void setFirebaseUid(String firebaseUid) {
+        this.firebaseUid = firebaseUid;
     }
 
     public String getAccountStatus() {

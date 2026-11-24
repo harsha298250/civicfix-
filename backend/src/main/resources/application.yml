@@ -119,7 +119,7 @@ civicfix:
       provider: ${AI_VISION_PROVIDER:gemini}
       google-api-key: ${GOOGLE_AI_API_KEY:}
       xai-api-key: ${XAI_API_KEY:}
-      gemini-model: ${AI_VISION_MODEL_GEMINI:gemini-1.5-flash}
+      gemini-model: ${AI_VISION_MODEL_GEMINI:gemini-3.8-flash}
       xai-model: ${AI_VISION_MODEL_XAI:grok-2-vision-1212}
       timeout-ms: ${AI_VISION_TIMEOUT_MS:10000}
       daily-cap: ${AI_VISION_DAILY_CAP:200}
@@ -158,3 +158,15 @@ civicfix:
 
 public-map:
   minimum-group-size: ${PUBLIC_MAP_MINIMUM_GROUP_SIZE:5}
+
+auth:
+  staff-activation:
+    token-validity-hours: ${AUTH_STAFF_ACTIVATION_TOKEN_VALIDITY_HOURS:72}
+  password-reset:
+    app-base-url: ${AUTH_PASSWORD_RESET_APP_BASE_URL:http://localhost:5173}
+
+firebase:
+  enabled: ${FIREBASE_ENABLED:true}
+  project-id: ${FIREBASE_PROJECT_ID:civicfix-production}
+  credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
+  credentials-json: ${FIREBASE_CREDENTIALS_JSON:}

@@ -31,7 +31,7 @@ export const CitizenNotificationsPage = () => {
     if (type === 'COMPLAINT_RESOLVED' || type === 'RESOLUTION' || severity === 'SUCCESS') {
       return { icon: 'verified', bg: 'bg-emerald-500/10 text-emerald-600' };
     }
-    if (type === 'REWORK_REQUESTED' || severity === 'WARNING') {
+    if (type === 'REWORK_REQUESTED' || type === 'COMPLAINT_REOPENED' || severity === 'WARNING') {
       return { icon: 'warning', bg: 'bg-amber-500/10 text-amber-600' };
     }
     if (type === 'COMPLAINT_REJECTED' || severity === 'CRITICAL') {

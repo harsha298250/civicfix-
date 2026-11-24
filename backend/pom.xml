@@ -81,6 +81,20 @@
             <version>2.0.3</version>
         </dependency>
 
+        <!-- Webhook Signature Verification -->
+        <dependency>
+            <groupId>com.svix</groupId>
+            <artifactId>svix</artifactId>
+            <version>1.15.0</version>
+        </dependency>
+
+        <!-- Firebase Admin SDK for Server-Side Identity Verification -->
+        <dependency>
+            <groupId>com.google.firebase</groupId>
+            <artifactId>firebase-admin</artifactId>
+            <version>9.4.3</version>
+        </dependency>
+
         <!-- Testing -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

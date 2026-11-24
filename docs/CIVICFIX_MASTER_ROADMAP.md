@@ -53,7 +53,7 @@
 | **Phase 5** | **In-App Notifications** | **Done** | [`docs/archive/PHASE_5_IMPLEMENTATION_REPORT.md`](archive/PHASE_5_IMPLEMENTATION_REPORT.md) |
 | **Phase 6** | **Analytics & SLA Governance** | **Done** | [`docs/archive/SPRINT_3_STEP_4D_IMPLEMENTATION_REPORT.md`](archive/SPRINT_3_STEP_4D_IMPLEMENTATION_REPORT.md) |
 | **Phase 7** | **Bilingual i18n & PWA Offline Shell** | **Partial** | Citizen/Auth translated; Staff interfaces in English; PWA offline shell complete |
-| **Phase 8** | **Performance & Production Readiness** | **Not done** | Local containerization complete; cloud staging, K8s, and live deployment pending |
+| **Phase 8** | **Performance, Security & Production Readiness** | **Done** | [`docs/CIVICFIX_PHASE_8_PRODUCTION_READINESS_REPORT.md`](CIVICFIX_PHASE_8_PRODUCTION_READINESS_REPORT.md). Hugging Face permanently excluded. Bundle reduced 85.6%, V25 indexes, @EntityGraph N+1 eliminated, 671 backend / 289 frontend tests pass. |
 
 ---
 

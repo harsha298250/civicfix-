@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
@@ -33,6 +34,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
+@ActiveProfiles("test")
 public class NotificationEventIntegrationTest {
 
     @Autowired
@@ -398,5 +400,82 @@ public class NotificationEventIntegrationTest {
         Complaint refreshed = complaintRepository.findById(c.getId()).orElseThrow();
         refreshed.setStatus(ComplaintStatus.RESOLUTION_SUBMITTED);
         return complaintRepository.save(refreshed);
+    }
+
+    private Complaint resolveComplaint(Complaint c) {
+        Complaint refreshed = complaintRepository.findById(c.getId()).orElseThrow();
+        refreshed.setStatus(ComplaintStatus.RESOLVED);
+        return complaintRepository.save(refreshed);
+    }
+
+    @Test
+    @DisplayName("COMPLAINT_REOPENED: Citizen, officer, worker, and supervisors receive reopen notifications")
+    public void testComplaintReopenedEvent() {
+        Complaint complaint = createTestComplaint();
+        complaint = assignWorkerToComplaint(complaint);
+        complaint = startWorkOnComplaint(complaint);
+        complaint = resolveComplaint(complaint);
+
+        long citizenInitial = notificationRepository.countByRecipientIdAndIsReadFalse(citizen.getId());
+        long officerInitial = notificationRepository.countByRecipientIdAndIsReadFalse(officer.getId());
+        long workerInitial = notificationRepository.countByRecipientIdAndIsReadFalse(worker.getId());
+
+        UpdateStatusRequest statusReq = new UpdateStatusRequest();
+        statusReq.setStatus(ComplaintStatus.REOPENED);
+        statusReq.setNotes("Pothole repair washed away after light rain");
+
+        complaintService.transitionStatus(complaint.getId().toString(), statusReq, citizenPrincipal, "127.0.0.1");
+
+        // Citizen received reopen notice
+        long citizenNew = notificationRepository.countByRecipientIdAndIsReadFalse(citizen.getId());
+        assertEquals(citizenInitial + 1, citizenNew, "Citizen must receive reopen notice");
+        Notification cNotif = notificationRepository.findByRecipientIdOrderByCreatedAtDesc(
+                citizen.getId(), org.springframework.data.domain.PageRequest.of(0, 1)).getContent().get(0);
+        assertEquals(NotificationType.COMPLAINT_REOPENED, cNotif.getNotificationType());
+
+        // Officer received reopen notice
+        long officerNew = notificationRepository.countByRecipientIdAndIsReadFalse(officer.getId());
+        assertEquals(officerInitial + 1, officerNew, "Officer must receive reopen notice");
+        Notification offNotif = notificationRepository.findByRecipientIdOrderByCreatedAtDesc(
+                officer.getId(), org.springframework.data.domain.PageRequest.of(0, 1)).getContent().get(0);
+        assertEquals(NotificationType.COMPLAINT_REOPENED, offNotif.getNotificationType());
+
+        // Worker received reopen notice
+        long workerNew = notificationRepository.countByRecipientIdAndIsReadFalse(worker.getId());
+        assertEquals(workerInitial + 1, workerNew, "Worker must receive reopen notice");
+        Notification wNotif = notificationRepository.findByRecipientIdOrderByCreatedAtDesc(
+                worker.getId(), org.springframework.data.domain.PageRequest.of(0, 1)).getContent().get(0);
+        assertEquals(NotificationType.COMPLAINT_REOPENED, wNotif.getNotificationType());
+    }
+
+    @Test
+    @DisplayName("RESOLUTION_REJECTED: Worker receives rework notice when citizen rejects resolution")
+    public void testResolutionRejectedNotifiesWorker() {
+        Complaint complaint = createTestComplaint();
+        complaint = assignWorkerToComplaint(complaint);
+        complaint = startWorkOnComplaint(complaint);
+        complaint = submitResolutionOnComplaint(complaint);
+
+        // Transition to PENDING_CITIZEN_CONFIRMATION
+        UpdateStatusRequest statusReq = new UpdateStatusRequest();
+        statusReq.setStatus(ComplaintStatus.PENDING_CITIZEN_CONFIRMATION);
+        statusReq.setNotes("Site checked by officer");
+        complaintService.transitionStatus(complaint.getId().toString(), statusReq, officerPrincipal, "127.0.0.1");
+
+        long workerInitial = notificationRepository.countByRecipientIdAndIsReadFalse(worker.getId());
+
+        // Citizen rejects resolution
+        com.civicfix.complaint.dto.RejectResolutionRequest rejectReq = new com.civicfix.complaint.dto.RejectResolutionRequest();
+        rejectReq.setReason("Asphalt surface is cracking and uneven");
+
+        complaintService.rejectResolution(complaint.getId().toString(), rejectReq, null, citizenPrincipal, "127.0.0.1");
+
+        long workerNew = notificationRepository.countByRecipientIdAndIsReadFalse(worker.getId());
+        assertTrue(workerNew > workerInitial, "Worker must receive rejection notice with citizen feedback");
+
+        Notification wNotif = notificationRepository.findByRecipientIdOrderByCreatedAtDesc(
+                worker.getId(), org.springframework.data.domain.PageRequest.of(0, 1)).getContent().get(0);
+        assertEquals(NotificationType.RESOLUTION_REJECTED, wNotif.getNotificationType());
+        assertTrue(wNotif.getMessage().contains("cracking and uneven"));
     }
 }
