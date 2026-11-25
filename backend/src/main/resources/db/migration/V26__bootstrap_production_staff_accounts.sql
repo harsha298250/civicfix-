@@ -2,9 +2,14 @@
 -- Authoritative production bootstrap for Municipal Governance roles:
 -- ADMIN, OFFICER, SUPERVISOR, WORKER, CITIZEN.
 -- Uses dedicated non-seed UUIDs (10000000-...) so they are never touched by ProductionSafetyGuard.
--- Password for all accounts: CivicSecure#2026! (BCrypt hashed with cost factor 10)
+-- Phone is explicitly set to NULL to prevent collision with existing unique phone constraints (users_phone_key).
+-- Protected by conditional WHERE NOT EXISTS on both (id OR email) to guarantee zero unique-constraint conflicts,
+-- zero overwrites of existing user records, and zero unauthorized password resets.
+-- SECURITY WARNING: The initial bootstrap password hash ($2a$10$vd5MDvWnGAYUrw8W.y2rPexBtLsSVkVVMb.hq2z037IWNJ8oID59q)
+-- corresponds to a known string committed in Git history and is NOT production-secure.
+-- All accounts must be rotated immediately upon first login via password reset or admin provisioning.
 
--- 1. Ensure Roles Exist
+-- 1. Ensure System Roles Exist
 INSERT INTO roles (name) VALUES 
     ('CITIZEN'),
     ('OFFICER'),
@@ -13,15 +18,16 @@ INSERT INTO roles (name) VALUES
     ('ADMIN')
 ON CONFLICT (name) DO NOTHING;
 
--- 2. Insert Platform Administrator
+-- 2. Insert Platform Administrator (idempotent; no-op if id or email exists)
 INSERT INTO users (
     id, full_name, email, phone, password_hash, account_status,
     department, ward, trust_score, cross_ward_access, cross_department_access
-) VALUES (
+)
+SELECT
     '10000000-0000-0000-0000-000000000001',
     'Priya Sharma (Platform Administrator)',
     'admin@civicfix.gov',
-    '+91 98410 87654',
+    NULL,
     '$2a$10$vd5MDvWnGAYUrw8W.y2rPexBtLsSVkVVMb.hq2z037IWNJ8oID59q',
     'ACTIVE',
     'Platform Security & Governance',
@@ -29,21 +35,20 @@ INSERT INTO users (
     100,
     TRUE,
     TRUE
-) ON CONFLICT (id) DO UPDATE SET
-    account_status = 'ACTIVE',
-    password_hash = EXCLUDED.password_hash,
-    cross_ward_access = TRUE,
-    cross_department_access = TRUE;
+WHERE NOT EXISTS (
+    SELECT 1 FROM users WHERE id = '10000000-0000-0000-0000-000000000001' OR email = 'admin@civicfix.gov'
+);
 
--- 3. Insert Municipal Officer
+-- 3. Insert Municipal Officer (idempotent; no-op if id or email exists)
 INSERT INTO users (
     id, full_name, email, phone, password_hash, account_status,
     department, ward, trust_score, cross_ward_access, cross_department_access
-) VALUES (
+)
+SELECT
     '10000000-0000-0000-0000-000000000002',
     'Elena Vance (Municipal Officer)',
     'officer@civicfix.gov',
-    '+91 94440 12345',
+    NULL,
     '$2a$10$vd5MDvWnGAYUrw8W.y2rPexBtLsSVkVVMb.hq2z037IWNJ8oID59q',
     'ACTIVE',
     'Central Municipal Operations',
@@ -51,21 +56,20 @@ INSERT INTO users (
     100,
     TRUE,
     TRUE
-) ON CONFLICT (id) DO UPDATE SET
-    account_status = 'ACTIVE',
-    password_hash = EXCLUDED.password_hash,
-    cross_ward_access = TRUE,
-    cross_department_access = TRUE;
+WHERE NOT EXISTS (
+    SELECT 1 FROM users WHERE id = '10000000-0000-0000-0000-000000000002' OR email = 'officer@civicfix.gov'
+);
 
--- 4. Insert Municipal Supervisor
+-- 4. Insert Municipal Supervisor (idempotent; no-op if id or email exists)
 INSERT INTO users (
     id, full_name, email, phone, password_hash, account_status,
     department, ward, trust_score, cross_ward_access, cross_department_access
-) VALUES (
+)
+SELECT
     '10000000-0000-0000-0000-000000000003',
     'Sarah Jenkins (Municipal Supervisor)',
     'supervisor@civicfix.gov',
-    '+91 98405 67890',
+    NULL,
     '$2a$10$vd5MDvWnGAYUrw8W.y2rPexBtLsSVkVVMb.hq2z037IWNJ8oID59q',
     'ACTIVE',
     'Public Works & Infrastructure Oversight',
@@ -73,21 +77,20 @@ INSERT INTO users (
     100,
     TRUE,
     TRUE
-) ON CONFLICT (id) DO UPDATE SET
-    account_status = 'ACTIVE',
-    password_hash = EXCLUDED.password_hash,
-    cross_ward_access = TRUE,
-    cross_department_access = TRUE;
+WHERE NOT EXISTS (
+    SELECT 1 FROM users WHERE id = '10000000-0000-0000-0000-000000000003' OR email = 'supervisor@civicfix.gov'
+);
 
--- 5. Insert Field Maintenance Crew (Worker)
+-- 5. Insert Field Maintenance Crew / Worker (idempotent; no-op if id or email exists)
 INSERT INTO users (
     id, full_name, email, phone, password_hash, account_status,
     department, ward, trust_score, cross_ward_access, cross_department_access
-) VALUES (
+)
+SELECT
     '10000000-0000-0000-0000-000000000004',
     'Marcus Chen (Field Technician)',
     'worker@civicfix.gov',
-    '+91 91760 98765',
+    NULL,
     '$2a$10$vd5MDvWnGAYUrw8W.y2rPexBtLsSVkVVMb.hq2z037IWNJ8oID59q',
     'ACTIVE',
     'SDOT Rapid Asphalt Maintenance',
@@ -95,19 +98,20 @@ INSERT INTO users (
     96,
     FALSE,
     FALSE
-) ON CONFLICT (id) DO UPDATE SET
-    account_status = 'ACTIVE',
-    password_hash = EXCLUDED.password_hash;
+WHERE NOT EXISTS (
+    SELECT 1 FROM users WHERE id = '10000000-0000-0000-0000-000000000004' OR email = 'worker@civicfix.gov'
+);
 
--- 6. Insert Resident Citizen
+-- 6. Insert Resident Citizen (idempotent; no-op if id or email exists)
 INSERT INTO users (
     id, full_name, email, phone, password_hash, account_status,
     department, ward, trust_score, cross_ward_access, cross_department_access
-) VALUES (
+)
+SELECT
     '10000000-0000-0000-0000-000000000005',
     'Alex Morgan (Citizen User)',
     'citizen@civicfix.gov',
-    '+91 98401 23456',
+    NULL,
     '$2a$10$vd5MDvWnGAYUrw8W.y2rPexBtLsSVkVVMb.hq2z037IWNJ8oID59q',
     'ACTIVE',
     'Resident Community Council',
@@ -115,32 +119,58 @@ INSERT INTO users (
     98,
     FALSE,
     FALSE
-) ON CONFLICT (id) DO UPDATE SET
-    account_status = 'ACTIVE',
-    password_hash = EXCLUDED.password_hash;
+WHERE NOT EXISTS (
+    SELECT 1 FROM users WHERE id = '10000000-0000-0000-0000-000000000005' OR email = 'citizen@civicfix.gov'
+);
 
--- 7. Assign Roles
+-- 7. Assign Roles Safely with Strict Dual (UUID + Email) Matching
+-- Enforces that elevated roles are NEVER granted to another account that happens to share an email or UUID.
 -- Admin -> ADMIN
 INSERT INTO user_roles (user_id, role_id)
-SELECT '10000000-0000-0000-0000-000000000001', r.id FROM roles r WHERE r.name = 'ADMIN'
-ON CONFLICT DO NOTHING;
+SELECT u.id, r.id
+FROM users u
+CROSS JOIN roles r
+WHERE u.id = '10000000-0000-0000-0000-000000000001'
+  AND u.email = 'admin@civicfix.gov'
+  AND r.name = 'ADMIN'
+ON CONFLICT (user_id, role_id) DO NOTHING;
 
 -- Officer -> OFFICER
 INSERT INTO user_roles (user_id, role_id)
-SELECT '10000000-0000-0000-0000-000000000002', r.id FROM roles r WHERE r.name = 'OFFICER'
-ON CONFLICT DO NOTHING;
+SELECT u.id, r.id
+FROM users u
+CROSS JOIN roles r
+WHERE u.id = '10000000-0000-0000-0000-000000000002'
+  AND u.email = 'officer@civicfix.gov'
+  AND r.name = 'OFFICER'
+ON CONFLICT (user_id, role_id) DO NOTHING;
 
 -- Supervisor -> SUPERVISOR
 INSERT INTO user_roles (user_id, role_id)
-SELECT '10000000-0000-0000-0000-000000000003', r.id FROM roles r WHERE r.name = 'SUPERVISOR'
-ON CONFLICT DO NOTHING;
+SELECT u.id, r.id
+FROM users u
+CROSS JOIN roles r
+WHERE u.id = '10000000-0000-0000-0000-000000000003'
+  AND u.email = 'supervisor@civicfix.gov'
+  AND r.name = 'SUPERVISOR'
+ON CONFLICT (user_id, role_id) DO NOTHING;
 
 -- Worker -> WORKER
 INSERT INTO user_roles (user_id, role_id)
-SELECT '10000000-0000-0000-0000-000000000004', r.id FROM roles r WHERE r.name = 'WORKER'
-ON CONFLICT DO NOTHING;
+SELECT u.id, r.id
+FROM users u
+CROSS JOIN roles r
+WHERE u.id = '10000000-0000-0000-0000-000000000004'
+  AND u.email = 'worker@civicfix.gov'
+  AND r.name = 'WORKER'
+ON CONFLICT (user_id, role_id) DO NOTHING;
 
 -- Citizen -> CITIZEN
 INSERT INTO user_roles (user_id, role_id)
-SELECT '10000000-0000-0000-0000-000000000005', r.id FROM roles r WHERE r.name = 'CITIZEN'
-ON CONFLICT DO NOTHING;
+SELECT u.id, r.id
+FROM users u
+CROSS JOIN roles r
+WHERE u.id = '10000000-0000-0000-0000-000000000005'
+  AND u.email = 'citizen@civicfix.gov'
+  AND r.name = 'CITIZEN'
+ON CONFLICT (user_id, role_id) DO NOTHING;
