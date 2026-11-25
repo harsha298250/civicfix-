@@ -6,8 +6,9 @@ services:
   # ---------------------------------------------------------------------------
   # 1. Frontend: React + Vite Single-Page Application (Static Site)
   # ---------------------------------------------------------------------------
-  - type: static
+  - type: web
     name: civicfix-frontend
+    runtime: static
     repo: https://github.com/harsha298250/civicfix-
     branch: main
     buildCommand: npm ci && npm run build
