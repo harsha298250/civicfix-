@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import ModalDialog from '../../components/common/ModalDialog';
+import ThemeToggle from '../../components/common/ThemeToggle';
 import { apiClient } from '../../services/apiClient';
 
 export const CitizenProfilePage = () => {
@@ -12,7 +13,7 @@ export const CitizenProfilePage = () => {
   const navigate = useNavigate();
 
   const [phone, setPhone] = useState(currentUser?.phone || '+91 98401 23456');
-  const [ward, setWard] = useState(currentUser?.ward || 'Ward 08, Anna Nagar');
+  const [ward, setWard] = useState(currentUser?.ward || '');
   
   // Notification alert preferences (persisted across sessions)
   const [emailAlerts, setEmailAlerts] = useState(() => {
@@ -142,7 +143,7 @@ export const CitizenProfilePage = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-tertiary">Primary Ward:</span>
-              <span className="font-semibold text-on-surface">{currentUser?.ward || ward}</span>
+              <span className="font-semibold text-on-surface">{currentUser?.ward || ward || 'Location not set'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-tertiary">Member Since:</span>
@@ -177,6 +178,11 @@ export const CitizenProfilePage = () => {
                   onChange={(e) => setWard(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-surface-container-low rounded-xl text-sm text-on-surface border border-transparent focus:border-primary-container focus:outline-none"
                 />
+              </div>
+
+              <div className="pt-2 border-t border-outline-variant/30 space-y-2">
+                <h4 className="text-xs font-bold text-on-surface uppercase tracking-wider">Appearance Theme</h4>
+                <ThemeToggle variant="selector" />
               </div>
 
               <div className="pt-2 border-t border-outline-variant/30 space-y-3">

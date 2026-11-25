@@ -10,6 +10,18 @@
     <title>CivicFix: An Explainable, Rule-Assisted Civic Complaint Platform with GIS Mapping and Citizen-Verified Resolution</title>
     <!-- Locally Bundled Fonts & Material Symbols for 100% Offline App Shell -->
     <link rel="stylesheet" href="/fonts/fonts.css" />
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('civicfix_theme');
+          var dark = t === 'dark' || ((!t || t === 'system') && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.colorScheme = 'dark';
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body class="bg-surface font-sans text-body-md text-on-surface antialiased">
     <div id="root"></div>

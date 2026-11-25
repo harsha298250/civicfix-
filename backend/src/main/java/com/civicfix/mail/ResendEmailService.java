@@ -93,6 +93,10 @@ public class ResendEmailService implements EmailService {
             boolean retryable
     ) {}
 
+    public boolean isConfigured() {
+        return apiKey != null && !apiKey.trim().isEmpty();
+    }
+
     /**
      * Core transactional email dispatch method to Resend's HTTP API.
      */

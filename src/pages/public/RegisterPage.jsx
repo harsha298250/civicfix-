@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { useTranslation } from '../../context/LanguageContext';
 import LanguageToggle from '../../components/common/LanguageToggle';
+import ThemeToggle from '../../components/common/ThemeToggle';
 import { authService } from '../../services/authService';
 import { firebaseAuthService } from '../../services/firebaseAuth';
 import { isValidIndianPhone, formatIndianPhone } from '../../utils/phoneUtils';
@@ -18,7 +19,7 @@ export const RegisterPage = () => {
     name: '',
     phone: '',
     email: '',
-    ward: 'Zone 09, Anna Nagar, Chennai',
+    ward: '',
     password: '',
     confirmPassword: '',
     agreeTerms: false,
@@ -182,6 +183,11 @@ export const RegisterPage = () => {
       }
     }
 
+    if (!formData.ward || !formData.ward.trim()) {
+      setErrorMsg('Please select your municipal zone / ward.');
+      return;
+    }
+
     if (formData.password.length < 8) {
       setErrorMsg('Password must be at least 8 characters long.');
       return;
@@ -206,7 +212,7 @@ export const RegisterPage = () => {
           email: formData.email.trim(),
           password: formData.password,
           name: formData.name.trim(),
-          ward: formData.ward ? formData.ward.trim() : 'Zone 09, Anna Nagar, Chennai',
+          ward: formData.ward.trim(),
           phone: formData.phone ? formData.phone.trim() : null
         });
       } else {
@@ -214,7 +220,7 @@ export const RegisterPage = () => {
           name: formData.name.trim(),
           email: contactMethod === 'EMAIL' ? formData.email.trim() : (formData.email.trim() || null),
           phone: contactMethod === 'MOBILE' ? formData.phone.trim() : (formData.phone.trim() || null),
-          ward: formData.ward ? formData.ward.trim() : 'Zone 09, Anna Nagar, Chennai',
+          ward: formData.ward.trim(),
           password: formData.password
         });
       }
@@ -295,7 +301,10 @@ export const RegisterPage = () => {
           {/* Language Toggle Header */}
           <div className="flex items-center justify-between pb-2 border-b border-[#E2E7ED]">
             <span className="text-[11px] font-bold text-tertiary uppercase tracking-wider">{t('common.language')}</span>
-            <LanguageToggle />
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <LanguageToggle />
+            </div>
           </div>
 
           {/* Header */}
@@ -496,16 +505,27 @@ export const RegisterPage = () => {
                 <select
                   id="reg-ward"
                   name="ward"
+                  required
                   value={formData.ward}
                   onChange={handleChange}
                   className="w-full pl-9 pr-8 py-2.5 text-sm bg-slate-50 border border-[#E2E7ED] rounded-xl text-[#18232F] focus:outline-none focus:ring-2 focus:ring-[#137A70] focus:bg-white transition-all appearance-none"
                 >
-                  <option value="Zone 09, Anna Nagar, Chennai">Zone 09, Anna Nagar, Chennai</option>
-                  <option value="Ward 08, Anna Nagar, Chennai">Ward 08, Anna Nagar, Chennai</option>
-                  <option value="Zone 05, Royapuram, Chennai">Zone 05, Royapuram, Chennai</option>
-                  <option value="Zone 10, Kodambakkam, Chennai">Zone 10, Kodambakkam, Chennai</option>
-                  <option value="Zone 13, Adyar, Chennai">Zone 13, Adyar, Chennai</option>
+                  <option value="">Select your municipal zone / ward</option>
+                  <option value="Zone 01, Thiruvottiyur, Chennai">Zone 01, Thiruvottiyur, Chennai</option>
+                  <option value="Zone 02, Manali, Chennai">Zone 02, Manali, Chennai</option>
+                  <option value="Zone 03, Madhavaram, Chennai">Zone 03, Madhavaram, Chennai</option>
                   <option value="Zone 04, Tondiarpet, Chennai">Zone 04, Tondiarpet, Chennai</option>
+                  <option value="Zone 05, Royapuram, Chennai">Zone 05, Royapuram, Chennai</option>
+                  <option value="Zone 06, Thiru. Vi. Ka. Nagar, Chennai">Zone 06, Thiru. Vi. Ka. Nagar, Chennai</option>
+                  <option value="Zone 07, Ambattur, Chennai">Zone 07, Ambattur, Chennai</option>
+                  <option value="Zone 08, Anna Nagar, Chennai">Zone 08, Anna Nagar, Chennai</option>
+                  <option value="Zone 09, Teynampet, Chennai">Zone 09, Teynampet, Chennai</option>
+                  <option value="Zone 10, Kodambakkam, Chennai">Zone 10, Kodambakkam, Chennai</option>
+                  <option value="Zone 11, Valasaravakkam, Chennai">Zone 11, Valasaravakkam, Chennai</option>
+                  <option value="Zone 12, Alandur, Chennai">Zone 12, Alandur, Chennai</option>
+                  <option value="Zone 13, Adyar, Chennai">Zone 13, Adyar, Chennai</option>
+                  <option value="Zone 14, Perungudi, Chennai">Zone 14, Perungudi, Chennai</option>
+                  <option value="Zone 15, Sholinganallur, Chennai">Zone 15, Sholinganallur, Chennai</option>
                 </select>
                 <span className="material-symbols-outlined absolute right-3 top-2.5 text-[#667384] text-[18px] pointer-events-none">
                   expand_more

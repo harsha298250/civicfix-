@@ -98,7 +98,10 @@ public class FirebaseAuthService {
         Optional<User> userByUid = userRepository.findByFirebaseUid(uid);
         if (userByUid.isPresent()) {
             User user = userByUid.get();
-            if (emailVerified && !user.isEmailVerified()) {
+            if (!emailVerified) {
+                throw new BadRequestException("Your email address is not verified. Please verify your email with Firebase before signing in.");
+            }
+            if (!user.isEmailVerified()) {
                 user.setEmailVerified(true);
                 userRepository.save(user);
             }
@@ -180,7 +183,7 @@ public class FirebaseAuthService {
 
         String ward = request.getWard() != null && !request.getWard().isBlank()
                 ? request.getWard().trim()
-                : "Ward 08, Anna Nagar, Chennai";
+                : null;
 
         String phone = request.getPhone() != null && !request.getPhone().isBlank()
                 ? request.getPhone().trim()

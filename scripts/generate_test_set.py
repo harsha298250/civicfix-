@@ -1,7 +1,7 @@
 import csv
 import os
 
-os.makedirs('docs/evaluation', exist_ok=True)
+os.makedirs('backend/src/test/resources/evaluation', exist_ok=True)
 
 # 100 synthetic complaint entries
 # Fields: id, title, description, expected_category, expected_priority, latitude, longitude, ward, duplicate_group, case_type, notes
@@ -139,7 +139,7 @@ data = [
 ]
 
 # Write out CSV with explicit synthetic notice
-output_path = 'docs/evaluation/test_set.csv'
+output_path = 'backend/src/test/resources/evaluation/test_set.csv'
 with open(output_path, 'w', encoding='utf-8', newline='') as f:
     f.write("# =============================================================================\n")
     f.write("# SYNTHETIC DATASET NOTICE:\n")

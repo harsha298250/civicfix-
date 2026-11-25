@@ -20,7 +20,7 @@ CivicFix uses a transparent, deterministic triage engine (`DeterministicTriageEn
 - **Text-Only Processing**: The engine processes defect titles and written descriptions only. It **does not** analyze photos, does not assess structural infrastructure from images, and does not predict future failures.
 - **Bilingual Dictionaries**: Operates on English text plus a dedicated Tamil keyword vocabulary for bilingual municipal defect reporting.
 - **Duplicate Detection**: Identified using geographic proximity (Haversine distance within a configured radius, typically 50m) combined with text similarity scoring (Jaccard similarity on normalized token sets).
-- **Evaluation & Benchmark**: Measured against a benchmark test set of 100 cases. Full evaluation results, per-class recall, and 95% Wilson confidence intervals are documented in [docs/evaluation/results.md](docs/evaluation/results.md).
+- **Evaluation & Benchmark**: Measured against a benchmark test set of 100 cases. Full evaluation results, per-class recall, and 95% Wilson confidence intervals are documented in [backend/src/test/resources/evaluation/results.md](backend/src/test/resources/evaluation/results.md).
 - **Known Limitations**: The 100 benchmark test cases are synthetic and were developed by the same engineering team that built the engine, meaning results are not an independent real-world accuracy measure; the duplicate test sample includes only 10 true pairs; and triage relies entirely on textual descriptions without computer vision or photo analysis.
 
 ---

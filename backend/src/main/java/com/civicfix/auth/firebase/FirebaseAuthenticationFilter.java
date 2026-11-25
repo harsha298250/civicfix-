@@ -187,7 +187,7 @@ public class FirebaseAuthenticationFilter extends OncePerRequestFilter {
             User newUser = new User();
             newUser.setFullName(name);
             newUser.setEmail(email);
-            newUser.setWard("Ward 08, Anna Nagar, Chennai");
+            newUser.setWard(null);
             newUser.setDepartment("Resident Community Member");
             newUser.setAccountStatus("ACTIVE");
             newUser.setEmailVerified(emailVerified);

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { useTranslation } from '../../context/LanguageContext';
 import LanguageToggle from '../../components/common/LanguageToggle';
+import ThemeToggle from '../../components/common/ThemeToggle';
 import InstallPwaButton from '../../components/common/InstallPwaButton';
 import { authService, isDemoModeEnabled } from '../../services/authService';
 import { firebaseAuthService } from '../../services/firebaseAuth';
@@ -206,16 +207,24 @@ export const LoginPage = () => {
     }
 
     setResending(true);
+    setResendStatus(null);
     try {
       const res = await authService.resendVerification(emailToUse);
+      if (res?.success === false) {
+        setResendStatus({
+          type: 'error',
+          message: 'Unable to send verification email. Please try again later.'
+        });
+        return;
+      }
       setResendStatus({
         type: 'success',
-        message: res?.message || 'Verification link sent! Please check your email inbox.'
+        message: res?.message || 'Verification email request submitted.'
       });
     } catch (err) {
       setResendStatus({
         type: 'error',
-        message: err?.message || 'Failed to resend verification email.'
+        message: 'Unable to send verification email. Please try again later.'
       });
     } finally {
       setResending(false);
@@ -237,6 +246,7 @@ export const LoginPage = () => {
           <div className="flex items-center justify-between pb-2 border-b border-[#E2E7ED]">
             <InstallPwaButton />
             <div className="flex items-center gap-2 ml-auto">
+              <ThemeToggle />
               <span className="text-[11px] font-bold text-tertiary uppercase tracking-wider">{t('common.language')}</span>
               <LanguageToggle />
             </div>

@@ -3,6 +3,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { useTranslation } from '../../context/LanguageContext';
 import LanguageToggle from '../common/LanguageToggle';
+import ThemeToggle from '../common/ThemeToggle';
 import { DemoRoleSwitcher } from '../common/DemoRoleSwitcher';
 import SkipToContent from '../common/SkipToContent';
 import { COMPLAINT_STATUS } from '../../constants/statusConstants';
@@ -192,6 +193,7 @@ export const WorkerLayout = () => {
           </div>
 
           <div className="flex items-center gap-2.5 sm:gap-3">
+            <ThemeToggle />
             <LanguageToggle />
 
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-low text-primary-container text-xs font-semibold">

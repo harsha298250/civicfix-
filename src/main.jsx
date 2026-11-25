@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { LanguageProvider } from './context/LanguageContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { AppProvider } from './context/AppContext';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import App from './App';
@@ -20,11 +21,13 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
       <BrowserRouter>
-        <LanguageProvider>
-          <AppProvider>
-            <App />
-          </AppProvider>
-        </LanguageProvider>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppProvider>
+              <App />
+            </AppProvider>
+          </LanguageProvider>
+        </ThemeProvider>
       </BrowserRouter>
     </ErrorBoundary>
   </React.StrictMode>

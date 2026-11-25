@@ -15,7 +15,7 @@ import { suggestCategoryFromText, mapBackendCategoryToFrontendId } from '../../u
 export const ReportComplaintPage = () => {
   const navigate = useNavigate();
   const { currentUser, refreshComplaints, showToast } = useApp();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -24,7 +24,7 @@ export const ReportComplaintPage = () => {
     description: '',
     priority: 'HIGH',
     address: 'Anna Salai, Near Spencer Plaza, Chennai',
-    ward: 'Zone 09, Teynampet',
+    ward: currentUser?.ward || '',
     landmark: '',
     coordinates: { lat: 13.0604, lng: 80.2642 },
     accuracyMeters: null,
@@ -277,7 +277,7 @@ export const ReportComplaintPage = () => {
     const timer = setTimeout(async () => {
       setBackendCategoryLoading(true);
       try {
-        const res = await complaintService.suggestCategory(text, i18n.language || 'en');
+        const res = await complaintService.suggestCategory(text, language || 'en');
         if (active && res && res.category) {
           const frontId = mapBackendCategoryToFrontendId(res.category);
           setBackendCategorySuggestion({
@@ -300,7 +300,7 @@ export const ReportComplaintPage = () => {
       active = false;
       clearTimeout(timer);
     };
-  }, [formData.title, formData.description, i18n.language]);
+  }, [formData.title, formData.description, language]);
 
   const suggestedCategory = useMemo(() => {
     if (backendCategorySuggestion && backendCategorySuggestion.id) {
@@ -451,7 +451,7 @@ export const ReportComplaintPage = () => {
                   description: '',
                   priority: 'HIGH',
                   address: 'Anna Salai, Chennai',
-                  ward: 'Zone 09, Teynampet',
+                  ward: currentUser?.ward || '',
                   landmark: '',
                   coordinates: { lat: 13.0604, lng: 80.2642 },
                   accuracyMeters: null,
@@ -851,6 +851,7 @@ export const ReportComplaintPage = () => {
                         Quick Localities:
                       </span>
                       {[
+                        'Royapuram',
                         'Chettipadu',
                         'Anna Nagar',
                         'T. Nagar',

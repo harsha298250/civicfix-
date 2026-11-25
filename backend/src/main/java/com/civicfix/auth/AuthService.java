@@ -167,7 +167,7 @@ public class AuthService {
         user.setEmail(email != null && !email.isEmpty() ? email : null);
         user.setPhone(phone != null && !phone.isEmpty() ? phone : null);
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        user.setWard(request.getWard() != null ? request.getWard().trim() : "Ward 08, Anna Nagar, Chennai");
+        user.setWard(request.getWard() != null && !request.getWard().isBlank() ? request.getWard().trim() : null);
         user.setDepartment("Resident Community Member");
         user.setAccountStatus(requiresVerification ? "PENDING_VERIFICATION" : "ACTIVE");
         user.setEmailVerified(!requiresVerification);
@@ -298,6 +298,7 @@ public class AuthService {
     @Transactional
     public String resendVerification(ResendVerificationRequest request, String ipAddress) {
         String email = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
+        boolean enqueued = false;
         if (!email.isEmpty()) {
             try {
                 User user = userRepository.findByEmailIgnoreCase(email).orElse(null);
@@ -307,8 +308,16 @@ public class AuthService {
                         OffsetDateTime cutoff = OffsetDateTime.now().minusMinutes(cooldownMinutes);
                         long recentTokens = emailVerificationTokenRepository.countRecentTokensForUser(user, cutoff);
                         if (recentTokens > 0) {
-                            log.warn("Resend verification throttled for user {}. Cooldown active.", user.getId());
-                            return "If an account with that email exists and is pending verification, a new verification link has been sent.";
+                            log.warn("[AUTH_EMAIL] Resend verification throttled for user {}. Cooldown active.", user.getId());
+                            return "Verification email request submitted.";
+                        }
+
+                        if (emailOutboxService != null && !emailOutboxService.isDeliveryConfigured()) {
+                            log.warn("[AUTH_EMAIL] Verification resend failed for user {}: outbound email provider is not configured.", user.getId());
+                            throw new org.springframework.web.server.ResponseStatusException(
+                                    org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+                                    "Unable to send verification email. Please try again later."
+                            );
                         }
 
                         emailVerificationTokenRepository.invalidateOutstandingTokensForUser(user, OffsetDateTime.now());
@@ -336,16 +345,30 @@ public class AuthService {
                                             "rawToken", rawToken
                                     )
                             );
+                            enqueued = true;
+                            log.info("[AUTH_EMAIL] Verification email request queued for user {} (outbox key {}).", user.getId(), idemKey);
                         } else if (emailService != null) {
                             emailService.sendEmailVerificationEmail(user.getEmail(), user.getFullName(), verificationUrl);
+                            enqueued = true;
+                            log.info("[AUTH_EMAIL] Verification email request dispatched for user {}.", user.getId());
                         }
                     }
+                } else {
+                    log.info("[AUTH_EMAIL] Verification resend requested for non-pending or unknown account.");
                 }
+            } catch (org.springframework.web.server.ResponseStatusException rse) {
+                throw rse;
             } catch (Exception ex) {
-                log.error("Safe fallback in resend verification: {}", ex.getMessage());
+                log.error("[AUTH_EMAIL] Failed to process resend verification request: {}", ex.getMessage());
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+                        "Unable to send verification email. Please try again later."
+                );
             }
         }
-        return "If an account with that email exists and is pending verification, a new verification link has been sent.";
+        return enqueued
+                ? "Verification email request submitted."
+                : "If an account with that email exists and requires verification, a verification email request has been submitted.";
     }
 
     @Transactional(noRollbackFor = {BadCredentialsException.class, RateLimitExceededException.class})
@@ -451,7 +474,7 @@ public class AuthService {
             user.setAccountStatus("ACTIVE");
             user.setTrustScore(90);
             user.setDepartment("Resident Community Member");
-            user.setWard("Ward 08, Anna Nagar, Chennai");
+            user.setWard(null);
             user.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
             user.setRoles(Set.of(citizenRole));
             user = userRepository.save(user);

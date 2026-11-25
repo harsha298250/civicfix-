@@ -30,6 +30,54 @@ import { authService } from './authService.js';
  * 5. Coordinated logout across both Firebase and Spring Boot session
  */
 
+export function mapFirebaseAuthError(fbErr) {
+  const code = fbErr?.code || '';
+  switch (code) {
+    case 'auth/wrong-password':
+      return 'Incorrect password. Please check your password and try again.';
+    case 'auth/user-not-found':
+      return 'No account found with this email address.';
+    case 'auth/invalid-credential':
+      return 'Invalid email address or password. Please verify your credentials.';
+    case 'auth/invalid-email':
+      return 'Please enter a valid email address.';
+    case 'auth/user-disabled':
+      return 'Your account has been disabled. Please contact your municipal administrator.';
+    case 'auth/unauthorized-domain':
+      return 'This domain is not authorized for Firebase authentication. Please contact your administrator.';
+    case 'auth/network-request-failed':
+      return 'Unable to connect to the authentication service. Please check your network connection.';
+    case 'auth/invalid-api-key':
+    case 'auth/app-not-authorized':
+    case 'auth/configuration-not-found':
+      return 'Authentication service configuration error. Please contact your administrator.';
+    case 'auth/too-many-requests':
+      return 'Too many failed login attempts. Access temporarily disabled for security. Please try again later.';
+    case 'auth/popup-closed-by-user':
+      return 'Google sign-in popup was closed before completing authentication.';
+    case 'auth/popup-blocked':
+      return 'Google sign-in popup was blocked by your browser. Please allow popups for this site.';
+    case 'auth/email-already-in-use':
+      return 'An account with this email address is already registered. Please sign in instead.';
+    case 'auth/weak-password':
+      return 'Password must be at least 8 characters long.';
+    default:
+      return fbErr?.message || 'Authentication failed. Please try again.';
+  }
+}
+
+async function exchangeFirebaseSession(idToken, metadata) {
+  try {
+    const response = await apiClient.auth.createFirebaseSession(idToken, metadata);
+    return response?.data || response;
+  } catch (err) {
+    if (err?.isServerUnreachable || err?.status === 0 || err?.status >= 502) {
+      throw new Error('CivicFix backend server is currently unavailable. Please try again shortly.');
+    }
+    throw new Error(err?.message || 'Unable to establish session with CivicFix server.');
+  }
+}
+
 export const firebaseAuthService = {
   isConfigured: () => isFirebaseConfigured(),
 
@@ -67,20 +115,15 @@ export const firebaseAuthService = {
     try {
       userCredential = await signInWithPopup(auth, provider);
     } catch (fbErr) {
-      const code = fbErr.code || '';
-      if (code === 'auth/popup-closed-by-user') {
-        throw new Error('Google sign-in popup was closed before completing authentication.');
-      } else if (code === 'auth/popup-blocked') {
-        throw new Error('Google sign-in popup was blocked by your browser. Please allow popups for this site.');
-      } else {
-        throw new Error(fbErr.message || 'Google sign-in failed. Please try again.');
-      }
+      throw new Error(mapFirebaseAuthError(fbErr));
     }
     const firebaseUser = userCredential.user;
+    if (!firebaseUser.emailVerified) {
+      throw new Error('Your email address is not verified. Please verify your email before signing in.');
+    }
     const idToken = await firebaseUser.getIdToken();
 
-    const response = await apiClient.auth.createFirebaseSession(idToken);
-    const backendUser = response?.data || response;
+    const backendUser = await exchangeFirebaseSession(idToken);
 
     const liveUser = {
       id: String(backendUser.id),
@@ -91,7 +134,7 @@ export const firebaseAuthService = {
       role: backendUser.role || 'CITIZEN',
       roles: backendUser.roles || [backendUser.role || 'CITIZEN'],
       department: backendUser.department || '',
-      ward: backendUser.ward || 'Ward 08, Anna Nagar, Chennai',
+      ward: backendUser.ward || null,
       trustScore: backendUser.trustScore ?? 90,
       status: backendUser.accountStatus || 'ACTIVE',
       isLiveBackend: true,
@@ -133,27 +176,18 @@ export const firebaseAuthService = {
     try {
       userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
     } catch (fbErr) {
-      const code = fbErr.code || '';
-      if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
-        throw new Error('Invalid email address or password. Please verify your credentials.');
-      } else if (code === 'auth/invalid-email') {
-        throw new Error('Please enter a valid email address.');
-      } else if (code === 'auth/user-disabled') {
-        throw new Error('Your account has been deactivated. Please contact your municipal administrator.');
-      } else if (code === 'auth/too-many-requests') {
-        throw new Error('Too many failed login attempts. Access temporarily disabled for security. Please try again later.');
-      } else {
-        throw new Error(fbErr.message || 'Firebase authentication failed. Please try again.');
-      }
+      throw new Error(mapFirebaseAuthError(fbErr));
     }
     const firebaseUser = userCredential.user;
+    if (!firebaseUser.emailVerified) {
+      throw new Error('Your email address is not verified. Please verify your email before signing in.');
+    }
 
     // 2. Retrieve Firebase ID token (JWT)
     const idToken = await firebaseUser.getIdToken();
 
     // 3. Send ID token to Spring Boot backend to verify and establish server-side HTTP session
-    const response = await apiClient.auth.createFirebaseSession(idToken);
-    const backendUser = response?.data || response;
+    const backendUser = await exchangeFirebaseSession(idToken);
 
     // 4. Update in-memory frontend session state
     const liveUser = {
@@ -165,7 +199,7 @@ export const firebaseAuthService = {
       role: backendUser.role || 'CITIZEN',
       roles: backendUser.roles || [backendUser.role || 'CITIZEN'],
       department: backendUser.department || '',
-      ward: backendUser.ward || 'Ward 08, Anna Nagar, Chennai',
+      ward: backendUser.ward || null,
       trustScore: backendUser.trustScore ?? 90,
       status: backendUser.accountStatus || 'ACTIVE',
       isLiveBackend: true,
@@ -247,7 +281,7 @@ export const firebaseAuthService = {
       role: backendUser.role || 'CITIZEN',
       roles: backendUser.roles || ['CITIZEN'],
       department: backendUser.department || 'Resident Community Member',
-      ward: backendUser.ward || ward || 'Ward 08, Anna Nagar, Chennai',
+      ward: backendUser.ward ?? (ward && ward.trim() ? ward.trim() : null),
       trustScore: backendUser.trustScore ?? 90,
       status: backendUser.accountStatus || 'ACTIVE',
       isLiveBackend: true,

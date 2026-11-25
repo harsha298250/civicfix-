@@ -3,6 +3,7 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { useTranslation } from '../../context/LanguageContext';
 import LanguageToggle from '../common/LanguageToggle';
+import ThemeToggle from '../common/ThemeToggle';
 import InstallPwaButton from '../common/InstallPwaButton';
 import SkipToContent from '../common/SkipToContent';
 
@@ -85,6 +86,7 @@ export const PublicLayout = () => {
           {/* Action Buttons */}
           <div className="flex items-center gap-2.5 sm:gap-3">
             <InstallPwaButton />
+            <ThemeToggle />
             <LanguageToggle />
 
             <Link

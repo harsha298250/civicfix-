@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { useTranslation } from '../../context/LanguageContext';
 import { adminService } from '../../services/adminService';
 import LanguageToggle from '../common/LanguageToggle';
+import ThemeToggle from '../common/ThemeToggle';
 import { DemoRoleSwitcher } from '../common/DemoRoleSwitcher';
 import SkipToContent from '../common/SkipToContent';
 
@@ -195,6 +196,7 @@ export const AdminLayout = () => {
           </div>
 
           <div className="flex items-center gap-3 sm:gap-4">
+            <ThemeToggle />
             <LanguageToggle />
 
             <Link

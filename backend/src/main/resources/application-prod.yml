@@ -41,7 +41,7 @@ management:
 
 civicfix:
   cors:
-    allowed-origins: ${FRONTEND_ORIGIN:https://civicfix-red.vercel.app}
+    allowed-origins: ${FRONTEND_ORIGIN:https://civicfix-frontend-qkgw.onrender.com,https://civicfix-red.vercel.app}
   seed-demo: false
   receipt:
     hmac-secret: ${CIVICFIX_RECEIPT_HMAC_SECRET:}

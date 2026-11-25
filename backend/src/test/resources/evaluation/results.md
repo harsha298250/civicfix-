@@ -1,7 +1,7 @@
 # CivicFix AI Triage & Duplicate Engine Benchmark Report
 
-> **Execution Timestamp**: `2026-11-24 08:18:48`
-> **Dataset**: `docs/evaluation/test_set.csv` (`100` synthetic labelled test samples)
+> **Execution Timestamp**: `2026-11-26 00:09:51`  
+> **Dataset**: `backend/src/test/resources/evaluation/test_set.csv` (`100` synthetic labelled test samples)  
 > **Evaluation Rigor**: 100% computed from automated execution. No numbers or metrics in this document were estimated or fabricated.
 
 ---
@@ -9,7 +9,7 @@
 ## Evaluation Limitations & Methodology Caveats
 
 > [!WARNING]
-> 1. **Synthetic Dataset & Internal Authoring Bias**: The 100 evaluation cases in `docs/evaluation/test_set.csv` are **synthetic** and were written by the same team that built the engine and lexicon. Consequently, these results are not an independent estimate of real-world accuracy on actual citizen submissions.
+> 1. **Synthetic Dataset & Internal Authoring Bias**: The 100 evaluation cases in `backend/src/test/resources/evaluation/test_set.csv` are **synthetic** and were written by the same team that built the engine and lexicon. Consequently, these results are not an independent estimate of real-world accuracy on actual citizen submissions.
 > 2. **Small Duplicate Sample & High Statistical Uncertainty**: The duplicate benchmark contains only **10 true duplicate pairs** (out of 4,950 total candidate pairs). Because the ground-truth duplicate sample is so small (n = 10), precision and recall numbers are very uncertain (see 95% Wilson confidence intervals below).
 > 3. **Text-Only Modality**: Triage uses text only (complaint title and description). It does not analyze uploaded photograph pixels, acoustic sensor recordings, or historical ward defect density.
 

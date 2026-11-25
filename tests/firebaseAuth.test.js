@@ -11,7 +11,7 @@ globalThis.localStorage = {
 };
 
 import { authService } from '../src/services/authService.js';
-import { firebaseAuthService } from '../src/services/firebaseAuth.js';
+import { firebaseAuthService, mapFirebaseAuthError } from '../src/services/firebaseAuth.js';
 import { isFirebaseConfigured, firebaseConfig } from '../src/services/firebaseConfig.js';
 import { apiClient } from '../src/services/apiClient.js';
 
@@ -177,6 +177,49 @@ describe('Firebase Authentication Frontend Integration Tests', () => {
     }
   });
 
+  test('Royapuram resident location is accurately persisted and missing location remains null without fallback', async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = async (url, opts) => {
+        const body = opts?.body ? JSON.parse(opts.body) : {};
+        return {
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => ({
+            success: true,
+            data: {
+              id: '00000000-0000-0000-0000-000000000099',
+              name: body.name || 'Royapuram Resident',
+              email: 'resident.royapuram@civicfix.in',
+              role: 'CITIZEN',
+              roles: ['CITIZEN'],
+              ward: body.ward ?? null,
+              accountStatus: 'ACTIVE',
+              emailVerified: true
+            }
+          })
+        };
+      };
+
+      const royapuramResult = await apiClient.auth.createFirebaseSession('fake-id-token-royapuram', {
+        name: 'Royapuram Resident',
+        ward: 'Zone 05, Royapuram, Chennai'
+      });
+
+      assert.equal(royapuramResult.data.ward, 'Zone 05, Royapuram, Chennai');
+      assert.notEqual(royapuramResult.data.ward, 'Ward 08, Anna Nagar, Chennai');
+
+      const missingWardResult = await apiClient.auth.createFirebaseSession('fake-id-token-no-ward', {
+        name: 'Unassigned Resident'
+      });
+
+      assert.equal(missingWardResult.data.ward, null);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   test('Logout terminates session and leaves active user null', async () => {
     const originalFetch = globalThis.fetch;
     try {
@@ -202,5 +245,14 @@ describe('Firebase Authentication Frontend Integration Tests', () => {
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+
+  test('mapFirebaseAuthError produces accurate user-friendly messages without leaking internal details', () => {
+    assert.match(mapFirebaseAuthError({ code: 'auth/wrong-password' }), /Incorrect password/);
+    assert.match(mapFirebaseAuthError({ code: 'auth/user-not-found' }), /No account found/);
+    assert.match(mapFirebaseAuthError({ code: 'auth/user-disabled' }), /disabled/);
+    assert.match(mapFirebaseAuthError({ code: 'auth/unauthorized-domain' }), /not authorized/);
+    assert.match(mapFirebaseAuthError({ code: 'auth/network-request-failed' }), /Unable to connect/);
+    assert.match(mapFirebaseAuthError({ code: 'auth/invalid-api-key' }), /configuration error/);
   });
 });

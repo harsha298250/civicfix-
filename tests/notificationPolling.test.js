@@ -29,14 +29,11 @@ test('Phase 2.3.5: CitizenProfilePage persists resident notification alert prefe
   assert.match(content, /smsAlerts/, 'Includes smsAlerts preference');
 });
 
-test('Phase 2.3.5: Web Push & VAPID progressive enhancement architecture documentation is comprehensive', () => {
-  const docPath = path.join(rootDir, 'docs', 'WEB_PUSH_ARCHITECTURE.md');
-  assert.ok(fs.existsSync(docPath), 'WEB_PUSH_ARCHITECTURE.md exists');
-  const content = fs.readFileSync(docPath, 'utf8');
+test('Phase 2.3.5: notificationService exposes real backend notification endpoints', () => {
+  const servicePath = path.join(rootDir, 'src', 'services', 'notificationService.js');
+  assert.ok(fs.existsSync(servicePath), 'notificationService.js exists');
+  const content = fs.readFileSync(servicePath, 'utf8');
 
-  assert.match(content, /VAPID/, 'Documents VAPID specifications');
-  assert.match(content, /RFC 8291/, 'Documents RFC 8291 payload encryption');
-  assert.match(content, /RFC 8292/, 'Documents RFC 8292 application server identification');
-  assert.match(content, /ServiceWorker/, 'Documents ServiceWorker push handlers');
-  assert.match(content, /showNotification/, 'Documents showNotification implementation');
+  assert.match(content, /getNotifications/, 'Exposes getNotifications');
+  assert.match(content, /markAsRead|markAllAsRead/, 'Exposes read-state mutation helpers');
 });

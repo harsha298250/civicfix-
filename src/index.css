@@ -4,14 +4,98 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --cf-surface: #f8f9ff;
+  --cf-surface-dim: #d0dbeb;
+  --cf-surface-bright: #f8f9ff;
+  --cf-surface-container-lowest: #ffffff;
+  --cf-surface-container-low: #eef4ff;
+  --cf-surface-container: #e4efff;
+  --cf-surface-container-high: #dee9fa;
+  --cf-surface-container-highest: #d8e3f4;
+  --cf-surface-variant: #d8e3f4;
+  --cf-on-surface: #111c28;
+  --cf-on-surface-variant: #3e4947;
+  --cf-inverse-surface: #26313e;
+  --cf-inverse-on-surface: #e9f1ff;
+  --cf-outline: #6e7977;
+  --cf-outline-variant: #bdc9c6;
+  --cf-tertiary: #4d5660;
+  --cf-background: #f8f9ff;
+  --cf-on-background: #111c28;
+  --cf-error: #ba1a1a;
+  --cf-error-container: #ffdad6;
+  --cf-on-error-container: #93000a;
+}
+
+html.dark {
+  --cf-surface: #0b1220;
+  --cf-surface-dim: #080d17;
+  --cf-surface-bright: #162033;
+  --cf-surface-container-lowest: #111a2b;
+  --cf-surface-container-low: #172236;
+  --cf-surface-container: #1d2a42;
+  --cf-surface-container-high: #23334f;
+  --cf-surface-container-highest: #2a3c5c;
+  --cf-surface-variant: #23334f;
+  --cf-on-surface: #e8eef7;
+  --cf-on-surface-variant: #b7c4d6;
+  --cf-inverse-surface: #e8eef7;
+  --cf-inverse-on-surface: #0f172a;
+  --cf-outline: #8b9bb0;
+  --cf-outline-variant: #2c3e59;
+  --cf-tertiary: #9fb0c7;
+  --cf-background: #0b1220;
+  --cf-on-background: #e8eef7;
+  --cf-error: #f87171;
+  --cf-error-container: #451a1a;
+  --cf-on-error-container: #fecaca;
+}
+
 @layer base {
   html, body {
     margin: 0;
     padding: 0;
-    background-color: #F5F7FA;
-    color: #18232F;
+    background-color: var(--cf-surface);
+    color: var(--cf-on-surface);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
+}
+
+/* Dark mode overrides for legacy literal color utility classes */
+html.dark .bg-white {
+  background-color: #111a2b !important;
+}
+html.dark .bg-\[\#F5F7FA\] {
+  background-color: #0b1220 !important;
+}
+html.dark .bg-slate-50 {
+  background-color: #172236 !important;
+}
+html.dark .bg-slate-100 {
+  background-color: #1d2a42 !important;
+}
+html.dark .text-\[\#18232F\] {
+  color: #e8eef7 !important;
+}
+html.dark .text-\[\#667384\] {
+  color: #a8b7cc !important;
+}
+html.dark .border-\[\#E2E7ED\] {
+  border-color: #2c3e59 !important;
+}
+html.dark input:not([type="checkbox"]):not([type="radio"]),
+html.dark select,
+html.dark textarea {
+  background-color: #172236;
+  color: #e8eef7;
+  border-color: #2c3e59;
+}
+html.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }
 
 /* Material symbols styling */

@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Empirical evaluation runner that benchmarks DeterministicTriageEngine,
  * naive baselines, and DuplicateDetection logic against the 100-sample test set.
  * 
- * Automatically outputs and regenerates docs/evaluation/results.md with actual computed metrics.
+ * Automatically outputs and regenerates backend/src/test/resources/evaluation/results.md with actual computed metrics.
  */
 public class TriageEvaluationRunnerTest {
 
@@ -139,7 +139,7 @@ public class TriageEvaluationRunnerTest {
     ) {}
 
     @Test
-    @DisplayName("Run empirical evaluation and regenerate docs/evaluation/results.md")
+    @DisplayName("Run empirical evaluation and regenerate backend/src/test/resources/evaluation/results.md")
     void runEvaluationAndGenerateReport() throws IOException {
         Path csvPath = findTestSetCsv();
         assertTrue(Files.exists(csvPath), "Evaluation test set CSV must exist at " + csvPath);
@@ -242,9 +242,9 @@ public class TriageEvaluationRunnerTest {
     }
 
     private Path findTestSetCsv() {
-        Path p1 = Path.of("../docs/evaluation/test_set.csv");
+        Path p1 = Path.of("src/test/resources/evaluation/test_set.csv");
         if (Files.exists(p1)) return p1;
-        Path p2 = Path.of("docs/evaluation/test_set.csv");
+        Path p2 = Path.of("backend/src/test/resources/evaluation/test_set.csv");
         if (Files.exists(p2)) return p2;
         return p1;
     }
@@ -617,13 +617,13 @@ public class TriageEvaluationRunnerTest {
 
         sb.append("# CivicFix AI Triage & Duplicate Engine Benchmark Report\n\n");
         sb.append("> **Execution Timestamp**: `").append(timestamp).append("`  \n");
-        sb.append("> **Dataset**: `docs/evaluation/test_set.csv` (`100` synthetic labelled test samples)  \n");
+        sb.append("> **Dataset**: `backend/src/test/resources/evaluation/test_set.csv` (`100` synthetic labelled test samples)  \n");
         sb.append("> **Evaluation Rigor**: 100% computed from automated execution. No numbers or metrics in this document were estimated or fabricated.\n\n");
 
         sb.append("---\n\n");
         sb.append("## Evaluation Limitations & Methodology Caveats\n\n");
         sb.append("> [!WARNING]\n");
-        sb.append("> 1. **Synthetic Dataset & Internal Authoring Bias**: The 100 evaluation cases in `docs/evaluation/test_set.csv` are **synthetic** and were written by the same team that built the engine and lexicon. Consequently, these results are not an independent estimate of real-world accuracy on actual citizen submissions.\n");
+        sb.append("> 1. **Synthetic Dataset & Internal Authoring Bias**: The 100 evaluation cases in `backend/src/test/resources/evaluation/test_set.csv` are **synthetic** and were written by the same team that built the engine and lexicon. Consequently, these results are not an independent estimate of real-world accuracy on actual citizen submissions.\n");
         sb.append("> 2. **Small Duplicate Sample & High Statistical Uncertainty**: The duplicate benchmark contains only **10 true duplicate pairs** (out of 4,950 total candidate pairs). Because the ground-truth duplicate sample is so small (n = 10), precision and recall numbers are very uncertain (see 95% Wilson confidence intervals below).\n");
         sb.append("> 3. **Text-Only Modality**: Triage uses text only (complaint title and description). It does not analyze uploaded photograph pixels, acoustic sensor recordings, or historical ward defect density.\n\n");
 

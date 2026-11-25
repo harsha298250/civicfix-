@@ -221,6 +221,27 @@ class ProductionAuthAndEmailSecurityTest {
     }
 
     @Test
+    @DisplayName("4b. Resend verification returns 503 when email provider is unconfigured")
+    void testResendVerificationFailsWhenProviderUnconfigured() {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setEmail("pending2@example.com");
+        user.setAccountStatus("PENDING_VERIFICATION");
+
+        when(userRepository.findByEmailIgnoreCase("pending2@example.com")).thenReturn(Optional.of(user));
+        when(emailVerificationTokenRepository.countRecentTokensForUser(eq(user), any(OffsetDateTime.class))).thenReturn(0L);
+        when(emailOutboxService.isDeliveryConfigured()).thenReturn(false);
+
+        ResendVerificationRequest request = new ResendVerificationRequest("pending2@example.com");
+        org.springframework.web.server.ResponseStatusException ex = assertThrows(
+                org.springframework.web.server.ResponseStatusException.class,
+                () -> authService.resendVerification(request, "127.0.0.1")
+        );
+        assertEquals(503, ex.getStatusCode().value());
+        assertTrue(ex.getReason().contains("Unable to send verification email"));
+    }
+
+    @Test
     @DisplayName("5. Remember Me checkbox sets 30-day session timeout vs 1-hour standard session")
     void testRememberMeSessionTimeout() {
         User user = new User();

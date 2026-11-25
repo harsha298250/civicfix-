@@ -157,6 +157,7 @@ export const geolocationService = {
 
     // High-speed localized Tamil Nadu dictionary for guaranteed immediate pin resolution
     const TN_LOCALITY_CACHE = [
+      { match: /royapuram/i, lat: 13.1143, lng: 80.2932, name: 'Royapuram, Chennai', ward: 'Zone 05, Royapuram, Chennai' },
       { match: /chettipadu|chettiped|nemam/i, lat: 13.02653, lng: 80.01711, name: 'Chettipadu - Nemam Road, Chennai Metropolitan Area', ward: 'Chennai Metropolitan Area' },
       { match: /anna\s*salai|spencer/i, lat: 13.0604, lng: 80.2642, name: 'Anna Salai, Near Spencer Plaza, Chennai', ward: 'Zone 09, Teynampet' },
       { match: /anna\s*nagar/i, lat: 13.0850, lng: 80.2101, name: 'Anna Nagar, Chennai', ward: 'Zone 08, Anna Nagar' },

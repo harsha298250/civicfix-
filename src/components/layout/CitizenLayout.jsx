@@ -3,6 +3,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { useTranslation } from '../../context/LanguageContext';
 import LanguageToggle from '../common/LanguageToggle';
+import ThemeToggle from '../common/ThemeToggle';
 import InstallPwaButton from '../common/InstallPwaButton';
 import { DemoRoleSwitcher } from '../common/DemoRoleSwitcher';
 import SkipToContent from '../common/SkipToContent';
@@ -95,6 +96,7 @@ export const CitizenLayout = () => {
           {/* Action CTAs & Profile */}
           <div className="flex items-center gap-2.5 sm:gap-3">
             <InstallPwaButton />
+            <ThemeToggle />
             <LanguageToggle />
 
             <Link

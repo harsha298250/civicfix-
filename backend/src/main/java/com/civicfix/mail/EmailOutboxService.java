@@ -62,6 +62,10 @@ public class EmailOutboxService {
         this.objectMapper = new ObjectMapper();
     }
 
+    public boolean isDeliveryConfigured() {
+        return resendEmailService != null && resendEmailService.isConfigured();
+    }
+
     /**
      * Enqueues an email outbox record atomically within the caller's active database transaction.
      * Encrypts sensitive fields (e.g. password reset URLs) using AES-256-GCM before writing to PostgreSQL.

@@ -84,7 +84,7 @@ export const authService = {
           role: backendUser.role || 'CITIZEN',
           roles: backendUser.roles || [backendUser.role || 'CITIZEN'],
           department: backendUser.department || '',
-          ward: backendUser.ward || 'Ward 08, Anna Nagar, Chennai',
+          ward: backendUser.ward || null,
           trustScore: backendUser.trustScore ?? 90,
           status: backendUser.accountStatus || 'ACTIVE',
           isLiveBackend: true,
@@ -167,7 +167,7 @@ export const authService = {
         role: backendUser.role || 'CITIZEN',
         roles: backendUser.roles || [backendUser.role || 'CITIZEN'],
         department: backendUser.department || '',
-        ward: backendUser.ward || 'Ward 08, Anna Nagar, Chennai',
+        ward: backendUser.ward || null,
         trustScore: backendUser.trustScore ?? 90,
         status: backendUser.accountStatus || 'ACTIVE',
         isLiveBackend: true,
@@ -209,7 +209,7 @@ export const authService = {
         role: backendUser.role || 'CITIZEN',
         roles: backendUser.roles || [backendUser.role || 'CITIZEN'],
         department: backendUser.department || '',
-        ward: backendUser.ward || 'Ward 08, Anna Nagar, Chennai',
+        ward: backendUser.ward || null,
         trustScore: backendUser.trustScore ?? 90,
         status: backendUser.accountStatus || 'ACTIVE',
         isLiveBackend: true,
@@ -281,7 +281,7 @@ export const authService = {
         name: name.trim(),
         email: canonicalEmail || null,
         phone: formattedPhone || null,
-        ward: ward || 'Ward 08, Anna Nagar, Chennai',
+        ward: ward && ward.trim() ? ward.trim() : null,
         password: password || 'CivicSecure#2026!'
       });
 
@@ -294,7 +294,7 @@ export const authService = {
         role: 'CITIZEN',
         roles: ['CITIZEN'],
         department: backendUser.department || 'Resident Community Member',
-        ward: backendUser.ward || ward || 'Ward 08, Anna Nagar, Chennai',
+        ward: backendUser.ward ?? (ward && ward.trim() ? ward.trim() : null),
         trustScore: backendUser.trustScore ?? 90,
         status: backendUser.accountStatus || 'ACTIVE',
         avatar: name

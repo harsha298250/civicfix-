@@ -183,6 +183,7 @@ class FirebaseAuthServiceTest {
 
         assertNotNull(response);
         assertEquals("CITIZEN", response.getRole());
+        assertEquals("Ward 12, T. Nagar", response.getWard(), "Requested ward must be persisted accurately");
         verify(emailOutboxService, times(1)).enqueueEmail(
                 startsWith("welcome_"),
                 eq(email),
@@ -215,5 +216,92 @@ class FirebaseAuthServiceTest {
 
         assertThrows(ConflictException.class, () ->
                 authService.authenticateFirebaseUser(req, new MockHttpServletRequest(), new MockHttpServletResponse()));
+    }
+
+    @Test
+    @DisplayName("6. Provisions Royapuram resident location accurately without Anna Nagar fallback")
+    void testProvisionsRoyapuramResidentLocationAccurately() {
+        String uid = "fb-uid-royapuram-resident-999";
+        String email = "resident.royapuram@civicfix.in";
+
+        when(tokenVerifier.verifyIdToken("token-royapuram"))
+                .thenReturn(new FirebaseTokenClaims(uid, email, true, "Royapuram Resident", Map.of()));
+        when(userRepository.findByFirebaseUid(uid)).thenReturn(Optional.empty());
+        when(userRepository.findByEmailIgnoreCase(email)).thenReturn(Optional.empty());
+        when(roleRepository.findByName(RoleName.CITIZEN)).thenReturn(Optional.of(citizenRole));
+        when(passwordEncoder.encode(anyString())).thenReturn("$2a$10$hashedUnguessable");
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            u.setId(UUID.randomUUID());
+            return u;
+        });
+
+        FirebaseSessionRequest req = new FirebaseSessionRequest();
+        req.setIdToken("token-royapuram");
+        req.setName("Royapuram Resident");
+        req.setWard("Zone 05, Royapuram, Chennai");
+
+        AuthUserResponse response = authService.authenticateFirebaseUser(req, new MockHttpServletRequest(), new MockHttpServletResponse());
+
+        assertNotNull(response);
+        assertEquals("CITIZEN", response.getRole());
+        assertEquals("Zone 05, Royapuram, Chennai", response.getWard());
+        assertNotEquals("Ward 08, Anna Nagar, Chennai", response.getWard());
+    }
+
+    @Test
+    @DisplayName("7. Preserves null ward when resident has not selected a location (no silent fallback)")
+    void testPreservesNullWardWhenLocationMissing() {
+        String uid = "fb-uid-no-ward-1000";
+        String email = "resident.noward@civicfix.in";
+
+        when(tokenVerifier.verifyIdToken("token-noward"))
+                .thenReturn(new FirebaseTokenClaims(uid, email, true, "No Ward Resident", Map.of()));
+        when(userRepository.findByFirebaseUid(uid)).thenReturn(Optional.empty());
+        when(userRepository.findByEmailIgnoreCase(email)).thenReturn(Optional.empty());
+        when(roleRepository.findByName(RoleName.CITIZEN)).thenReturn(Optional.of(citizenRole));
+        when(passwordEncoder.encode(anyString())).thenReturn("$2a$10$hashedUnguessable");
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> {
+            User u = inv.getArgument(0);
+            u.setId(UUID.randomUUID());
+            return u;
+        });
+
+        FirebaseSessionRequest req = new FirebaseSessionRequest();
+        req.setIdToken("token-noward");
+        req.setName("No Ward Resident");
+        req.setWard("   ");
+
+        AuthUserResponse response = authService.authenticateFirebaseUser(req, new MockHttpServletRequest(), new MockHttpServletResponse());
+
+        assertNotNull(response);
+        assertEquals("CITIZEN", response.getRole());
+        assertNull(response.getWard(), "Missing location must remain null without silent ward assignment");
+    }
+
+    @Test
+    @DisplayName("8. Rejects Firebase UID login when email is not verified")
+    void testRejectsUidLoginWhenEmailNotVerified() {
+        String uid = "fb-uid-unverified-login";
+        String email = "unverified.resident@civicfix.in";
+
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setEmail(email);
+        user.setAccountStatus("ACTIVE");
+        user.setFirebaseUid(uid);
+        user.setRoles(Set.of(citizenRole));
+
+        when(tokenVerifier.verifyIdToken("token-unverified-uid"))
+                .thenReturn(new FirebaseTokenClaims(uid, email, false, "Resident", Map.of()));
+        when(userRepository.findByFirebaseUid(uid)).thenReturn(Optional.of(user));
+
+        FirebaseSessionRequest req = new FirebaseSessionRequest();
+        req.setIdToken("token-unverified-uid");
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                authService.authenticateFirebaseUser(req, new MockHttpServletRequest(), new MockHttpServletResponse()));
+
+        assertTrue(ex.getMessage().contains("not verified"));
     }
 }

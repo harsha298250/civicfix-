@@ -3,6 +3,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { useTranslation } from '../../context/LanguageContext';
 import LanguageToggle from '../common/LanguageToggle';
+import ThemeToggle from '../common/ThemeToggle';
 import { DemoRoleSwitcher } from '../common/DemoRoleSwitcher';
 import SkipToContent from '../common/SkipToContent';
 import { COMPLAINT_STATUS } from '../../constants/statusConstants';
@@ -203,6 +204,7 @@ export const OfficerLayout = () => {
           </div>
 
           <div className="flex items-center gap-3 sm:gap-4">
+            <ThemeToggle />
             <LanguageToggle />
 
             <Link

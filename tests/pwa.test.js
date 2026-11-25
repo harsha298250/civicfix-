@@ -106,11 +106,18 @@ describe('Progressive Web App (PWA) & Offline Shell Validation Tests', () => {
     }
   });
 
-  test('docs/DEPLOYMENT_CHECKLIST.md documents mandatory HTTPS requirements for PWA service workers', () => {
-    const docPath = path.join(rootDir, 'docs/DEPLOYMENT_CHECKLIST.md');
-    assert.ok(fs.existsSync(docPath), 'docs/DEPLOYMENT_CHECKLIST.md must exist');
-    const docContent = fs.readFileSync(docPath, 'utf8');
-    assert.ok(docContent.includes('HTTPS'), 'Checklist must document HTTPS requirement');
-    assert.ok(docContent.includes('Service Worker') || docContent.includes('PWA'), 'Checklist must document Service Worker/PWA secure context');
+  test('vite.config.js and index.html configure real PWA manifest, NetworkOnly API policy, and icons', () => {
+    const viteConfigPath = path.join(rootDir, 'vite.config.js');
+    assert.ok(fs.existsSync(viteConfigPath), 'vite.config.js must exist');
+    const viteConfig = fs.readFileSync(viteConfigPath, 'utf8');
+    assert.ok(viteConfig.includes('VitePWA('), 'vite.config.js must configure VitePWA plugin');
+    assert.ok(viteConfig.includes("registerType: 'prompt'"), 'PWA must prompt for updates cleanly');
+    assert.ok(viteConfig.includes("handler: 'NetworkOnly'"), 'API routes must use NetworkOnly caching');
+    assert.ok(viteConfig.includes('navigateFallbackDenylist'), 'API routes must be excluded from SPA navigateFallback');
+
+    const indexHtmlPath = path.join(rootDir, 'index.html');
+    const indexHtml = fs.readFileSync(indexHtmlPath, 'utf8');
+    assert.ok(indexHtml.includes('name="theme-color"'), 'index.html must declare theme-color meta tag');
+    assert.ok(indexHtml.includes('rel="apple-touch-icon"'), 'index.html must declare apple-touch-icon');
   });
 });
