@@ -87,6 +87,11 @@ public class EmailOutboxService {
             sanitizedPayload.put("resetUrlEncrypted", encryptionHelper.encrypt(rawUrl));
             sanitizedPayload.remove("resetUrl");
         }
+        if (sanitizedPayload.containsKey("verificationUrl")) {
+            String rawUrl = String.valueOf(sanitizedPayload.get("verificationUrl"));
+            sanitizedPayload.put("verificationUrlEncrypted", encryptionHelper.encrypt(rawUrl));
+            sanitizedPayload.remove("verificationUrl");
+        }
         if (sanitizedPayload.containsKey("rawToken")) {
             String rawToken = String.valueOf(sanitizedPayload.get("rawToken"));
             sanitizedPayload.put("rawTokenEncrypted", encryptionHelper.encrypt(rawToken));
@@ -215,6 +220,11 @@ public class EmailOutboxService {
         Map<String, Object> data = parsePayload(job.getPayloadJson());
 
         return switch (job.getEmailType()) {
+            case "EMAIL_VERIFICATION" -> {
+                String name = (String) data.getOrDefault("name", "Citizen");
+                String verificationUrl = resolveDecryptedField(data, "verificationUrlEncrypted", "verificationUrl");
+                yield resendEmailService.buildEmailVerificationHtml(name, verificationUrl);
+            }
             case "PASSWORD_RESET" -> {
                 String resetUrl = resolveDecryptedField(data, "resetUrlEncrypted", "resetUrl");
                 yield resendEmailService.buildPasswordResetHtml(resetUrl);

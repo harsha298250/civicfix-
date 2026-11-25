@@ -41,6 +41,9 @@ class CitizenComplaintPhotoIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private com.civicfix.user.UserRepository userRepository;
+
     private static final String CITIZEN_EMAIL = "alex.m@citizen.org";
     private static final String OFFICER_EMAIL = "elena.vance@metro.gov";
     private static final String WORKER_EMAIL = "marcus.chen@fieldops.gov";
@@ -300,6 +303,12 @@ class CitizenComplaintPhotoIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(otherCitizenReq)))
                 .andExpect(status().isCreated());
+
+        userRepository.findByEmailIgnoreCase(otherEmail).ifPresent(u -> {
+            u.setAccountStatus("ACTIVE");
+            u.setEmailVerified(true);
+            userRepository.save(u);
+        });
 
         MockHttpSession neighborSession = loginAs(otherEmail, DEFAULT_PASSWORD);
 

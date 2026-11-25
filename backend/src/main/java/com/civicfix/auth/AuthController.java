@@ -2,10 +2,13 @@ package com.civicfix.auth;
 
 import com.civicfix.auth.dto.AuthUserResponse;
 import com.civicfix.auth.dto.ForgotPasswordRequest;
+import com.civicfix.auth.dto.GoogleAuthRequest;
 import com.civicfix.auth.dto.LoginRequest;
 import com.civicfix.auth.dto.RegisterCitizenRequest;
+import com.civicfix.auth.dto.ResendVerificationRequest;
 import com.civicfix.auth.dto.ResetPasswordRequest;
 import com.civicfix.auth.dto.VerifyActivationTokenResponse;
+import com.civicfix.auth.dto.VerifyEmailRequest;
 import com.civicfix.auth.dto.ActivateStaffRequest;
 import com.civicfix.common.ApiResponse;
 import com.civicfix.security.UserPrincipal;
@@ -56,6 +59,33 @@ public class AuthController {
             HttpServletResponse httpResponse) {
         AuthUserResponse response = authService.login(request, httpRequest, httpResponse);
         return ResponseEntity.ok(ApiResponse.success("Authentication successful.", response));
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<ApiResponse<AuthUserResponse>> loginWithGoogle(
+            @Valid @RequestBody GoogleAuthRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+        AuthUserResponse response = authService.loginWithGoogle(request, httpRequest, httpResponse);
+        return ResponseEntity.ok(ApiResponse.success("Google authentication successful.", response));
+    }
+
+    @PostMapping("/verify-email")
+    public ResponseEntity<ApiResponse<Void>> verifyEmail(
+            @Valid @RequestBody VerifyEmailRequest request,
+            HttpServletRequest httpRequest) {
+        String clientIp = clientIpResolver.resolveClientIp(httpRequest);
+        String message = authService.verifyEmail(request, clientIp);
+        return ResponseEntity.ok(ApiResponse.success(message, null));
+    }
+
+    @PostMapping("/resend-verification")
+    public ResponseEntity<ApiResponse<Void>> resendVerification(
+            @Valid @RequestBody ResendVerificationRequest request,
+            HttpServletRequest httpRequest) {
+        String clientIp = clientIpResolver.resolveClientIp(httpRequest);
+        String message = authService.resendVerification(request, clientIp);
+        return ResponseEntity.ok(ApiResponse.success(message, null));
     }
 
     @GetMapping("/me")

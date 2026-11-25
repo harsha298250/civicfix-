@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../../services/apiClient';
+import { firebaseAuthService } from '../../services/firebaseAuth';
 
 export default function StaffActivationPage() {
   const [searchParams] = useSearchParams();
@@ -63,7 +64,20 @@ export default function StaffActivationPage() {
     setSubmitError('');
 
     try {
-      await apiClient.auth.activateStaff({ token, password });
+      let idToken = null;
+      if (firebaseAuthService.isConfigured() && staffInfo?.email) {
+        try {
+          idToken = await firebaseAuthService.registerOrLinkStaff(staffInfo.email, password);
+        } catch (fbErr) {
+          console.warn('[StaffActivation] Firebase auth warning:', fbErr.message);
+          if (fbErr.code === 'auth/weak-password' || fbErr.code === 'auth/invalid-email') {
+            setSubmitError(fbErr.message);
+            setSubmitting(false);
+            return;
+          }
+        }
+      }
+      await apiClient.auth.activateStaff({ token, newPassword: password, idToken });
       setSuccess(true);
     } catch (err) {
       setSubmitError(err.message || 'Failed to activate staff account. Please try again.');

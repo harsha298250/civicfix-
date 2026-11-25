@@ -66,6 +66,13 @@ export const authService = {
    */
   checkSession: async () => {
     try {
+      if (firebaseAuthService && typeof firebaseAuthService.waitForInitialAuth === 'function') {
+        try {
+          await firebaseAuthService.waitForInitialAuth();
+        } catch (e) {
+          // Non-fatal if Firebase auth initialization times out
+        }
+      }
       const res = await apiClient.auth.getCurrentUser();
       const backendUser = res?.data || res;
       if (backendUser && backendUser.id) {
@@ -119,10 +126,12 @@ export const authService = {
   },
 
   /**
-   * Log in via Email OR Indian Mobile Number (+91 XXXXX XXXXX or 10 digits)
-   * Connects to Spring Boot POST /api/auth/login backed by PostgreSQL
+   * Primary User Authentication
+   * Routes through Firebase Authentication (Email/Password) when Firebase is configured.
+   * Authoritative user profile and roles are resolved from Neon PostgreSQL via POST /api/auth/firebase/session.
+   * Falls back to server-authoritative POST /api/auth/login if Firebase is unconfigured (e.g. offline testing).
    */
-  login: async (identifier, password) => {
+  login: async (identifier, password, rememberMe = false) => {
     if (!identifier || !identifier.trim()) {
       throw new Error('Please enter your registered email address or Indian mobile number.');
     }
@@ -132,8 +141,14 @@ export const authService = {
 
     const trimmed = identifier.trim();
 
+    // 1. Primary Authentication Path: Firebase Email/Password
+    if (firebaseAuthService && typeof firebaseAuthService.isConfigured === 'function' && firebaseAuthService.isConfigured()) {
+      return firebaseAuthService.signInWithEmail(trimmed, password, rememberMe);
+    }
+
+    // 2. Fallback Path: Server-Authoritative Spring Boot / PostgreSQL login (for offline tests & unconfigured dev)
     try {
-      const response = await apiClient.auth.login(trimmed, password);
+      const response = await apiClient.auth.login(trimmed, password, rememberMe);
       const backendUser = response?.data || response;
 
       const legacyIdMap = {
@@ -159,7 +174,9 @@ export const authService = {
         authSource: 'POSTGRESQL_BACKEND'
       };
 
-      authService.setCurrentUser(user);
+      if (backendUser.accountStatus !== 'PENDING_VERIFICATION') {
+        authService.setCurrentUser(user);
+      }
       return user;
     } catch (apiError) {
       if (apiError.status === 401 || apiError.status === 403 || apiError.status === 400 || apiError.status === 429) {
@@ -172,10 +189,70 @@ export const authService = {
   },
 
   /**
+   * Log in or register with verified Google ID token
+   */
+  loginWithGoogle: async (idToken, rememberMe = false) => {
+    if (!idToken) {
+      throw new Error('Google authentication token is required.');
+    }
+
+    try {
+      const response = await apiClient.auth.loginWithGoogle({ idToken, rememberMe });
+      const backendUser = response?.data || response;
+
+      const user = {
+        id: String(backendUser.id),
+        backendId: String(backendUser.id),
+        name: backendUser.name || 'Citizen User',
+        email: backendUser.email || '',
+        phone: backendUser.phone || '',
+        role: backendUser.role || 'CITIZEN',
+        roles: backendUser.roles || [backendUser.role || 'CITIZEN'],
+        department: backendUser.department || '',
+        ward: backendUser.ward || 'Ward 08, Anna Nagar, Chennai',
+        trustScore: backendUser.trustScore ?? 90,
+        status: backendUser.accountStatus || 'ACTIVE',
+        isLiveBackend: true,
+        authSource: 'GOOGLE_OAUTH'
+      };
+
+      authService.setCurrentUser(user);
+      return user;
+    } catch (apiError) {
+      if (apiError.status === 401 || apiError.status === 403 || apiError.status === 400 || apiError.status === 429) {
+        const errorMsg = apiError.data?.message || apiError.message || 'Google authentication failed. Please try again.';
+        throw new Error(errorMsg);
+      }
+
+      throw new Error('Cannot reach the server. Nothing was saved.');
+    }
+  },
+
+  /**
+   * Verify Citizen Email with single-use token
+   */
+  verifyEmail: async (token) => {
+    if (!token) {
+      throw new Error('Verification token is missing.');
+    }
+    return await apiClient.auth.verifyEmail(token);
+  },
+
+  /**
+   * Resend Citizen Email Verification link
+   */
+  resendVerification: async (email) => {
+    if (!email) {
+      throw new Error('Email address is required to resend verification.');
+    }
+    return await apiClient.auth.resendVerification(email);
+  },
+
+  /**
    * Log in via Firebase Email/Password Authentication and establish Spring Boot session
    */
-  loginWithFirebase: async (email, password) => {
-    return firebaseAuthService.signInWithEmail(email, password);
+  loginWithFirebase: async (email, password, rememberMe = false) => {
+    return firebaseAuthService.signInWithEmail(email, password, rememberMe);
   },
 
   /**
@@ -231,7 +308,9 @@ export const authService = {
         authSource: 'POSTGRESQL_BACKEND'
       };
 
-      authService.setCurrentUser(user);
+      if (backendUser.accountStatus !== 'PENDING_VERIFICATION') {
+        authService.setCurrentUser(user);
+      }
       return user;
     } catch (apiError) {
       if (apiError.status === 400 || apiError.status === 409) {
@@ -242,10 +321,26 @@ export const authService = {
   },
 
   forgotPassword: async (email) => {
+    if (firebaseAuthService.isConfigured()) {
+      try {
+        await firebaseAuthService.sendPasswordReset(email);
+        return { message: 'Password reset link sent successfully via Firebase.' };
+      } catch (err) {
+        // Fallback to backend API if Firebase reset fails
+      }
+    }
     return await apiClient.auth.forgotPassword(email);
   },
 
   resetPassword: async (token, newPassword) => {
+    if (firebaseAuthService.isConfigured() && token && token.length > 50) {
+      try {
+        await firebaseAuthService.confirmPasswordResetCode(token, newPassword);
+        return { message: 'Password has been reset successfully via Firebase.' };
+      } catch (err) {
+        // Fallback to backend API
+      }
+    }
     return await apiClient.auth.resetPassword({ token, newPassword });
   }
 };

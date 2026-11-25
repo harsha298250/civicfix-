@@ -424,8 +424,9 @@ class ComplaintServiceWorkerTest {
         when(complaintRepository.findById(complaintId)).thenReturn(Optional.of(inProgressComplaint));
         when(userRepository.findById(workerId)).thenReturn(Optional.of(workerUser));
         when(complaintRepository.save(any(Complaint.class))).thenAnswer(i -> i.getArgument(0));
-        when(storageService.storeFile(eq(photo1), anyString())).thenReturn("/api/complaints/evidence/files/evidence-uuid1.jpg");
-        when(storageService.storeFile(eq(photo2), anyString())).thenReturn("/api/complaints/evidence/files/evidence-uuid2.png");
+        when(storageService.storeImage(any(), anyString(), anyString())).thenReturn(
+                new com.civicfix.storage.StorageResult("evidence-uuid1.jpg", "local", "/api/complaints/evidence/files/evidence-uuid1.jpg", "repair_after.jpg", 1024L, "image/jpeg", "sha256hash")
+        );
 
         ComplaintResponse response = complaintService.submitEvidence(
                 complaintId.toString(),
@@ -574,7 +575,7 @@ class ComplaintServiceWorkerTest {
         MockMultipartFile photo = new MockMultipartFile("files", "repair.jpg", "image/jpeg", "bytes".getBytes());
         when(complaintRepository.findById(complaintId)).thenReturn(Optional.of(inProgressComplaint));
         when(userRepository.findById(workerId)).thenReturn(Optional.of(workerUser));
-        when(storageService.storeFile(any(), anyString())).thenThrow(new java.io.IOException("Disk full / I/O error"));
+        when(storageService.storeImage(any(), anyString(), anyString())).thenThrow(new RuntimeException("Failed to store evidence photos. Storage disk full / I/O error"));
 
         RuntimeException ex = assertThrows(RuntimeException.class, () ->
                 complaintService.submitEvidence(

@@ -113,6 +113,70 @@ describe('Firebase Authentication Frontend Integration Tests', () => {
     }
   });
 
+  test('authService.login delegates to firebaseAuthService.signInWithEmail when Firebase is configured', async () => {
+    const originalIsConfigured = firebaseAuthService.isConfigured;
+    const originalSignIn = firebaseAuthService.signInWithEmail;
+    let signInCalledWith = null;
+
+    try {
+      firebaseAuthService.isConfigured = () => true;
+      firebaseAuthService.signInWithEmail = async (email, password, rememberMe) => {
+        signInCalledWith = { email, password, rememberMe };
+        return {
+          id: 'test-user-id',
+          name: 'Delegated User',
+          email,
+          role: 'OFFICER',
+          authSource: 'FIREBASE_SESSION'
+        };
+      };
+
+      const result = await authService.login('officer@civicfix.gov', 'Secret#2026', true);
+
+      assert.ok(signInCalledWith, 'signInWithEmail should be called when Firebase is configured');
+      assert.equal(signInCalledWith.email, 'officer@civicfix.gov');
+      assert.equal(signInCalledWith.password, 'Secret#2026');
+      assert.equal(signInCalledWith.rememberMe, true);
+      assert.equal(result.role, 'OFFICER');
+    } finally {
+      firebaseAuthService.isConfigured = originalIsConfigured;
+      firebaseAuthService.signInWithEmail = originalSignIn;
+    }
+  });
+
+  test('Firebase session creation preserves Neon staff roles for ADMIN, OFFICER, SUPERVISOR, WORKER', async () => {
+    const rolesToTest = ['ADMIN', 'OFFICER', 'SUPERVISOR', 'WORKER'];
+    const originalFetch = globalThis.fetch;
+
+    for (const role of rolesToTest) {
+      try {
+        globalThis.fetch = async () => ({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => ({
+            success: true,
+            data: {
+              id: `00000000-0000-0000-0000-00000000000${role.length}`,
+              name: `Test ${role}`,
+              email: `${role.toLowerCase()}@civicfix.gov`,
+              role: role,
+              roles: [role],
+              accountStatus: 'ACTIVE',
+              department: 'Public Works'
+            }
+          })
+        });
+
+        const res = await apiClient.auth.createFirebaseSession('valid-token-staff');
+        assert.equal(res.data.role, role, `Role ${role} must be preserved from Neon backend`);
+        assert.ok(res.data.roles.includes(role));
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    }
+  });
+
   test('Logout terminates session and leaves active user null', async () => {
     const originalFetch = globalThis.fetch;
     try {

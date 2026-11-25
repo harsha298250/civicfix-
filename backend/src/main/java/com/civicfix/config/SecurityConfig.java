@@ -1,5 +1,6 @@
 package com.civicfix.config;
 
+import com.civicfix.auth.firebase.FirebaseAuthenticationFilter;
 import com.civicfix.security.CustomUserDetailsService;
 import com.civicfix.security.RestAccessDeniedHandler;
 import com.civicfix.security.RestAuthenticationEntryPoint;
@@ -19,6 +20,7 @@ import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
@@ -26,7 +28,9 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Configuration
 @EnableWebSecurity
@@ -36,16 +40,19 @@ public class SecurityConfig {
     private final CustomUserDetailsService userDetailsService;
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
     private final RestAccessDeniedHandler accessDeniedHandler;
+    private final FirebaseAuthenticationFilter firebaseAuthenticationFilter;
 
     @Value("${civicfix.cors.allowed-origins:http://localhost:5173}")
     private String allowedOrigins;
 
     public SecurityConfig(CustomUserDetailsService userDetailsService,
                           RestAuthenticationEntryPoint authenticationEntryPoint,
-                          RestAccessDeniedHandler accessDeniedHandler) {
+                          RestAccessDeniedHandler accessDeniedHandler,
+                          FirebaseAuthenticationFilter firebaseAuthenticationFilter) {
         this.userDetailsService = userDetailsService;
         this.authenticationEntryPoint = authenticationEntryPoint;
         this.accessDeniedHandler = accessDeniedHandler;
+        this.firebaseAuthenticationFilter = firebaseAuthenticationFilter;
     }
 
     @Bean
@@ -101,7 +108,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(requestHandler)
-                .ignoringRequestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/staff-activation/**", "/api/auth/firebase/session", "/api/webhooks/**", "/api/health", "/actuator/**")
+                .ignoringRequestMatchers("/api/auth/login", "/api/auth/google", "/api/auth/register", "/api/auth/verify-email", "/api/auth/resend-verification", "/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/staff-activation/**", "/api/auth/firebase/session", "/api/webhooks/**", "/api/health", "/actuator/**")
             )
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint(authenticationEntryPoint)
@@ -120,8 +127,8 @@ public class SecurityConfig {
                 // Public Webhooks
                 .requestMatchers(HttpMethod.POST, "/api/webhooks/**").permitAll()
 
-                // Public Authentication & Password Recovery & Staff Activation & Firebase Auth
-                .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register", "/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/firebase/session").permitAll()
+                // Public Authentication & Password Recovery & Staff Activation & Firebase Auth & Google Auth
+                .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/google", "/api/auth/register", "/api/auth/verify-email", "/api/auth/resend-verification", "/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/firebase/session").permitAll()
                 .requestMatchers("/api/auth/staff-activation/**").permitAll()
 
                 // Authenticated User Session operations
@@ -150,13 +157,18 @@ public class SecurityConfig {
             );
 
         http.authenticationProvider(authenticationProvider());
+        http.addFilterBefore(firebaseAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(allowedOrigins.split(",")));
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toList());
+        config.setAllowedOrigins(origins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-XSRF-TOKEN", "X-Requested-With", "Accept"));
         config.setExposedHeaders(List.of("X-XSRF-TOKEN", "Set-Cookie", "Retry-After"));

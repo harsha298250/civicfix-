@@ -300,6 +300,36 @@ public class ComplaintController {
         return ResponseEntity.ok(ApiResponse.success("Photographs uploaded successfully.", response));
     }
 
+    @GetMapping("/{id}/photos/{photoId}/presigned-url")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<PresignedUrlResponse>> getPhotoPresignedUrl(
+            @PathVariable String id,
+            @PathVariable String photoId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        PresignedUrlResponse response = complaintService.getPhotoPresignedUrl(id, photoId, principal);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/{id}/photos/presigned-urls")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<List<PresignedUrlResponse>>> getComplaintPhotosPresignedUrls(
+            @PathVariable String id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        List<PresignedUrlResponse> responses = complaintService.getComplaintPhotosPresignedUrls(id, principal);
+        return ResponseEntity.ok(ApiResponse.success(responses));
+    }
+
+    @DeleteMapping("/{id}/photos/{photoId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Void>> deleteComplaintPhoto(
+            @PathVariable String id,
+            @PathVariable String photoId,
+            @AuthenticationPrincipal UserPrincipal principal,
+            HttpServletRequest httpRequest) {
+        complaintService.deleteComplaintPhoto(id, photoId, principal, httpRequest.getRemoteAddr());
+        return ResponseEntity.ok(ApiResponse.success("Photograph deleted successfully.", null));
+    }
+
     @GetMapping({"/evidence/files/{filename:.+}", "/photos/files/{filename:.+}"})
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Resource> getEvidenceFile(

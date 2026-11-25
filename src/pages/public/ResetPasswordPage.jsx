@@ -4,10 +4,12 @@ import { useApp } from '../../context/AppContext';
 import { useTranslation } from '../../context/LanguageContext';
 import LanguageToggle from '../../components/common/LanguageToggle';
 import { authService } from '../../services/authService';
+import { firebaseAuthService } from '../../services/firebaseAuth';
 
 export const ResetPasswordPage = () => {
   const [searchParams] = useSearchParams();
-  const rawToken = searchParams.get('token') || '';
+  const rawToken = searchParams.get('token') || searchParams.get('oobCode') || '';
+  const isFirebaseCode = searchParams.has('oobCode') || searchParams.get('mode') === 'resetPassword';
 
   const { showToast } = useApp();
   const { t } = useTranslation();
@@ -40,7 +42,11 @@ export const ResetPasswordPage = () => {
     setLoading(true);
 
     try {
-      await authService.resetPassword(rawToken.trim(), password);
+      if (isFirebaseCode && firebaseAuthService.isConfigured()) {
+        await firebaseAuthService.confirmPasswordResetCode(rawToken.trim(), password);
+      } else {
+        await authService.resetPassword(rawToken.trim(), password);
+      }
       setSuccess(true);
       showToast(t('auth.resetPasswordSuccessDesc'), 'success');
     } catch (err) {

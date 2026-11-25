@@ -10,6 +10,7 @@ const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic
 export const ImageUploadManager = ({
   photos = [],
   onChange,
+  onRetry,
   maxPhotos = 5,
   allowSampleDemo = true,
   label = 'Incident Photographs & Evidence',
@@ -258,6 +259,31 @@ export const ImageUploadManager = ({
     onChange(photos.filter((p) => p.id !== id));
   };
 
+  // Retry photo upload or re-processing
+  const handleInternalRetry = (item) => {
+    if (onRetry) {
+      onRetry(item);
+      return;
+    }
+    const updated = photos.map((p) => {
+      if (p.id === item.id) {
+        return { ...p, uploadStatus: 'uploading', uploadProgress: 15, error: null };
+      }
+      return p;
+    });
+    onChange(updated);
+    setTimeout(() => {
+      onChange(
+        photos.map((p) => {
+          if (p.id === item.id) {
+            return { ...p, uploadStatus: 'idle', uploadProgress: 100, error: null };
+          }
+          return p;
+        })
+      );
+    }, 500);
+  };
+
   // Attach demo sample photo
   const handleAttachDemo = (demo) => {
     if (photos.length >= maxPhotos) {
@@ -405,16 +431,51 @@ export const ImageUploadManager = ({
                     e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='225' viewBox='0 0 400 225'%3E%3Crect width='400' height='225' fill='%231e293b'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2394a3b8' font-family='sans-serif' font-size='13'%3EPreview Unavailable%3C/text%3E%3C/svg%3E";
                   }}
                 />
+
+                {/* Upload In Progress Overlay */}
+                {item.uploadStatus === 'uploading' && (
+                  <div className="absolute inset-0 bg-black/65 backdrop-blur-xs flex flex-col items-center justify-center p-3 text-white z-10">
+                    <div className="w-full bg-white/20 rounded-full h-1.5 mb-2 overflow-hidden">
+                      <div
+                        className="bg-primary-container h-1.5 rounded-full transition-all duration-300"
+                        style={{ width: `${item.uploadProgress ?? 65}%` }}
+                      />
+                    </div>
+                    <span className="text-[11px] font-medium flex items-center gap-1.5">
+                      <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Uploading ({item.uploadProgress ?? 65}%)
+                    </span>
+                  </div>
+                )}
+
+                {/* Upload Failed / Error Overlay with Retry */}
+                {(item.uploadStatus === 'failed' || item.uploadStatus === 'error' || item.error) && (
+                  <div className="absolute inset-0 bg-red-950/85 backdrop-blur-xs flex flex-col items-center justify-center p-2.5 text-white z-10 text-center gap-1">
+                    <span className="material-symbols-outlined text-red-400 text-xl">error</span>
+                    <span className="text-[10px] text-red-200 line-clamp-2 px-1">
+                      {item.error || 'Upload failed'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleInternalRetry(item)}
+                      className="mt-1 px-2.5 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-[10px] font-semibold flex items-center gap-1 shadow-sm transition-all"
+                    >
+                      <span className="material-symbols-outlined text-[13px]">refresh</span>
+                      <span>Retry</span>
+                    </button>
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={() => handleRemovePhoto(item.id)}
-                  className="absolute top-2 right-2 w-7 h-7 bg-red-600/90 hover:bg-red-700 text-white rounded-full flex items-center justify-center shadow-md transition-colors"
+                  className="absolute top-2 right-2 w-7 h-7 bg-red-600/90 hover:bg-red-700 text-white rounded-full flex items-center justify-center shadow-md transition-colors z-20"
                   title="Remove photograph"
                 >
                   <span className="material-symbols-outlined text-[16px]">close</span>
                 </button>
 
-                <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 backdrop-blur-xs text-white text-[10px] font-mono">
+                <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-black/70 backdrop-blur-xs text-white text-[10px] font-mono z-20">
                   #{idx + 1}
                 </div>
               </div>
@@ -437,7 +498,12 @@ export const ImageUploadManager = ({
                     />
                     <span>{item.source}</span>
                   </span>
-                  <span className="text-secondary font-medium">Staged in Memory</span>
+                  <span className="text-secondary font-medium">
+                    {item.uploadStatus === 'uploading' && 'Uploading...'}
+                    {item.uploadStatus === 'success' && 'Uploaded to Storage'}
+                    {(item.uploadStatus === 'failed' || item.uploadStatus === 'error') && 'Failed'}
+                    {(!item.uploadStatus || item.uploadStatus === 'idle') && 'Staged in Memory'}
+                  </span>
                 </div>
               </div>
             </div>

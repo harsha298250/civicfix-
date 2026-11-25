@@ -305,6 +305,58 @@ public class LocalStorageService implements StorageService {
     }
 
     @Override
+    public StorageResult storeImage(MultipartFile file, String subDirectory, String uploaderId) throws IOException {
+        String storedPath = storeFile(file, subDirectory);
+        String filename = storedPath.substring(storedPath.lastIndexOf('/') + 1);
+        String objectKey = (subDirectory != null && !subDirectory.isBlank() ? subDirectory + "/" : "") + filename;
+        String sha256 = calculateSha256(file.getBytes());
+
+        return new StorageResult(
+                objectKey,
+                "LOCAL",
+                storedPath,
+                file.getOriginalFilename(),
+                file.getSize(),
+                file.getContentType(),
+                sha256
+        );
+    }
+
+    private String calculateSha256(byte[] data) {
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(data);
+            return java.util.HexFormat.of().formatHex(hash);
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    @Override
+    public String generatePresignedDownloadUrl(String objectKey, int durationMinutes) {
+        // Local filesystem storage does not produce S3 presigned URLs; returns null so caller uses local streaming endpoint
+        return null;
+    }
+
+    @Override
+    public void deleteObject(String objectKey) {
+        if (objectKey == null || objectKey.isBlank()) return;
+        String filename = objectKey.substring(objectKey.lastIndexOf('/') + 1);
+        String subDir = objectKey.contains("/") ? objectKey.substring(0, objectKey.lastIndexOf('/')) : "";
+        deleteFile(filename, subDir);
+    }
+
+    @Override
+    public boolean isCloudStorageConfigured() {
+        return false;
+    }
+
+    @Override
+    public String getProviderName() {
+        return "LOCAL";
+    }
+
+    @Override
     public void deleteFile(String filename, String subDirectory) {
         try {
             Path fileDirectory = resolveDirectory(subDirectory);

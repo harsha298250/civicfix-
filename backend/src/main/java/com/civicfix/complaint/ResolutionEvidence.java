@@ -28,6 +28,21 @@ public class ResolutionEvidence {
     @Column(name = "photo_url", length = 500)
     private String photoUrl;
 
+    @Column(name = "storage_provider", length = 32)
+    private String storageProvider = "LOCAL";
+
+    @Column(name = "object_key", length = 500)
+    private String objectKey;
+
+    @Column(name = "file_size")
+    private Long fileSize;
+
+    @Column(name = "content_type", length = 100)
+    private String contentType;
+
+    @Column(name = "sha256_hash", length = 64)
+    private String sha256Hash;
+
     @Column(precision = 10, scale = 7)
     private BigDecimal latitude;
 
@@ -151,5 +166,45 @@ public class ResolutionEvidence {
 
     public void setLocationNote(String locationNote) {
         this.locationNote = locationNote;
+    }
+
+    public String getStorageProvider() {
+        return storageProvider;
+    }
+
+    public void setStorageProvider(String storageProvider) {
+        this.storageProvider = storageProvider;
+    }
+
+    public String getObjectKey() {
+        return objectKey;
+    }
+
+    public void setObjectKey(String objectKey) {
+        this.objectKey = objectKey;
+    }
+
+    public Long getFileSize() {
+        return fileSize;
+    }
+
+    public void setFileSize(Long fileSize) {
+        this.fileSize = fileSize;
+    }
+
+    public String getContentType() {
+        return contentType;
+    }
+
+    public void setContentType(String contentType) {
+        this.contentType = contentType;
+    }
+
+    public String getSha256Hash() {
+        return sha256Hash;
+    }
+
+    public void setSha256Hash(String sha256Hash) {
+        this.sha256Hash = sha256Hash;
     }
 }

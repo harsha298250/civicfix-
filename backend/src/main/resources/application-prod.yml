@@ -48,12 +48,25 @@ civicfix:
   security:
     allow-seed-accounts: ${ALLOW_SEED_ACCOUNTS:false}
     trusted-proxy-enabled: ${TRUSTED_PROXY_ENABLED:true}
+  storage:
+    provider: ${STORAGE_PROVIDER:neon}
+    bucket: ${NEON_STORAGE_BUCKET:civicfix-complaint-images}
+    region: ${AWS_REGION:us-east-2}
+    endpoint: ${AWS_ENDPOINT_URL_S3:}
+    access-key: ${AWS_ACCESS_KEY_ID:}
+    secret-key: ${AWS_SECRET_ACCESS_KEY:}
 
 resend:
   api-key: ${RESEND_API_KEY:}
   from-email: ${RESEND_FROM_EMAIL:onboarding@resend.dev}
   api-url: ${RESEND_API_URL:https://api.resend.com/emails}
   timeout-ms: ${RESEND_TIMEOUT_MS:5000}
+
+firebase:
+  enabled: ${FIREBASE_ENABLED:true}
+  project-id: ${FIREBASE_PROJECT_ID:civicfix-15ee3}
+  credentials-path: ${FIREBASE_CREDENTIALS_PATH:/etc/secrets/civicfix-firebase-admin.json}
+  credentials-json: ${FIREBASE_CREDENTIALS_JSON:}
 
 logging:
   level:

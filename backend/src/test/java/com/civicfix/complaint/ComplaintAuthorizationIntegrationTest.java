@@ -40,6 +40,9 @@ class ComplaintAuthorizationIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private com.civicfix.user.UserRepository userRepository;
+
     private MockHttpSession loginAs(String email, String password) throws Exception {
         LoginRequest req = new LoginRequest(email, password);
         MvcResult result = mockMvc.perform(post("/api/auth/login")
@@ -244,6 +247,12 @@ class ComplaintAuthorizationIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(otherCitizen)))
                 .andExpect(status().isCreated());
+
+        userRepository.findByEmailIgnoreCase("other-" + uniqueSuffix + "@citizen.org").ifPresent(u -> {
+            u.setAccountStatus("ACTIVE");
+            u.setEmailVerified(true);
+            userRepository.save(u);
+        });
 
         MockHttpSession otherCitizenSession = loginAs("other-" + uniqueSuffix + "@citizen.org", "CivicSecure#2026!");
         mockMvc.perform(post("/api/complaints/" + complaintId + "/confirm-resolution")

@@ -110,9 +110,14 @@ civicfix:
   receipt:
     hmac-secret: ${CIVICFIX_RECEIPT_HMAC_SECRET:civicfix_dev_receipt_hmac_secret_only}
   storage:
-    provider: ${STORAGE_PROVIDER:local} # Safe local filesystem storage abstraction. S3/Blob storage can be configured when cloud credentials are provided.
+    provider: ${STORAGE_PROVIDER:local}
     upload-dir: ${STORAGE_UPLOAD_DIR:uploads/evidence}
     max-file-size-mb: 10
+    bucket: ${NEON_STORAGE_BUCKET:civicfix-complaint-images}
+    region: ${AWS_REGION:us-east-2}
+    endpoint: ${AWS_ENDPOINT_URL_S3:}
+    access-key: ${AWS_ACCESS_KEY_ID:}
+    secret-key: ${AWS_SECRET_ACCESS_KEY:}
   ai:
     vision:
       enabled: ${AI_VISION_ENABLED:false}
@@ -167,6 +172,6 @@ auth:
 
 firebase:
   enabled: ${FIREBASE_ENABLED:true}
-  project-id: ${FIREBASE_PROJECT_ID:civicfix-production}
+  project-id: ${FIREBASE_PROJECT_ID:civicfix-15ee3}
   credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
   credentials-json: ${FIREBASE_CREDENTIALS_JSON:}

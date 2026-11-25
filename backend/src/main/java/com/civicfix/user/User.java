@@ -29,6 +29,12 @@ public class User {
     @Column(name = "firebase_uid", length = 128, unique = true)
     private String firebaseUid;
 
+    @Column(name = "google_id", length = 128, unique = true)
+    private String googleId;
+
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified = false;
+
     @Column(name = "account_status", length = 50, nullable = false)
     private String accountStatus = "ACTIVE";
 
@@ -203,6 +209,22 @@ public class User {
 
     public void setUpdatedAt(OffsetDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getGoogleId() {
+        return googleId;
+    }
+
+    public void setGoogleId(String googleId) {
+        this.googleId = googleId;
+    }
+
+    public boolean isEmailVerified() {
+        return emailVerified;
+    }
+
+    public void setEmailVerified(boolean emailVerified) {
+        this.emailVerified = emailVerified;
     }
 
     public boolean hasRole(RoleName roleName) {

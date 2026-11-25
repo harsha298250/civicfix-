@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 public class FirebaseProperties {
 
     private boolean enabled = true;
-    private String projectId = "civicfix-production";
+    private String projectId = "civicfix-15ee3";
     private String credentialsPath;
     private String credentialsJson;
 

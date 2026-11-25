@@ -3,9 +3,14 @@ package com.civicfix.auth;
 import com.civicfix.audit.AuditService;
 import com.civicfix.auth.dto.AuthUserResponse;
 import com.civicfix.auth.dto.ForgotPasswordRequest;
+import com.civicfix.auth.dto.GoogleAuthRequest;
 import com.civicfix.auth.dto.LoginRequest;
 import com.civicfix.auth.dto.RegisterCitizenRequest;
+import com.civicfix.auth.dto.ResendVerificationRequest;
 import com.civicfix.auth.dto.ResetPasswordRequest;
+import com.civicfix.auth.dto.VerifyEmailRequest;
+import com.civicfix.auth.google.GoogleTokenClaims;
+import com.civicfix.auth.google.GoogleTokenVerifier;
 import com.civicfix.common.exception.BadRequestException;
 import com.civicfix.common.exception.ConflictException;
 import com.civicfix.common.exception.RateLimitExceededException;
@@ -45,6 +50,7 @@ import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -63,6 +69,8 @@ public class AuthService {
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final EmailService emailService;
     private final EmailOutboxService emailOutboxService;
+    private final EmailVerificationTokenRepository emailVerificationTokenRepository;
+    private final GoogleTokenVerifier googleTokenVerifier;
     private SessionRegistry sessionRegistry;
     private final SecureRandom secureRandom = new SecureRandom();
     private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
@@ -74,7 +82,7 @@ public class AuthService {
     @org.springframework.beans.factory.annotation.Value("${auth.password-reset.account-cooldown-minutes:5}")
     private int passwordResetAccountCooldownMinutes = 5;
 
-    @org.springframework.beans.factory.annotation.Value("${auth.password-reset.app-base-url:http://localhost:5173}")
+    @org.springframework.beans.factory.annotation.Value("${civicfix.frontend.base-url:${FRONTEND_BASE_URL:${auth.password-reset.app-base-url:http://localhost:5173}}}")
     private String appBaseUrl = "http://localhost:5173";
 
     public AuthService(UserRepository userRepository,
@@ -85,7 +93,7 @@ public class AuthService {
                        LoginLockoutService loginLockoutService,
                        ClientIpResolver clientIpResolver) {
         this(userRepository, roleRepository, passwordEncoder, authenticationManager, auditService,
-             loginLockoutService, clientIpResolver, null, null, null, null);
+             loginLockoutService, clientIpResolver, null, null, null, null, null, null);
     }
 
     public AuthService(UserRepository userRepository,
@@ -98,7 +106,7 @@ public class AuthService {
                        PasswordResetTokenRepository passwordResetTokenRepository,
                        EmailService emailService) {
         this(userRepository, roleRepository, passwordEncoder, authenticationManager, auditService,
-             loginLockoutService, clientIpResolver, passwordResetTokenRepository, emailService, null, null);
+             loginLockoutService, clientIpResolver, passwordResetTokenRepository, emailService, null, null, null, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -112,7 +120,9 @@ public class AuthService {
                        @org.springframework.beans.factory.annotation.Autowired(required = false) PasswordResetTokenRepository passwordResetTokenRepository,
                        @org.springframework.beans.factory.annotation.Autowired(required = false) EmailService emailService,
                        @org.springframework.beans.factory.annotation.Autowired(required = false) EmailOutboxService emailOutboxService,
-                       @org.springframework.beans.factory.annotation.Autowired(required = false) SessionRegistry sessionRegistry) {
+                       @org.springframework.beans.factory.annotation.Autowired(required = false) SessionRegistry sessionRegistry,
+                       @org.springframework.beans.factory.annotation.Autowired(required = false) EmailVerificationTokenRepository emailVerificationTokenRepository,
+                       @org.springframework.beans.factory.annotation.Autowired(required = false) GoogleTokenVerifier googleTokenVerifier) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
@@ -124,6 +134,8 @@ public class AuthService {
         this.emailService = emailService;
         this.emailOutboxService = emailOutboxService;
         this.sessionRegistry = sessionRegistry;
+        this.emailVerificationTokenRepository = emailVerificationTokenRepository;
+        this.googleTokenVerifier = googleTokenVerifier;
     }
 
     @Transactional
@@ -148,6 +160,8 @@ public class AuthService {
         Role citizenRole = roleRepository.findByName(RoleName.CITIZEN)
                 .orElseGet(() -> roleRepository.save(new Role(RoleName.CITIZEN)));
 
+        boolean requiresVerification = email != null && !email.isBlank();
+
         User user = new User();
         user.setFullName(request.getName().trim());
         user.setEmail(email != null && !email.isEmpty() ? email : null);
@@ -155,11 +169,48 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setWard(request.getWard() != null ? request.getWard().trim() : "Ward 08, Anna Nagar, Chennai");
         user.setDepartment("Resident Community Member");
-        user.setAccountStatus("ACTIVE");
+        user.setAccountStatus(requiresVerification ? "PENDING_VERIFICATION" : "ACTIVE");
+        user.setEmailVerified(!requiresVerification);
         user.setTrustScore(90);
         user.setRoles(Set.of(citizenRole));
 
         User savedUser = userRepository.save(user);
+
+        // Generate email verification token if email is present
+        if (requiresVerification) {
+            byte[] randomBytes = new byte[32];
+            secureRandom.nextBytes(randomBytes);
+            String rawToken = HexFormat.of().formatHex(randomBytes);
+            String tokenHash = hashToken(rawToken);
+            OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(24);
+
+            if (emailVerificationTokenRepository != null) {
+                EmailVerificationToken verificationToken = new EmailVerificationToken(savedUser, tokenHash, expiresAt, ipAddress);
+                emailVerificationTokenRepository.save(verificationToken);
+            }
+
+            String verificationUrl = appBaseUrl + "/verify-email?token=" + rawToken;
+            try {
+                if (emailOutboxService != null) {
+                    String idemKey = "verify_" + savedUser.getId();
+                    emailOutboxService.enqueueEmail(
+                            idemKey,
+                            savedUser.getEmail(),
+                            "Verify Your CivicFix Account",
+                            "EMAIL_VERIFICATION",
+                            Map.of(
+                                    "name", savedUser.getFullName() != null ? savedUser.getFullName() : "Citizen",
+                                    "verificationUrl", verificationUrl,
+                                    "rawToken", rawToken
+                            )
+                    );
+                } else if (emailService != null) {
+                    emailService.sendEmailVerificationEmail(savedUser.getEmail(), savedUser.getFullName(), verificationUrl);
+                }
+            } catch (Exception ex) {
+                log.warn("Non-fatal verification email delivery failure for user {}: {}", savedUser.getId(), ex.getMessage());
+            }
+        }
 
         auditService.logAction(
                 savedUser.getId(),
@@ -168,29 +219,12 @@ public class AuthService {
                 "AUTH_REGISTER",
                 "USER",
                 savedUser.getId().toString(),
-                "Citizen self-registration completed.",
+                requiresVerification
+                        ? "Citizen self-registration initiated. Verification email dispatched."
+                        : "Citizen self-registration completed.",
                 ipAddress,
                 "SUCCESS"
         );
-
-        if (savedUser.getEmail() != null && !savedUser.getEmail().isBlank()) {
-            try {
-                if (emailOutboxService != null) {
-                    String idemKey = "welcome_" + savedUser.getId();
-                    emailOutboxService.enqueueEmail(
-                            idemKey,
-                            savedUser.getEmail(),
-                            "Welcome to CivicFix Platform",
-                            "WELCOME",
-                            java.util.Map.of("name", savedUser.getFullName() != null ? savedUser.getFullName() : "Citizen")
-                    );
-                } else if (emailService != null) {
-                    emailService.sendWelcomeEmail(savedUser.getEmail(), savedUser.getFullName());
-                }
-            } catch (Exception ex) {
-                log.warn("Non-fatal welcome email delivery failed for user {}: {}", savedUser.getId(), ex.getMessage());
-            }
-        }
 
         return AuthUserResponse.fromEntity(savedUser);
     }
@@ -200,10 +234,10 @@ public class AuthService {
         String clientIp = httpRequest != null ? clientIpResolver.resolveClientIp(httpRequest) : "unknown";
         AuthUserResponse response = registerCitizen(request, clientIp);
 
-        // Immediately authenticate the newly registered citizen and establish server-side HTTP session
-        if (httpRequest != null && httpResponse != null && response != null && response.getId() != null) {
+        // Only automatically authenticate the citizen if no email verification is pending
+        if (response != null && "ACTIVE".equalsIgnoreCase(response.getAccountStatus())) {
             User user = userRepository.findById(response.getId()).orElse(null);
-            if (user != null) {
+            if (user != null && httpRequest != null && httpResponse != null) {
                 UserPrincipal principal = new UserPrincipal(user);
                 Authentication auth = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
                 SecurityContext context = securityContextHolderStrategy.createEmptyContext();
@@ -215,13 +249,111 @@ public class AuthService {
         return response;
     }
 
+    @Transactional
+    public String verifyEmail(VerifyEmailRequest request, String ipAddress) {
+        if (request == null || request.getToken() == null || request.getToken().trim().isEmpty()) {
+            throw new BadRequestException("Verification token is required.");
+        }
+        if (emailVerificationTokenRepository == null) {
+            throw new IllegalStateException("Email verification service is not configured.");
+        }
+
+        String rawToken = request.getToken().trim();
+        String tokenHash = hashToken(rawToken);
+
+        EmailVerificationToken token = emailVerificationTokenRepository.findByTokenHash(tokenHash)
+                .orElseThrow(() -> new BadRequestException("Invalid or expired email verification link."));
+
+        if (token.isConsumed()) {
+            throw new BadRequestException("Verification link has already been used. Please sign in.");
+        }
+
+        if (token.isExpired()) {
+            throw new BadRequestException("Verification link has expired. Please request a new verification email.");
+        }
+
+        User user = token.getUser();
+        user.setAccountStatus("ACTIVE");
+        user.setEmailVerified(true);
+        userRepository.save(user);
+
+        token.setConsumedAt(OffsetDateTime.now());
+        emailVerificationTokenRepository.save(token);
+
+        auditService.logAction(
+                user.getId(),
+                user.getFullName(),
+                "CITIZEN",
+                "EMAIL_VERIFIED",
+                "USER",
+                user.getId().toString(),
+                "Citizen email address verified successfully.",
+                ipAddress,
+                "SUCCESS"
+        );
+
+        return "Your email address has been successfully verified. You can now sign in.";
+    }
+
+    @Transactional
+    public String resendVerification(ResendVerificationRequest request, String ipAddress) {
+        String email = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
+        if (!email.isEmpty()) {
+            try {
+                User user = userRepository.findByEmailIgnoreCase(email).orElse(null);
+                if (user != null && "PENDING_VERIFICATION".equalsIgnoreCase(user.getAccountStatus())) {
+                    if (emailVerificationTokenRepository != null) {
+                        int cooldownMinutes = 5;
+                        OffsetDateTime cutoff = OffsetDateTime.now().minusMinutes(cooldownMinutes);
+                        long recentTokens = emailVerificationTokenRepository.countRecentTokensForUser(user, cutoff);
+                        if (recentTokens > 0) {
+                            log.warn("Resend verification throttled for user {}. Cooldown active.", user.getId());
+                            return "If an account with that email exists and is pending verification, a new verification link has been sent.";
+                        }
+
+                        emailVerificationTokenRepository.invalidateOutstandingTokensForUser(user, OffsetDateTime.now());
+
+                        byte[] randomBytes = new byte[32];
+                        secureRandom.nextBytes(randomBytes);
+                        String rawToken = HexFormat.of().formatHex(randomBytes);
+                        String tokenHash = hashToken(rawToken);
+
+                        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(24);
+                        EmailVerificationToken token = new EmailVerificationToken(user, tokenHash, expiresAt, ipAddress);
+                        emailVerificationTokenRepository.save(token);
+
+                        String verificationUrl = appBaseUrl + "/verify-email?token=" + rawToken;
+                        if (emailOutboxService != null) {
+                            String idemKey = "verify_resend_" + token.getId();
+                            emailOutboxService.enqueueEmail(
+                                    idemKey,
+                                    user.getEmail(),
+                                    "Verify Your CivicFix Account",
+                                    "EMAIL_VERIFICATION",
+                                    Map.of(
+                                            "name", user.getFullName() != null ? user.getFullName() : "Citizen",
+                                            "verificationUrl", verificationUrl,
+                                            "rawToken", rawToken
+                                    )
+                            );
+                        } else if (emailService != null) {
+                            emailService.sendEmailVerificationEmail(user.getEmail(), user.getFullName(), verificationUrl);
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                log.error("Safe fallback in resend verification: {}", ex.getMessage());
+            }
+        }
+        return "If an account with that email exists and is pending verification, a new verification link has been sent.";
+    }
+
     @Transactional(noRollbackFor = {BadCredentialsException.class, RateLimitExceededException.class})
     public AuthUserResponse login(LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         String identifier = request.getIdentifier().trim();
         String ipAddress = clientIpResolver.resolveClientIp(httpRequest);
 
         // 1. Acquire PostgreSQL-backed coordination advisory locks in strict order (Account first, IP second).
-        // Coordinates lockout check, authentication, and counter recording across multiple backend instances.
         loginLockoutService.acquireCoordinationLocks(identifier, ipAddress);
 
         // 2. Enforce account / IP lockout before attempting authentication
@@ -234,6 +366,12 @@ public class AuthService {
             );
         } catch (DisabledException ex) {
             loginLockoutService.recordFailedAttempt(identifier, ipAddress);
+            User candidate = userRepository.findByEmailIgnoreCase(identifier)
+                    .or(() -> userRepository.findByPhone(identifier))
+                    .orElse(null);
+            if (candidate != null && "PENDING_VERIFICATION".equalsIgnoreCase(candidate.getAccountStatus())) {
+                throw new BadRequestException("Your account is pending email verification. Please check your inbox or request a new verification email.");
+            }
             throw new BadRequestException("Your account is pending activation or disabled. Please use the activation link sent to your email or contact your administrator.");
         } catch (AuthenticationException ex) {
             loginLockoutService.recordFailedAttempt(identifier, ipAddress);
@@ -248,6 +386,13 @@ public class AuthService {
         securityContextHolderStrategy.setContext(context);
         securityContextRepository.saveContext(context, httpRequest, httpResponse);
 
+        // Server-managed Remember Me session duration
+        if (Boolean.TRUE.equals(request.getRememberMe())) {
+            httpRequest.getSession().setMaxInactiveInterval(30 * 24 * 3600); // 30 days
+        } else {
+            httpRequest.getSession().setMaxInactiveInterval(3600); // 1 hour
+        }
+
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         User user = userRepository.findById(principal.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found."));
@@ -259,7 +404,95 @@ public class AuthService {
                 "AUTH_LOGIN",
                 "SESSION",
                 httpRequest.getSession().getId(),
-                "Successful user authentication.",
+                Boolean.TRUE.equals(request.getRememberMe())
+                        ? "Successful user authentication with Remember Me (30-day session)."
+                        : "Successful user authentication (standard session).",
+                ipAddress,
+                "SUCCESS"
+        );
+
+        return AuthUserResponse.fromEntity(user);
+    }
+
+    @Transactional
+    public AuthUserResponse loginWithGoogle(GoogleAuthRequest request, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        if (googleTokenVerifier == null) {
+            throw new IllegalStateException("Google OAuth service is not configured on this server.");
+        }
+
+        GoogleTokenClaims claims = googleTokenVerifier.verify(request.getIdToken());
+        String email = claims.getEmail();
+        String ipAddress = httpRequest != null ? clientIpResolver.resolveClientIp(httpRequest) : "unknown";
+
+        User user = userRepository.findByEmailIgnoreCase(email).orElse(null);
+        if (user != null) {
+            if ("SUSPENDED".equalsIgnoreCase(user.getAccountStatus()) || "DEACTIVATED".equalsIgnoreCase(user.getAccountStatus())) {
+                throw new BadRequestException("Your account is suspended or deactivated. Please contact municipal administration.");
+            }
+            // Auto-verify email if was pending verification, since Google proved identity
+            if ("PENDING_VERIFICATION".equalsIgnoreCase(user.getAccountStatus())) {
+                user.setAccountStatus("ACTIVE");
+            }
+            user.setEmailVerified(true);
+            if (user.getGoogleId() == null || user.getGoogleId().isBlank()) {
+                user.setGoogleId(claims.getSubject());
+            }
+            user = userRepository.save(user);
+        } else {
+            // Create brand new citizen account - strictly CITIZEN role, NEVER elevated roles
+            Role citizenRole = roleRepository.findByName(RoleName.CITIZEN)
+                    .orElseGet(() -> roleRepository.save(new Role(RoleName.CITIZEN)));
+
+            user = new User();
+            user.setFullName(claims.getName());
+            user.setEmail(email);
+            user.setGoogleId(claims.getSubject());
+            user.setEmailVerified(true);
+            user.setAccountStatus("ACTIVE");
+            user.setTrustScore(90);
+            user.setDepartment("Resident Community Member");
+            user.setWard("Ward 08, Anna Nagar, Chennai");
+            user.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
+            user.setRoles(Set.of(citizenRole));
+            user = userRepository.save(user);
+
+            auditService.logAction(
+                    user.getId(),
+                    user.getFullName(),
+                    "CITIZEN",
+                    "AUTH_GOOGLE_REGISTER",
+                    "USER",
+                    user.getId().toString(),
+                    "Citizen account created via Google OAuth.",
+                    ipAddress,
+                    "SUCCESS"
+            );
+        }
+
+        // Establish server-side HTTP session
+        UserPrincipal principal = new UserPrincipal(user);
+        Authentication authentication = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+        SecurityContext context = securityContextHolderStrategy.createEmptyContext();
+        context.setAuthentication(authentication);
+        securityContextHolderStrategy.setContext(context);
+        securityContextRepository.saveContext(context, httpRequest, httpResponse);
+
+        if (Boolean.TRUE.equals(request.getRememberMe())) {
+            httpRequest.getSession().setMaxInactiveInterval(30 * 24 * 3600); // 30 days
+        } else {
+            httpRequest.getSession().setMaxInactiveInterval(3600); // 1 hour
+        }
+
+        auditService.logAction(
+                user.getId(),
+                user.getFullName(),
+                principal.getAuthorities().iterator().next().getAuthority(),
+                "AUTH_GOOGLE_LOGIN",
+                "SESSION",
+                httpRequest.getSession().getId(),
+                Boolean.TRUE.equals(request.getRememberMe())
+                        ? "Successful Google OAuth authentication with Remember Me (30-day session)."
+                        : "Successful Google OAuth authentication (standard session).",
                 ipAddress,
                 "SUCCESS"
         );
@@ -321,7 +554,6 @@ public class AuthService {
                         long recentTokens = passwordResetTokenRepository.countRecentTokensForUser(user, cutoff);
                         if (recentTokens > 0) {
                             log.warn("Password reset throttled for account. Cooldown period of {} minutes active.", cooldownMinutes);
-                            // Return uniform generic response - prevent account enumeration and timing leakage
                             return "If an account with that email exists, password reset instructions have been sent.";
                         }
 
@@ -403,40 +635,47 @@ public class AuthService {
             throw new BadRequestException("Password reset token has expired. Please request a new one.");
         }
 
-        User user = token.getUser();
-        if (user == null) {
-            throw new BadRequestException("User associated with token not found.");
-        }
-
-        // Atomic single-use token consumption preventing concurrent redemption race conditions
         OffsetDateTime now = OffsetDateTime.now();
         int consumedCount = passwordResetTokenRepository.consumeTokenAtomic(tokenHash, now);
         if (consumedCount == 0) {
-            if (token.isConsumed()) {
-                throw new BadRequestException("Password reset token has already been used. Please request a new one.");
-            }
-            if (token.isExpired()) {
-                throw new BadRequestException("Password reset token has expired. Please request a new one.");
-            }
-            throw new BadRequestException("Invalid or expired password reset token.");
+            throw new BadRequestException("Invalid, expired, or already consumed password reset token.");
         }
         token.setConsumedAt(now);
 
-        // Invalidate any other outstanding tokens for this user
-        passwordResetTokenRepository.invalidateOutstandingTokensForUser(user, now);
-
-        // Update password hash using BCrypt password encoder
+        User user = token.getUser();
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
 
-        // Invalidate all active sessions for this user across all devices
-        invalidateUserSessions(user);
+        passwordResetTokenRepository.invalidateOutstandingTokensForUser(user, now);
 
-        // Reset lockout state if present
-        if (loginLockoutService != null && token.getCreatedByIp() != null) {
+        // Security requirement: Invalidate active sessions for this user upon password reset
+        if (sessionRegistry != null) {
             try {
-                loginLockoutService.recordSuccessfulLogin(user.getEmail(), token.getCreatedByIp());
-            } catch (Exception ignored) {}
+                List<Object> allPrincipals = sessionRegistry.getAllPrincipals();
+                for (Object p : allPrincipals) {
+                    if (p instanceof UserPrincipal up && up.getId().equals(user.getId())) {
+                        List<SessionInformation> sessions = sessionRegistry.getAllSessions(p, false);
+                        for (SessionInformation si : sessions) {
+                            si.expireNow();
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Session invalidation during password reset encountered non-fatal error: {}", e.getMessage());
+            }
+        }
+
+        if (emailOutboxService != null && user.getEmail() != null) {
+            String idemKey = "pwd_confirm_" + user.getId() + "_" + System.currentTimeMillis();
+            emailOutboxService.enqueueEmail(
+                    idemKey,
+                    user.getEmail(),
+                    "CivicFix Account Security: Password Changed",
+                    "PASSWORD_RESET_CONFIRMATION",
+                    Map.of("name", user.getFullName())
+            );
+        } else if (emailService != null && user.getEmail() != null) {
+            emailService.sendPasswordResetConfirmationEmail(user.getEmail(), user.getFullName());
         }
 
         auditService.logAction(
@@ -446,76 +685,12 @@ public class AuthService {
                 "PASSWORD_RESET_COMPLETED",
                 "USER",
                 user.getId().toString(),
-                "User password reset successfully",
+                "User successfully changed password via reset token.",
                 token.getCreatedByIp(),
                 "SUCCESS"
         );
 
-        if (user.getEmail() != null && !user.getEmail().isBlank()) {
-            try {
-                if (emailOutboxService != null) {
-                    String idemKey = "pwd_reset_confirm_" + user.getId() + "_" + System.currentTimeMillis();
-                    emailOutboxService.enqueueEmail(
-                            idemKey,
-                            user.getEmail(),
-                            "CivicFix Account Security: Password Changed",
-                            "PASSWORD_RESET_CONFIRMATION",
-                            java.util.Map.of("name", user.getFullName() != null ? user.getFullName() : "Citizen")
-                    );
-                } else if (emailService != null) {
-                    emailService.sendPasswordResetConfirmationEmail(user.getEmail(), user.getFullName());
-                }
-            } catch (Exception ex) {
-                log.warn("Non-fatal password reset confirmation email failed for user {}: {}", user.getId(), ex.getMessage());
-            }
-        }
-
-        return "Password has been reset successfully. You can now log in with your new credentials.";
-    }
-
-    public void invalidateUserSessions(User user) {
-        if (sessionRegistry == null || user == null) {
-            return;
-        }
-        try {
-            for (Object principal : sessionRegistry.getAllPrincipals()) {
-                boolean match = false;
-                if (principal instanceof com.civicfix.security.UserPrincipal up && user.getId().equals(up.getId())) {
-                    match = true;
-                } else if (principal instanceof org.springframework.security.core.userdetails.UserDetails ud
-                        && (user.getEmail().equalsIgnoreCase(ud.getUsername()) || (user.getPhone() != null && user.getPhone().equals(ud.getUsername())))) {
-                    match = true;
-                } else if (principal instanceof String principalStr
-                        && (user.getEmail().equalsIgnoreCase(principalStr) || user.getId().toString().equals(principalStr))) {
-                    match = true;
-                }
-                if (match) {
-                    List<SessionInformation> sessions = sessionRegistry.getAllSessions(principal, false);
-                    for (SessionInformation sessionInfo : sessions) {
-                        sessionInfo.expireNow();
-                        log.info("Invalidated active session [{}] for user [{}] after password reset.", sessionInfo.getSessionId(), user.getEmail());
-                    }
-                }
-            }
-        } catch (Exception ex) {
-            log.warn("Failed to invalidate sessions for user [{}]: {}", user.getEmail(), ex.getMessage());
-        }
-    }
-
-    public void setSessionRegistry(SessionRegistry sessionRegistry) {
-        this.sessionRegistry = sessionRegistry;
-    }
-
-    public SessionRegistry getSessionRegistry() {
-        return sessionRegistry;
-    }
-
-    public void setPasswordResetAccountCooldownMinutes(int minutes) {
-        this.passwordResetAccountCooldownMinutes = minutes;
-    }
-
-    public int getPasswordResetAccountCooldownMinutes() {
-        return passwordResetAccountCooldownMinutes;
+        return "Password has been reset successfully. You may now log in with your new password.";
     }
 
     private String hashToken(String rawToken) {
@@ -526,6 +701,10 @@ public class AuthService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 algorithm not available", e);
         }
+    }
+
+    public void setSessionRegistry(SessionRegistry sessionRegistry) {
+        this.sessionRegistry = sessionRegistry;
     }
 
     public void setPasswordResetValidityMinutes(int minutes) {

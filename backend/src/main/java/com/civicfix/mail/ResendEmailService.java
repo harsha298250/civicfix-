@@ -41,7 +41,7 @@ public class ResendEmailService implements EmailService {
     @Value("${resend.api-key:${RESEND_API_KEY:}}")
     private String apiKey;
 
-    @Value("${resend.from-email:${RESEND_FROM_EMAIL:onboarding@resend.dev}}")
+    @Value("${resend.from-email:${MAIL_FROM:${RESEND_FROM_EMAIL:onboarding@resend.dev}}}")
     private String fromEmail;
 
     @Value("${resend.api-url:${RESEND_API_URL:https://api.resend.com/emails}}")
@@ -49,6 +49,9 @@ public class ResendEmailService implements EmailService {
 
     @Value("${resend.timeout-ms:${RESEND_TIMEOUT_MS:5000}}")
     private int timeoutMs = 5000;
+
+    @Value("${civicfix.frontend.base-url:${FRONTEND_BASE_URL:https://civicfix-red.vercel.app}}")
+    private String appBaseUrl = "https://civicfix-red.vercel.app";
 
     private RestClient restClient;
 
@@ -230,7 +233,7 @@ public class ResendEmailService implements EmailService {
                 "<p>Hello " + escapeHtml(displayName) + ",</p>"
                         + "<p>Welcome to CivicFix — your municipal platform for reporting civic defects, tracking street repair operations, and ensuring accountable ward governance.</p>"
                         + "<p>Your citizen account is currently active. You can log in at any time to submit complaints, upload geotagged defect photos, and monitor repair status in real time.</p>"
-                        + "<p style=\"margin: 24px 0;\"><a href=\"https://civicfix-red.vercel.app/login\" style=\"display: inline-block; background-color: #137A70; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;\">Go to Citizen Dashboard</a></p>"
+                        + "<p style=\"margin: 24px 0;\"><a href=\"" + escapeHtml(appBaseUrl) + "/login\" style=\"display: inline-block; background-color: #137A70; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;\">Go to Citizen Dashboard</a></p>"
                         + "<p style=\"font-size: 12px; color: #667384;\">Note: Official email verification is not required for basic incident intake. When formal verification workflows are enabled for your municipal ward, a notification will be provided.</p>"
         );
     }
@@ -294,6 +297,31 @@ public class ResendEmailService implements EmailService {
                         + "<p>Assessed Priority: <strong>" + escapeHtml(priority) + "</strong></p>"
                         + "<p style=\"margin: 20px 0;\"><a href=\"https://civicfix-red.vercel.app/officer/complaints/" + referenceId + "/review\" style=\"display: inline-block; background-color: #137A70; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: bold;\">Review Intake Ticket</a></p>"
         );
+    }
+
+    public String buildEmailVerificationHtml(String name, String verificationUrl) {
+        String greeting = (name != null && !name.isBlank()) ? "Hello " + escapeHtml(name) + "," : "Hello Citizen,";
+        String content = "<p style=\"font-size: 14px; line-height: 1.6; margin-bottom: 20px;\">" + greeting + "</p>"
+                + "<p style=\"font-size: 14px; line-height: 1.6; margin-bottom: 20px;\">"
+                + "Thank you for creating an account on the <strong>CivicFix Community Issue Reporting &amp; Resolution Platform</strong>. "
+                + "To complete your registration and activate your account, please verify your email address by clicking the button below."
+                + "</p>"
+                + "<div style=\"text-align: center; margin: 32px 0;\">"
+                + "<a href=\"" + escapeHtml(verificationUrl) + "\" style=\"background-color: #137A70; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 14px; display: inline-block;\">Verify Email Address</a>"
+                + "</div>"
+                + "<p style=\"font-size: 12px; color: #667384; line-height: 1.5;\">"
+                + "This verification link is single-use and will expire in 24 hours. If you did not create a CivicFix account, please disregard this email."
+                + "</p>"
+                + "<p style=\"font-size: 11px; color: #94A3B8; word-break: break-all; margin-top: 16px;\">"
+                + "Or copy and paste this link into your browser:<br/><a href=\"" + escapeHtml(verificationUrl) + "\" style=\"color: #137A70;\">" + escapeHtml(verificationUrl) + "</a>"
+                + "</p>";
+        return wrapTemplate("Account Verification", "Verify Your CivicFix Account", content);
+    }
+
+    @Override
+    public boolean sendEmailVerificationEmail(String toEmail, String name, String verificationUrl) {
+        String htmlBody = buildEmailVerificationHtml(name, verificationUrl);
+        return sendEmail(toEmail, "Verify Your CivicFix Account", htmlBody);
     }
 
     @Override

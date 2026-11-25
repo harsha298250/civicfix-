@@ -28,6 +28,19 @@ public class ComplaintPhoto {
     @Column(name = "content_type", length = 100)
     private String contentType;
 
+    @Column(name = "storage_provider", length = 32)
+    private String storageProvider = "LOCAL";
+
+    @Column(name = "object_key", length = 500)
+    private String objectKey;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "uploader_id")
+    private com.civicfix.user.User uploader;
+
+    @Column(name = "sha256_hash", length = 64)
+    private String sha256Hash;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
@@ -100,5 +113,37 @@ public class ComplaintPhoto {
 
     public void setCreatedAt(OffsetDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getStorageProvider() {
+        return storageProvider;
+    }
+
+    public void setStorageProvider(String storageProvider) {
+        this.storageProvider = storageProvider;
+    }
+
+    public String getObjectKey() {
+        return objectKey;
+    }
+
+    public void setObjectKey(String objectKey) {
+        this.objectKey = objectKey;
+    }
+
+    public com.civicfix.user.User getUploader() {
+        return uploader;
+    }
+
+    public void setUploader(com.civicfix.user.User uploader) {
+        this.uploader = uploader;
+    }
+
+    public String getSha256Hash() {
+        return sha256Hash;
+    }
+
+    public void setSha256Hash(String sha256Hash) {
+        this.sha256Hash = sha256Hash;
     }
 }

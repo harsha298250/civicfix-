@@ -9,6 +9,17 @@ package com.civicfix.mail;
 public interface EmailService {
 
     /**
+     * Dispatches an account email verification email containing the one-time activation link.
+     * Link expires in 24 hours.
+     *
+     * @param toEmail         Recipient email address
+     * @param name            User's full name
+     * @param verificationUrl Complete verification URL containing the single-use raw token
+     * @return true if accepted by provider or simulated; false if rejected
+     */
+    boolean sendEmailVerificationEmail(String toEmail, String name, String verificationUrl);
+
+    /**
      * Dispatches a secure, single-use password recovery email containing the one-time reset link.
      * Link expires in 15 minutes.
      *

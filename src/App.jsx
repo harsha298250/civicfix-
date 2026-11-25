@@ -22,6 +22,7 @@ const LoginPage = lazy(() => import('./pages/public/LoginPage').then(m => ({ def
 const RegisterPage = lazy(() => import('./pages/public/RegisterPage').then(m => ({ default: m.RegisterPage })));
 const ForgotPasswordPage = lazy(() => import('./pages/public/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
 const ResetPasswordPage = lazy(() => import('./pages/public/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
+const VerifyEmailPage = lazy(() => import('./pages/public/VerifyEmailPage'));
 const StaffActivationPage = lazy(() => import('./pages/public/StaffActivationPage'));
 const PublicMapPage = lazy(() => import('./pages/public/PublicMapPage').then(m => ({ default: m.PublicMapPage })));
 const TermsOfServicePage = lazy(() => import('./pages/public/TermsOfServicePage').then(m => ({ default: m.TermsOfServicePage })));
@@ -141,6 +142,7 @@ function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/activate-staff" element={<StaffActivationPage />} />
         </Route>
 

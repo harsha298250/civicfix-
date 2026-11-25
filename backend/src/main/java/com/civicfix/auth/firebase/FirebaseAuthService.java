@@ -7,6 +7,7 @@ import com.civicfix.common.exception.BadRequestException;
 import com.civicfix.common.exception.ConflictException;
 import com.civicfix.common.exception.ForbiddenException;
 import com.civicfix.common.exception.UnauthorizedException;
+import com.civicfix.mail.EmailOutboxService;
 import com.civicfix.security.UserPrincipal;
 import com.civicfix.security.ratelimit.ClientIpResolver;
 import com.civicfix.user.*;
@@ -14,6 +15,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
@@ -25,6 +27,7 @@ import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -40,9 +43,27 @@ public class FirebaseAuthService {
     private final AuditService auditService;
     private final FirebaseTokenVerifier tokenVerifier;
     private final ClientIpResolver clientIpResolver;
+    private final EmailOutboxService emailOutboxService;
 
     private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
     private final SecurityContextHolderStrategy securityContextHolderStrategy = SecurityContextHolder.getContextHolderStrategy();
+
+    @Autowired
+    public FirebaseAuthService(UserRepository userRepository,
+                               RoleRepository roleRepository,
+                               PasswordEncoder passwordEncoder,
+                               AuditService auditService,
+                               FirebaseTokenVerifier tokenVerifier,
+                               ClientIpResolver clientIpResolver,
+                               @Autowired(required = false) EmailOutboxService emailOutboxService) {
+        this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.auditService = auditService;
+        this.tokenVerifier = tokenVerifier;
+        this.clientIpResolver = clientIpResolver;
+        this.emailOutboxService = emailOutboxService;
+    }
 
     public FirebaseAuthService(UserRepository userRepository,
                                RoleRepository roleRepository,
@@ -50,12 +71,7 @@ public class FirebaseAuthService {
                                AuditService auditService,
                                FirebaseTokenVerifier tokenVerifier,
                                ClientIpResolver clientIpResolver) {
-        this.userRepository = userRepository;
-        this.roleRepository = roleRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.auditService = auditService;
-        this.tokenVerifier = tokenVerifier;
-        this.clientIpResolver = clientIpResolver;
+        this(userRepository, roleRepository, passwordEncoder, auditService, tokenVerifier, clientIpResolver, null);
     }
 
     @Transactional
@@ -82,6 +98,10 @@ public class FirebaseAuthService {
         Optional<User> userByUid = userRepository.findByFirebaseUid(uid);
         if (userByUid.isPresent()) {
             User user = userByUid.get();
+            if (emailVerified && !user.isEmailVerified()) {
+                user.setEmailVerified(true);
+                userRepository.save(user);
+            }
             if (!"ACTIVE".equalsIgnoreCase(user.getAccountStatus())) {
                 throw new BadRequestException("Your account is pending activation or disabled. Please contact your municipal administrator.");
             }
@@ -122,31 +142,27 @@ public class FirebaseAuthService {
                 throw new ConflictException("This account is already linked to a different Firebase identity.");
             }
 
-            // Security Rule: Public Firebase login cannot create or take over privileged municipal staff accounts
-            boolean isStaff = user.getRoles().stream().anyMatch(r -> r.getName() != RoleName.CITIZEN);
-            if (isStaff) {
-                throw new ForbiddenException("Privileged municipal staff accounts cannot be linked via public Firebase authentication. Please log in with your municipal credentials or contact an administrator.");
-            }
-
             // Account status validation
             if (!"ACTIVE".equalsIgnoreCase(user.getAccountStatus())) {
                 throw new BadRequestException("Your account is pending activation or disabled. Please contact your municipal administrator.");
             }
 
-            // Link existing citizen account
+            // Link existing account while strictly preserving existing roles (ADMIN, OFFICER, SUPERVISOR, WORKER, CITIZEN)
             user.setFirebaseUid(uid);
+            user.setEmailVerified(true);
             User savedUser = userRepository.save(user);
 
             establishSession(savedUser, httpRequest, httpResponse);
 
+            String primaryRole = resolvePrimaryRole(savedUser);
             auditService.logAction(
                     savedUser.getId(),
                     savedUser.getFullName(),
-                    "CITIZEN",
+                    primaryRole,
                     "AUTH_FIREBASE_LINK",
                     "SESSION",
                     httpRequest != null && httpRequest.getSession(false) != null ? httpRequest.getSession(false).getId() : "NONE",
-                    "Citizen account linked to Firebase identity.",
+                    primaryRole + " account linked to verified Firebase identity.",
                     clientIp,
                     "SUCCESS"
             );
@@ -181,6 +197,7 @@ public class FirebaseAuthService {
         newUser.setWard(ward);
         newUser.setDepartment("Resident Community Member");
         newUser.setAccountStatus("ACTIVE");
+        newUser.setEmailVerified(emailVerified);
         newUser.setTrustScore(90);
         newUser.setFirebaseUid(uid);
         // Generate cryptographically secure unguessable random password hash so legacy password login is disabled until reset
@@ -188,6 +205,20 @@ public class FirebaseAuthService {
         newUser.setRoles(Set.of(citizenRole));
 
         User savedUser = userRepository.save(newUser);
+
+        if (emailOutboxService != null && savedUser.getEmail() != null) {
+            try {
+                emailOutboxService.enqueueEmail(
+                        "welcome_" + savedUser.getId(),
+                        savedUser.getEmail(),
+                        "Welcome to CivicFix — Citizen Incident Platform",
+                        "WELCOME",
+                        Map.of("name", savedUser.getFullName() != null ? savedUser.getFullName() : "Citizen")
+                );
+            } catch (Exception ex) {
+                log.warn("[FIREBASE_AUTH] Non-fatal error enqueuing welcome notification: {}", ex.getMessage());
+            }
+        }
 
         establishSession(savedUser, httpRequest, httpResponse);
 

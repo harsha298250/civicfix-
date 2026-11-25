@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from '../../context/LanguageContext';
 import LanguageToggle from '../../components/common/LanguageToggle';
 import { authService } from '../../services/authService';
+import { firebaseAuthService } from '../../services/firebaseAuth';
 
 export const ForgotPasswordPage = () => {
   const { t } = useTranslation();
@@ -23,7 +24,11 @@ export const ForgotPasswordPage = () => {
     setErrorMessage('');
 
     try {
-      await authService.forgotPassword(email.trim());
+      if (firebaseAuthService.isConfigured()) {
+        await firebaseAuthService.sendPasswordReset(email.trim());
+      } else {
+        await authService.forgotPassword(email.trim());
+      }
       setSubmitted(true);
     } catch (err) {
       setErrorMessage(err.message || t('auth.errorUnreachable'));

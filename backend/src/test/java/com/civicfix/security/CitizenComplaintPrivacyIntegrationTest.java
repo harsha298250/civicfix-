@@ -185,6 +185,12 @@ class CitizenComplaintPrivacyIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(regReq)))
                 .andExpect(status().isCreated());
+
+        userRepository.findByEmailIgnoreCase(nonOwningCitizenEmail).ifPresent(u -> {
+            u.setAccountStatus("ACTIVE");
+            u.setEmailVerified(true);
+            userRepository.save(u);
+        });
     }
 
     @Test

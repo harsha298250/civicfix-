@@ -17,9 +17,13 @@ export const LoginPage = () => {
   const [selectedRole, setSelectedRole] = useState('CITIZEN');
   const [identifier, setIdentifier] = useState(isDemoModeEnabled() ? 'citizen@civicfix.gov' : '');
   const [password, setPassword] = useState(isDemoModeEnabled() ? 'CivicSecure#2026!' : '');
+  const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [resendStatus, setResendStatus] = useState(null);
+  const [resending, setResending] = useState(false);
   const [backendStatus, setBackendStatus] = useState({ checked: false, online: false });
 
   useEffect(() => {
@@ -34,20 +38,111 @@ export const LoginPage = () => {
     return () => { mounted = false; };
   }, []);
 
-  // Quick Staff & Demo Account Presets with Indian phone numbers
+  // Initialize Google Identity Services if client ID is configured
+  useEffect(() => {
+    const googleClientId = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_CLIENT_ID) || '';
+    if (!googleClientId) return;
+
+    const setupGoogle = () => {
+      if (window.google?.accounts?.id) {
+        try {
+          window.google.accounts.id.initialize({
+            client_id: googleClientId,
+            callback: handleGoogleCredentialResponse,
+            auto_select: false
+          });
+        } catch (e) {
+          console.warn('Google Identity Services initialization warning:', e);
+        }
+      }
+    };
+
+    if (!window.google?.accounts?.id) {
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.onload = setupGoogle;
+      document.body.appendChild(script);
+    } else {
+      setupGoogle();
+    }
+  }, [rememberMe]);
+
+  const handleGoogleCredentialResponse = async (response) => {
+    if (!response?.credential) return;
+    setGoogleLoading(true);
+    setErrorMsg('');
+    setResendStatus(null);
+
+    try {
+      const user = await authService.loginWithGoogle(response.credential, rememberMe);
+      setCurrentUser(user);
+      showToast(`Welcome back, ${user.name}! (Signed in with Google)`, 'success');
+
+      if (user.role === 'OFFICER') navigate('/officer/dashboard');
+      else if (user.role === 'SUPERVISOR') navigate('/supervisor/escalations');
+      else if (user.role === 'WORKER') navigate('/worker/dashboard');
+      else if (user.role === 'ADMIN') navigate('/admin/dashboard');
+      else navigate('/citizen/dashboard');
+    } catch (err) {
+      setErrorMsg(err.message || 'Google sign-in failed. Please try again.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleGoogleSignInClick = async () => {
+    if (firebaseAuthService.isConfigured()) {
+      setGoogleLoading(true);
+      setErrorMsg('');
+      setResendStatus(null);
+      try {
+        const user = await firebaseAuthService.signInWithGoogle(rememberMe);
+        setCurrentUser(user);
+        showToast(`Welcome back, ${user.name}! (Signed in with Firebase Google)`, 'success');
+
+        if (user.role === 'OFFICER') navigate('/officer/dashboard');
+        else if (user.role === 'SUPERVISOR') navigate('/supervisor/escalations');
+        else if (user.role === 'WORKER') navigate('/worker/dashboard');
+        else if (user.role === 'ADMIN') navigate('/admin/dashboard');
+        else navigate('/citizen/dashboard');
+      } catch (err) {
+        setErrorMsg(err.message || 'Google sign-in failed. Please try again.');
+      } finally {
+        setGoogleLoading(false);
+      }
+      return;
+    }
+
+    const googleClientId = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GOOGLE_CLIENT_ID) || '';
+    if (!googleClientId) {
+      setErrorMsg('Google OAuth client ID is not configured (missing VITE_GOOGLE_CLIENT_ID). Please sign in using your email and password.');
+      return;
+    }
+
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.prompt();
+    } else {
+      setErrorMsg('Google authentication service is loading. Please try again in a moment.');
+    }
+  };
+
+  // Quick Staff & Demo Account Presets
   const DEMO_PRESETS = [
-    { label: 'Citizen', name: 'Alex Morgan', identifier: 'citizen@civicfix.gov', phone: '+91 98401 23456', role: 'CITIZEN' },
-    { label: 'Municipal Officer', name: 'Elena Vance', identifier: 'officer@civicfix.gov', phone: '+91 94440 12345', role: 'OFFICER' },
-    { label: 'Supervisor', name: 'Sarah Jenkins', identifier: 'supervisor@civicfix.gov', phone: '+91 98405 67890', role: 'SUPERVISOR' },
-    { label: 'Field Worker', name: 'Marcus Chen', identifier: 'worker@civicfix.gov', phone: '+91 91760 98765', role: 'WORKER' },
-    { label: 'System Admin', name: 'Priya Sharma', identifier: 'admin@civicfix.gov', phone: '+91 98410 87654', role: 'ADMIN' }
+    { label: 'Citizen', name: 'Alex Morgan', identifier: 'citizen@civicfix.gov', phone: null, role: 'CITIZEN' },
+    { label: 'Municipal Officer', name: 'Elena Vance', identifier: 'officer@civicfix.gov', phone: null, role: 'OFFICER' },
+    { label: 'Supervisor', name: 'Sarah Jenkins', identifier: 'supervisor@civicfix.gov', phone: null, role: 'SUPERVISOR' },
+    { label: 'Field Worker', name: 'Marcus Chen', identifier: 'worker@civicfix.gov', phone: null, role: 'WORKER' },
+    { label: 'System Admin', name: 'Priya Sharma', identifier: 'admin@civicfix.gov', phone: null, role: 'ADMIN' }
   ];
 
   const handleApplyPreset = (preset, usePhone = false) => {
     setSelectedRole(preset.role === 'OFFICER' ? 'OFFICER' : 'CITIZEN');
-    setIdentifier(usePhone ? preset.phone : preset.identifier);
+    setIdentifier((usePhone && preset.phone) ? preset.phone : preset.identifier);
     setPassword('CivicSecure#2026!');
     setErrorMsg('');
+    setResendStatus(null);
   };
 
   const contactType = detectContactType(identifier);
@@ -55,7 +150,16 @@ export const LoginPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!identifier.trim()) {
-      setErrorMsg('Please enter your registered email address or Indian mobile number.');
+      setErrorMsg(
+        firebaseAuthService.isConfigured()
+          ? 'Please enter your registered email address.'
+          : 'Please enter your registered email address or Indian mobile number.'
+      );
+      return;
+    }
+
+    if (firebaseAuthService.isConfigured() && contactType === 'PHONE') {
+      setErrorMsg('Firebase authentication requires your registered email address.');
       return;
     }
 
@@ -71,11 +175,14 @@ export const LoginPage = () => {
 
     setLoading(true);
     setErrorMsg('');
+    setResendStatus(null);
 
     try {
-      const user = await authService.login(identifier, password);
+      const user = await authService.login(identifier.trim(), password, rememberMe);
       setCurrentUser(user);
-      const modeLabel = user.isLiveBackend ? ' (PostgreSQL Live)' : ' (Demo Mode)';
+      const modeLabel = (user.authSource && user.authSource.includes('FIREBASE'))
+        ? ' (Firebase Authenticated)'
+        : (user.isLiveBackend ? ' (PostgreSQL Live)' : ' (Demo Mode)');
       showToast(`Welcome back, ${user.name}!${modeLabel}`, 'success');
 
       if (user.role === 'CITIZEN') navigate('/citizen/dashboard');
@@ -91,41 +198,36 @@ export const LoginPage = () => {
     }
   };
 
-  const handleFirebaseSubmit = async (e) => {
-    e.preventDefault();
-    if (!identifier.trim()) {
-      setErrorMsg('Please enter your registered email address.');
-      return;
-    }
-    if (contactType === 'PHONE') {
-      setErrorMsg('Firebase authentication requires an email address.');
-      return;
-    }
-    if (!password) {
-      setErrorMsg('Please enter your account password.');
+  const handleResendVerification = async () => {
+    const emailToUse = identifier.trim();
+    if (!emailToUse || !emailToUse.includes('@')) {
+      setErrorMsg('Please enter your registered email address above to resend the verification link.');
       return;
     }
 
-    setLoading(true);
-    setErrorMsg('');
-
+    setResending(true);
     try {
-      const user = await authService.loginWithFirebase(identifier.trim(), password);
-      setCurrentUser(user);
-      showToast(`Welcome back, ${user.name}! (Firebase Authenticated)`, 'success');
-
-      if (user.role === 'CITIZEN') navigate('/citizen/dashboard');
-      else if (user.role === 'OFFICER') navigate('/officer/dashboard');
-      else if (user.role === 'SUPERVISOR') navigate('/supervisor/escalations');
-      else if (user.role === 'WORKER') navigate('/worker/dashboard');
-      else if (user.role === 'ADMIN') navigate('/admin/dashboard');
-      else navigate('/citizen/dashboard');
+      const res = await authService.resendVerification(emailToUse);
+      setResendStatus({
+        type: 'success',
+        message: res?.message || 'Verification link sent! Please check your email inbox.'
+      });
     } catch (err) {
-      setErrorMsg(err.message || 'Firebase authentication failed. Please check your credentials.');
+      setResendStatus({
+        type: 'error',
+        message: err?.message || 'Failed to resend verification email.'
+      });
     } finally {
-      setLoading(false);
+      setResending(false);
     }
   };
+
+  const isPendingVerificationError =
+    errorMsg &&
+    (errorMsg.toLowerCase().includes('verification') ||
+      errorMsg.toLowerCase().includes('verify') ||
+      errorMsg.toLowerCase().includes('disabled') ||
+      errorMsg.toLowerCase().includes('not active'));
 
   return (
     <div className="w-full min-h-[calc(100vh-64px)] flex flex-col items-center justify-center p-4 sm:p-6 bg-[#F5F7FA]">
@@ -160,23 +262,56 @@ export const LoginPage = () => {
                 ) : (
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                    Backend Offline (Demo Fallback Active)
+                    {isDemoModeEnabled() ? 'Backend Offline (Demo Fallback Active)' : 'Municipal Backend Unreachable'}
                   </span>
                 )}
               </div>
             )}
           </div>
 
-          {/* Error Message */}
+          {/* Error Message & Verification Resend Banner */}
           {errorMsg && (
             <div
               id="login-error-alert"
               role="alert"
               aria-live="assertive"
-              className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2 animate-fade-in"
+              className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 space-y-2 animate-fade-in"
             >
-              <span className="material-symbols-outlined text-[18px] shrink-0 mt-0.5">error</span>
-              <p className="leading-relaxed">{errorMsg}</p>
+              <div className="flex items-start gap-2">
+                <span className="material-symbols-outlined text-[18px] shrink-0 mt-0.5">error</span>
+                <p className="leading-relaxed flex-1">{errorMsg}</p>
+              </div>
+
+              {isPendingVerificationError && (
+                <div className="pt-2 border-t border-red-200/80 flex items-center justify-between">
+                  <span className="text-[11px] text-red-800 font-medium">Need another activation link?</span>
+                  <button
+                    type="button"
+                    onClick={handleResendVerification}
+                    disabled={resending}
+                    className="px-2.5 py-1 bg-red-700 hover:bg-red-800 text-white rounded-lg text-[10px] font-semibold transition-colors disabled:opacity-60 flex items-center gap-1"
+                  >
+                    {resending && <span className="material-symbols-outlined text-[12px] animate-spin">progress_activity</span>}
+                    <span>Resend Email</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Resend Status Feedback */}
+          {resendStatus && (
+            <div
+              className={`p-3 rounded-xl text-xs flex items-start gap-2 border animate-fade-in ${
+                resendStatus.type === 'success'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : 'bg-red-50 border-red-200 text-red-800'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px] shrink-0 mt-0.5">
+                {resendStatus.type === 'success' ? 'check_circle' : 'error'}
+              </span>
+              <p className="leading-relaxed">{resendStatus.message}</p>
             </div>
           )}
 
@@ -296,7 +431,9 @@ export const LoginPage = () => {
                 />
               </div>
               <p id="login-identifier-hint" className="text-[11px] text-[#667384] mt-1">
-                Accepts registered email or standard 10-digit Indian mobile (+91).
+                {firebaseAuthService.isConfigured()
+                  ? 'Enter your registered email address (Firebase Authentication).'
+                  : 'Accepts registered email or standard 10-digit Indian mobile (+91).'}
               </p>
             </div>
 
@@ -308,12 +445,6 @@ export const LoginPage = () => {
                 >
                   {t('auth.passwordLabel')} *
                 </label>
-                <Link
-                  to="/forgot-password"
-                  className="text-xs font-medium text-[#137A70] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
-                >
-                  {t('auth.forgotPassword')}
-                </Link>
               </div>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#667384] text-[18px]">
@@ -346,9 +477,31 @@ export const LoginPage = () => {
               </div>
             </div>
 
+            {/* Remember Me and Forgot Password */}
+            <div className="flex items-center justify-between pt-1">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  id="login-remember-me"
+                  name="rememberMe"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300 text-[#137A70] focus:ring-[#137A70] transition-colors"
+                />
+                <span className="text-xs text-[#18232F] font-medium">Remember me (30 days)</span>
+              </label>
+
+              <Link
+                to="/forgot-password"
+                className="text-xs font-medium text-[#137A70] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+              >
+                {t('auth.forgotPassword')}
+              </Link>
+            </div>
+
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || googleLoading}
               className="w-full min-h-[44px] py-2.5 bg-[#137A70] hover:bg-[#0F625B] text-white text-sm font-semibold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#137A70]"
             >
               {loading ? (
@@ -361,18 +514,40 @@ export const LoginPage = () => {
               )}
             </button>
 
-            {/* Optional Firebase Email Authentication Action */}
-            {firebaseAuthService.isConfigured() && contactType !== 'PHONE' && (
-              <button
-                type="button"
-                onClick={handleFirebaseSubmit}
-                disabled={loading}
-                className="w-full min-h-[44px] py-2.5 bg-slate-50 hover:bg-slate-100 text-[#18232F] text-sm font-semibold rounded-xl border border-[#CBD5E1] shadow-xs transition-all flex items-center justify-center gap-2 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#137A70]"
-              >
-                <span className="material-symbols-outlined text-[#F58220] text-[20px]">local_fire_department</span>
-                <span>Sign In with Firebase Email</span>
-              </button>
-            )}
+            {/* Or Divider */}
+            <div className="relative flex py-1 items-center">
+              <div className="flex-grow border-t border-[#E2E7ED]"></div>
+              <span className="flex-shrink mx-3 text-[11px] text-[#667384] uppercase font-semibold">Or continue with</span>
+              <div className="flex-grow border-t border-[#E2E7ED]"></div>
+            </div>
+
+            {/* Google Sign In Button */}
+            <button
+              type="button"
+              onClick={handleGoogleSignInClick}
+              disabled={loading || googleLoading}
+              className="w-full min-h-[44px] py-2.5 bg-white hover:bg-slate-50 text-[#18232F] text-sm font-semibold rounded-xl border border-[#CBD5E1] shadow-xs transition-all flex items-center justify-center gap-2.5 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#137A70]"
+            >
+              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                <path
+                  fill="#4285F4"
+                  d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.15z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.14C3.25 21.36 7.33 24 12 24z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.59H1.26C.46 8.18 0 9.99 0 12s.46 3.82 1.26 5.41l4.02-3.14z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.25 2.64 1.26 6.59l4.02 3.14c.95-2.83 3.6-4.98 6.72-4.98z"
+                />
+              </svg>
+              <span>{googleLoading ? 'Connecting with Google...' : 'Continue with Google'}</span>
+            </button>
           </form>
 
           {/* Quick Demo Account Presets (Active exclusively when VITE_DEMO_MODE=true) */}
@@ -403,13 +578,15 @@ export const LoginPage = () => {
                       >
                         Email
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleApplyPreset(p, true)}
-                        className="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 text-emerald-800 font-semibold border border-slate-200"
-                      >
-                        🇮🇳 Mobile
-                      </button>
+                      {p.phone && (
+                        <button
+                          type="button"
+                          onClick={() => handleApplyPreset(p, true)}
+                          className="px-1.5 py-0.5 rounded bg-white hover:bg-slate-100 text-emerald-800 font-semibold border border-slate-200"
+                        >
+                          🇮🇳 Mobile
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

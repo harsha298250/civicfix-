@@ -12,6 +12,10 @@ public interface ComplaintPhotoRepository extends JpaRepository<ComplaintPhoto, 
 
     List<ComplaintPhoto> findByComplaintIdOrderByCreatedAtAsc(UUID complaintId);
 
+    Optional<ComplaintPhoto> findByComplaintIdAndId(UUID complaintId, UUID id);
+
+    Optional<ComplaintPhoto> findByObjectKey(String objectKey);
+
     Optional<ComplaintPhoto> findFirstByPhotoUrlEndingWith(String filenamePattern);
 
     Optional<ComplaintPhoto> findFirstByPhotoUrlContaining(String filenamePattern);

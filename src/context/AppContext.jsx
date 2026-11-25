@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { authService, isDemoModeEnabled } from '../services/authService';
+import { firebaseAuthService } from '../services/firebaseAuth';
 import { complaintService } from '../services/complaintService';
 import { notificationService } from '../services/notificationService';
 import apiClient from '../services/apiClient';
@@ -101,6 +102,34 @@ export const AppProvider = ({ children }) => {
         setCurrentUser(null);
         setServerUnreachable(true);
       });
+
+    // Synchronize Firebase Auth lifecycle state (session persistence & token revocation)
+    let unsubscribeFirebase = null;
+    if (firebaseAuthService && typeof firebaseAuthService.onAuthStateChange === 'function') {
+      unsubscribeFirebase = firebaseAuthService.onAuthStateChange(async (firebaseUser) => {
+        if (!firebaseUser) {
+          const current = authService.getCurrentUser();
+          if (current && current.authSource && current.authSource.includes('FIREBASE')) {
+            authService.setCurrentUser(null);
+            setCurrentUser(null);
+          }
+        } else {
+          const current = authService.getCurrentUser();
+          if (!current) {
+            try {
+              const liveUser = await authService.checkSession();
+              if (liveUser) setCurrentUser(liveUser);
+            } catch (e) {}
+          }
+        }
+      });
+    }
+
+    return () => {
+      if (typeof unsubscribeFirebase === 'function') {
+        unsubscribeFirebase();
+      }
+    };
   }, []);
 
   useEffect(() => {

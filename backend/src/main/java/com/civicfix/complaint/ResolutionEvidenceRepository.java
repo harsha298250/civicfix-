@@ -10,6 +10,7 @@ import java.util.UUID;
 @Repository
 public interface ResolutionEvidenceRepository extends JpaRepository<ResolutionEvidence, UUID> {
     List<ResolutionEvidence> findByComplaintIdOrderByCreatedAtDesc(UUID complaintId);
+    Optional<ResolutionEvidence> findByObjectKey(String objectKey);
     Optional<ResolutionEvidence> findFirstByPhotoUrlEndingWith(String filename);
     Optional<ResolutionEvidence> findFirstByPhotoUrlContaining(String filename);
 }

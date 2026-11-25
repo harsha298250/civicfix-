@@ -196,7 +196,7 @@ class FirebaseAuthIntegrationTest {
     }
 
     @Test
-    @DisplayName("5. Staff account restrictions forbid public Firebase login linking to staff accounts")
+    @DisplayName("5. Unverified Firebase email rejects staff account linking; verified email preserves staff role")
     void testStaffAccountRestrictionsForbidden() throws Exception {
         String staffEmail = "officer.secure." + System.currentTimeMillis() + "@metro.gov";
         User officerUser = new User();
@@ -209,20 +209,41 @@ class FirebaseAuthIntegrationTest {
         officerUser.setRoles(Set.of(officerRole));
         userRepository.save(officerUser);
 
-        String token = "staff-token-" + UUID.randomUUID();
-        String uid = "fb-staff-uid-" + UUID.randomUUID();
+        String unverifiedToken = "staff-unverified-" + UUID.randomUUID();
+        String unverifiedUid = "fb-unverified-" + UUID.randomUUID();
 
-        when(tokenVerifier.verifyIdToken(eq(token)))
-                .thenReturn(new FirebaseTokenClaims(uid, staffEmail, true, "Officer Rajan", Map.of()));
+        // 1. Unverified email must be rejected
+        when(tokenVerifier.verifyIdToken(eq(unverifiedToken)))
+                .thenReturn(new FirebaseTokenClaims(unverifiedUid, staffEmail, false, "Officer Rajan", Map.of()));
 
-        FirebaseSessionRequest req = new FirebaseSessionRequest(token);
+        FirebaseSessionRequest unverifiedReq = new FirebaseSessionRequest(unverifiedToken);
 
         mockMvc.perform(post("/api/auth/firebase/session")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error", is("Forbidden")))
-                .andExpect(jsonPath("$.message", containsString("Privileged municipal staff accounts cannot be linked")));
+                        .content(objectMapper.writeValueAsString(unverifiedReq)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message", containsString("Firebase email is not verified")));
+
+        // 2. Verified email successfully links and preserves OFFICER role
+        String verifiedToken = "staff-token-" + UUID.randomUUID();
+        String verifiedUid = "fb-staff-uid-" + UUID.randomUUID();
+
+        when(tokenVerifier.verifyIdToken(eq(verifiedToken)))
+                .thenReturn(new FirebaseTokenClaims(verifiedUid, staffEmail, true, "Officer Rajan", Map.of()));
+
+        FirebaseSessionRequest verifiedReq = new FirebaseSessionRequest(verifiedToken);
+
+        mockMvc.perform(post("/api/auth/firebase/session")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(verifiedReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.role", is("OFFICER")))
+                .andExpect(jsonPath("$.data.roles", hasItem("OFFICER")));
+
+        User linked = userRepository.findByFirebaseUid(verifiedUid).orElse(null);
+        assertNotNull(linked);
+        assertEquals(officerUser.getId(), linked.getId());
+        assertTrue(linked.hasRole(RoleName.OFFICER));
     }
 
     @Test

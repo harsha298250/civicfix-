@@ -23,6 +23,7 @@ public class UserPrincipal implements UserDetails {
     private final boolean crossWardAccess;
     private final OffsetDateTime crossWardExpiresAt;
     private final boolean crossDepartmentAccess;
+    private final boolean emailVerified;
     private final Collection<? extends GrantedAuthority> authorities;
 
     public UserPrincipal(User user) {
@@ -37,6 +38,7 @@ public class UserPrincipal implements UserDetails {
         this.crossWardAccess = user.isCrossWardAccess();
         this.crossWardExpiresAt = user.getCrossWardExpiresAt();
         this.crossDepartmentAccess = user.isCrossDepartmentAccess();
+        this.emailVerified = user.isEmailVerified();
         this.authorities = user.getRoles().stream()
                 .map(role -> new SimpleGrantedAuthority(role.getName().toSecurityRole()))
                 .collect(Collectors.toSet());
@@ -90,6 +92,10 @@ public class UserPrincipal implements UserDetails {
 
     public boolean hasActiveCrossDepartmentAccess() {
         return crossDepartmentAccess;
+    }
+
+    public boolean isEmailVerified() {
+        return emailVerified;
     }
 
     @Override

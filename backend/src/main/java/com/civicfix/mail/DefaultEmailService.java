@@ -33,6 +33,32 @@ public class DefaultEmailService implements EmailService {
     }
 
     @Override
+    public boolean sendEmailVerificationEmail(String toEmail, String name, String verificationUrl) {
+        String maskedRecipient = maskEmail(toEmail);
+        if (!mailEnabled || mailSender.isEmpty()) {
+            log.warn("[SMTP EMAIL] Verification email aborted: SMTP is disabled. Recipient: {}", maskedRecipient);
+            return false;
+        }
+        try {
+            JavaMailSender sender = mailSender.get();
+            MimeMessage message = sender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+            helper.setFrom(fromAddress);
+            helper.setTo(toEmail);
+            helper.setSubject("Verify Your CivicFix Account");
+            String htmlBody = "<p>Hello " + (name != null ? name : "Citizen") + ",</p>"
+                    + "<p>Please verify your email address to activate your CivicFix account:</p>"
+                    + "<p><a href=\"" + verificationUrl + "\">Verify Email Address</a></p>";
+            helper.setText(htmlBody, true);
+            sender.send(message);
+            return true;
+        } catch (Exception ex) {
+            log.error("[SMTP EMAIL] Failed to send verification email to {}: {}", maskedRecipient, ex.getMessage());
+            return false;
+        }
+    }
+
+    @Override
     public boolean sendPasswordResetEmail(String toEmail, String resetUrl) {
         String maskedRecipient = maskEmail(toEmail);
 

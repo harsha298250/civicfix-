@@ -10,11 +10,20 @@ public class LoginRequest {
     @NotBlank(message = "Password is required")
     private String password;
 
+    private Boolean rememberMe = false;
+
     public LoginRequest() {}
 
     public LoginRequest(String identifier, String password) {
         this.identifier = identifier;
         this.password = password;
+        this.rememberMe = false;
+    }
+
+    public LoginRequest(String identifier, String password, Boolean rememberMe) {
+        this.identifier = identifier;
+        this.password = password;
+        this.rememberMe = rememberMe != null && rememberMe;
     }
 
     public String getIdentifier() {
@@ -31,5 +40,13 @@ public class LoginRequest {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public Boolean getRememberMe() {
+        return rememberMe != null && rememberMe;
+    }
+
+    public void setRememberMe(Boolean rememberMe) {
+        this.rememberMe = rememberMe != null && rememberMe;
     }
 }

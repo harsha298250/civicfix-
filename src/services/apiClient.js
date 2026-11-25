@@ -18,15 +18,6 @@ export const getApiBaseUrl = () => {
   }
 
   if (typeof window !== 'undefined' && window.location) {
-    // When running on Vercel, if envUrl points directly to Render cross-origin,
-    // prefer same-origin '/api' to route through vercel.json proxy and preserve session cookies
-    if (
-      envUrl &&
-      window.location.hostname.endsWith('vercel.app') &&
-      envUrl.includes('onrender.com')
-    ) {
-      return '/api';
-    }
     return envUrl || '/api';
   }
   return envUrl || 'http://localhost:8080/api';
@@ -37,6 +28,8 @@ export const API_BASE_URL = getApiBaseUrl();
 /**
  * Extracts a cookie value by name from document.cookie
  */
+import { auth } from './firebaseConfig.js';
+
 export const getCookie = (name) => {
   if (typeof document === 'undefined') return null;
   const match = document.cookie.match(new RegExp('(^|;\\s*)(' + name + ')=([^;]*)'));
@@ -52,7 +45,13 @@ export async function apiRequest(endpoint, options = {}) {
   if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
     url = endpoint;
   } else if (baseUrl.startsWith('http://') || baseUrl.startsWith('https://')) {
-    url = `${baseUrl}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+    const normalizedBase = baseUrl.replace(/\/+$/, '');
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    if (!normalizedBase.endsWith('/api') && !cleanEndpoint.startsWith('/api/')) {
+      url = `${normalizedBase}/api${cleanEndpoint}`;
+    } else {
+      url = `${normalizedBase}${cleanEndpoint}`;
+    }
   } else if (typeof window !== 'undefined' && window.location) {
     url = `${baseUrl}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
   } else {
@@ -63,6 +62,18 @@ export async function apiRequest(endpoint, options = {}) {
     'Accept': 'application/json',
     ...(options.headers || {})
   };
+
+  // Attach Firebase Bearer token if available
+  if (!headers['Authorization'] && auth && auth.currentUser) {
+    try {
+      const idToken = await auth.currentUser.getIdToken();
+      if (idToken) {
+        headers['Authorization'] = `Bearer ${idToken}`;
+      }
+    } catch (e) {
+      // Non-fatal if token cannot be fetched
+    }
+  }
 
   // Mutating requests automatically attach Spring Security X-XSRF-TOKEN header
   const method = (options.method || 'GET').toUpperCase();
@@ -158,7 +169,11 @@ export const apiClient = {
   // Auth Endpoints
   auth: {
     register: (payload) => apiRequest('/auth/register', { method: 'POST', body: payload }),
-    login: (identifier, password) => apiRequest('/auth/login', { method: 'POST', body: { identifier, password } }),
+    login: (identifier, password, rememberMe = false) =>
+      apiRequest('/auth/login', { method: 'POST', body: { identifier, password, rememberMe } }),
+    loginWithGoogle: (payload) => apiRequest('/auth/google', { method: 'POST', body: payload }),
+    verifyEmail: (token) => apiRequest('/auth/verify-email', { method: 'POST', body: { token } }),
+    resendVerification: (email) => apiRequest('/auth/resend-verification', { method: 'POST', body: { email } }),
     logout: () => apiRequest('/auth/logout', { method: 'POST' }),
     getCurrentUser: () => apiRequest('/auth/me'),
     forgotPassword: (email) => apiRequest('/auth/forgot-password', { method: 'POST', body: { email } }),
@@ -249,6 +264,11 @@ export const apiClient = {
     uploadPhotos: (id, formData) => apiRequest(`/complaints/${encodeURIComponent(id)}/photos`, {
       method: 'POST',
       body: formData
+    }),
+    getPhotoPresignedUrl: (id, photoId) => apiRequest(`/complaints/${encodeURIComponent(id)}/photos/${encodeURIComponent(photoId)}/presigned-url`),
+    getComplaintPhotosPresignedUrls: (id) => apiRequest(`/complaints/${encodeURIComponent(id)}/photos/presigned-urls`),
+    deletePhoto: (id, photoId) => apiRequest(`/complaints/${encodeURIComponent(id)}/photos/${encodeURIComponent(photoId)}`, {
+      method: 'DELETE'
     }),
     getEvidence: (id) => apiRequest(`/complaints/${encodeURIComponent(id)}/evidence`),
     adjudicateAiTriage: (id, payload) => apiRequest(`/complaints/${encodeURIComponent(id)}/ai/adjudicate`, {

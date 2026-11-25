@@ -65,6 +65,8 @@ class VisionRoleExposureIntegrationTest {
         citizen1.setId(UUID.randomUUID());
         citizen1.setEmail("citizen1@civicfix.local");
         citizen1.setFullName("Citizen One");
+        citizen1.setAccountStatus("ACTIVE");
+        citizen1.setEmailVerified(true);
         citizen1.setRoles(Set.of(citizenRole));
         principalCitizen1 = new UserPrincipal(citizen1);
 
@@ -72,6 +74,8 @@ class VisionRoleExposureIntegrationTest {
         citizen2.setId(UUID.randomUUID());
         citizen2.setEmail("citizen2@civicfix.local");
         citizen2.setFullName("Citizen Two");
+        citizen2.setAccountStatus("ACTIVE");
+        citizen2.setEmailVerified(true);
         citizen2.setRoles(Set.of(citizenRole));
         principalCitizen2 = new UserPrincipal(citizen2);
 

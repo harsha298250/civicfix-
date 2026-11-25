@@ -3,6 +3,8 @@ package com.civicfix.auth;
 import com.civicfix.audit.AuditService;
 import com.civicfix.auth.dto.ActivateStaffRequest;
 import com.civicfix.auth.dto.VerifyActivationTokenResponse;
+import com.civicfix.auth.firebase.FirebaseTokenClaims;
+import com.civicfix.auth.firebase.FirebaseTokenVerifier;
 import com.civicfix.common.exception.BadRequestException;
 import com.civicfix.mail.EmailOutboxService;
 import com.civicfix.mail.EmailService;
@@ -37,6 +39,7 @@ public class StaffActivationService {
     private final AuditService auditService;
     private final EmailOutboxService emailOutboxService;
     private final EmailService emailService;
+    private final FirebaseTokenVerifier firebaseTokenVerifier;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${auth.staff-activation.token-validity-hours:72}")
@@ -52,7 +55,8 @@ public class StaffActivationService {
             PasswordEncoder passwordEncoder,
             AuditService auditService,
             @Autowired(required = false) EmailOutboxService emailOutboxService,
-            @Autowired(required = false) EmailService emailService
+            @Autowired(required = false) EmailService emailService,
+            @Autowired(required = false) FirebaseTokenVerifier firebaseTokenVerifier
     ) {
         this.staffActivationTokenRepository = staffActivationTokenRepository;
         this.userRepository = userRepository;
@@ -60,6 +64,7 @@ public class StaffActivationService {
         this.auditService = auditService;
         this.emailOutboxService = emailOutboxService;
         this.emailService = emailService;
+        this.firebaseTokenVerifier = firebaseTokenVerifier;
     }
 
     @Transactional
@@ -152,7 +157,13 @@ public class StaffActivationService {
         if (req == null || req.getToken() == null || req.getToken().trim().isBlank()) {
             throw new BadRequestException("Activation token is required.");
         }
-        if (req.getNewPassword() == null || req.getNewPassword().length() < 8) {
+        boolean hasPassword = req.getNewPassword() != null && !req.getNewPassword().isBlank();
+        boolean hasIdToken = req.getIdToken() != null && !req.getIdToken().isBlank();
+
+        if (!hasPassword && !hasIdToken) {
+            throw new BadRequestException("Either a permanent password (min 8 characters) or Firebase authentication token is required.");
+        }
+        if (hasPassword && req.getNewPassword().length() < 8) {
             throw new BadRequestException("Permanent password must be at least 8 characters long.");
         }
 
@@ -176,7 +187,28 @@ public class StaffActivationService {
         }
 
         User user = token.getUser();
-        user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
+
+        // Bind Firebase identity if provided
+        if (hasIdToken) {
+            if (firebaseTokenVerifier != null) {
+                FirebaseTokenClaims claims = firebaseTokenVerifier.verifyIdToken(req.getIdToken());
+                if (claims == null || claims.getUid() == null) {
+                    throw new BadRequestException("Invalid Firebase authentication token.");
+                }
+                if (claims.getEmail() != null && !claims.getEmail().equalsIgnoreCase(user.getEmail())) {
+                    throw new BadRequestException("The authenticated Firebase email (" + claims.getEmail() + ") does not match the invitation email (" + user.getEmail() + ").");
+                }
+                user.setFirebaseUid(claims.getUid());
+                user.setEmailVerified(true);
+            } else {
+                log.warn("FirebaseTokenVerifier not available; skipping Firebase ID token verification during staff activation.");
+            }
+        }
+
+        if (hasPassword) {
+            user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
+        }
+
         user.setAccountStatus("ACTIVE");
         userRepository.save(user);
 

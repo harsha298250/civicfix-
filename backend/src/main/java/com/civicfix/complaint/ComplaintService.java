@@ -13,6 +13,7 @@ import com.civicfix.complaint.dto.*;
 import com.civicfix.complaint.sla.SlaEscalationService;
 import com.civicfix.complaint.sla.SlaService;
 import com.civicfix.security.UserPrincipal;
+import com.civicfix.storage.StorageResult;
 import com.civicfix.storage.StorageService;
 import com.civicfix.supervisor.SupervisorService;
 import com.civicfix.user.RoleName;
@@ -245,6 +246,12 @@ public class ComplaintService {
         User citizen = userRepository.findById(principal.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found."));
 
+        // Security requirement: Ensure email verification is checked before allowing access to protected citizen functions
+        boolean isCitizenOnly = citizen.getRoles().stream().allMatch(r -> r.getName() == RoleName.CITIZEN);
+        if (isCitizenOnly && !citizen.isEmailVerified()) {
+            throw new ForbiddenException("Email verification is required before submitting complaints. Please verify your email.");
+        }
+
         // Generate human-readable reference ID e.g. CF-2026-00124
         String referenceId;
         do {
@@ -316,19 +323,25 @@ public class ComplaintService {
             String subDir = "complaints/" + saved.getId();
             try {
                 for (MultipartFile file : activeFiles) {
-                    String storedUrl = storageService.storeFile(file, subDir);
-                    storedUrls.add(storedUrl);
-                    String fname = storedUrl.substring(storedUrl.lastIndexOf('/') + 1);
+                    StorageResult sResult = storageService.storeImage(file, subDir, principal != null ? principal.getId().toString() : null);
+                    storedUrls.add(sResult.resourceUrl());
+                    String fname = sResult.resourceUrl().substring(sResult.resourceUrl().lastIndexOf('/') + 1);
                     if (fileTransactionHelper != null) {
                         fileTransactionHelper.registerRollbackCleanup(fname, subDir);
                     }
 
                     ComplaintPhoto photo = new ComplaintPhoto();
                     photo.setComplaint(saved);
-                    photo.setPhotoUrl(storedUrl);
-                    photo.setFileName(file.getOriginalFilename());
-                    photo.setFileSize(file.getSize());
-                    photo.setContentType(file.getContentType());
+                    photo.setPhotoUrl(sResult.resourceUrl());
+                    photo.setFileName(sResult.originalFilename());
+                    photo.setFileSize(sResult.fileSize());
+                    photo.setContentType(sResult.contentType());
+                    photo.setStorageProvider(sResult.storageProvider());
+                    photo.setObjectKey(sResult.objectKey());
+                    photo.setSha256Hash(sResult.sha256Checksum());
+                    if (principal != null) {
+                        photo.setUploader(userRepository.findById(principal.getId()).orElse(null));
+                    }
                     complaintPhotoRepository.save(photo);
                     saved.getPhotos().add(photo);
                 }
@@ -403,19 +416,23 @@ public class ComplaintService {
         String subDir = "complaints/" + complaint.getId();
         try {
             for (MultipartFile file : activeFiles) {
-                String storedUrl = storageService.storeFile(file, subDir);
-                storedUrls.add(storedUrl);
-                String fname = storedUrl.substring(storedUrl.lastIndexOf('/') + 1);
+                StorageResult sResult = storageService.storeImage(file, subDir, principal.getId().toString());
+                storedUrls.add(sResult.resourceUrl());
+                String fname = sResult.resourceUrl().substring(sResult.resourceUrl().lastIndexOf('/') + 1);
                 if (fileTransactionHelper != null) {
                     fileTransactionHelper.registerRollbackCleanup(fname, subDir);
                 }
 
                 ComplaintPhoto photo = new ComplaintPhoto();
                 photo.setComplaint(complaint);
-                photo.setPhotoUrl(storedUrl);
-                photo.setFileName(file.getOriginalFilename());
-                photo.setFileSize(file.getSize());
-                photo.setContentType(file.getContentType());
+                photo.setPhotoUrl(sResult.resourceUrl());
+                photo.setFileName(sResult.originalFilename());
+                photo.setFileSize(sResult.fileSize());
+                photo.setContentType(sResult.contentType());
+                photo.setStorageProvider(sResult.storageProvider());
+                photo.setObjectKey(sResult.objectKey());
+                photo.setSha256Hash(sResult.sha256Checksum());
+                photo.setUploader(actor);
                 complaintPhotoRepository.save(photo);
                 complaint.getPhotos().add(photo);
             }
@@ -1547,15 +1564,17 @@ public class ComplaintService {
 
         // Store evidence files safely with rollback defense
         List<String> storedUrls = new ArrayList<>();
+        List<StorageResult> storedResults = new ArrayList<>();
         String subDir = "complaints/" + complaint.getId();
         try {
             for (MultipartFile file : files) {
                 if (file == null || file.isEmpty()) {
                     throw new BadRequestException("Uploaded evidence photo cannot be empty.");
                 }
-                String storedUrl = storageService.storeFile(file, subDir);
-                storedUrls.add(storedUrl);
-                String fname = storedUrl.substring(storedUrl.lastIndexOf('/') + 1);
+                StorageResult sResult = storageService.storeImage(file, subDir, principal.getId().toString());
+                storedResults.add(sResult);
+                storedUrls.add(sResult.resourceUrl());
+                String fname = sResult.resourceUrl().substring(sResult.resourceUrl().lastIndexOf('/') + 1);
                 if (fileTransactionHelper != null) {
                     fileTransactionHelper.registerRollbackCleanup(fname, subDir);
                 }
@@ -1572,11 +1591,16 @@ public class ComplaintService {
 
         try {
             // Persist ResolutionEvidence metadata for each uploaded photograph
-            for (String photoUrl : storedUrls) {
+            for (StorageResult sResult : storedResults) {
                 ResolutionEvidence evidence = new ResolutionEvidence();
                 evidence.setComplaint(complaint);
                 evidence.setWorker(actor);
-                evidence.setPhotoUrl(photoUrl);
+                evidence.setPhotoUrl(sResult.resourceUrl());
+                evidence.setStorageProvider(sResult.storageProvider());
+                evidence.setObjectKey(sResult.objectKey());
+                evidence.setFileSize(sResult.fileSize());
+                evidence.setContentType(sResult.contentType());
+                evidence.setSha256Hash(sResult.sha256Checksum());
                 evidence.setLatitude(latitude);
                 evidence.setLongitude(longitude);
                 evidence.setDistanceMeters(distanceMeters);
@@ -1696,6 +1720,98 @@ public class ComplaintService {
         } catch (IOException e) {
             throw new ResourceNotFoundException("Evidence photo not found or not readable: " + cleanName);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public PresignedUrlResponse getPhotoPresignedUrl(String complaintIdOrRef, String photoIdStr, UserPrincipal principal) {
+        if (principal == null) {
+            throw new ForbiddenException("Authentication required to access photograph URLs.");
+        }
+        Complaint complaint = resolveComplaint(complaintIdOrRef);
+        enforceReadPermission(complaint, principal);
+
+        UUID photoId = UUID.fromString(photoIdStr.trim());
+        ComplaintPhoto photo = complaintPhotoRepository.findByComplaintIdAndId(complaint.getId(), photoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Photograph not found for this complaint."));
+
+        String objectKey = photo.getObjectKey();
+        if (objectKey == null || objectKey.isBlank()) {
+            String fname = photo.getPhotoUrl().substring(photo.getPhotoUrl().lastIndexOf('/') + 1);
+            objectKey = "complaints/" + complaint.getId() + "/" + fname;
+        }
+
+        String presignedUrl = storageService.generatePresignedDownloadUrl(objectKey, 15);
+        if (presignedUrl == null) {
+            presignedUrl = photo.getPhotoUrl();
+        }
+
+        return new PresignedUrlResponse(photo.getId().toString(), objectKey, presignedUrl, 900);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PresignedUrlResponse> getComplaintPhotosPresignedUrls(String complaintIdOrRef, UserPrincipal principal) {
+        if (principal == null) {
+            throw new ForbiddenException("Authentication required to access photograph URLs.");
+        }
+        Complaint complaint = resolveComplaint(complaintIdOrRef);
+        enforceReadPermission(complaint, principal);
+
+        List<ComplaintPhoto> photos = complaintPhotoRepository.findByComplaintIdOrderByCreatedAtAsc(complaint.getId());
+        List<PresignedUrlResponse> responses = new ArrayList<>();
+        for (ComplaintPhoto photo : photos) {
+            String objectKey = photo.getObjectKey();
+            if (objectKey == null || objectKey.isBlank()) {
+                String fname = photo.getPhotoUrl().substring(photo.getPhotoUrl().lastIndexOf('/') + 1);
+                objectKey = "complaints/" + complaint.getId() + "/" + fname;
+            }
+            String presignedUrl = storageService.generatePresignedDownloadUrl(objectKey, 15);
+            if (presignedUrl == null) {
+                presignedUrl = photo.getPhotoUrl();
+            }
+            responses.add(new PresignedUrlResponse(photo.getId().toString(), objectKey, presignedUrl, 900));
+        }
+        return responses;
+    }
+
+    @Transactional
+    public void deleteComplaintPhoto(String complaintIdOrRef, String photoIdStr, UserPrincipal principal, String ipAddress) {
+        if (principal == null) {
+            throw new ForbiddenException("Authentication required to delete photographs.");
+        }
+        Complaint complaint = resolveComplaint(complaintIdOrRef);
+
+        boolean isOwner = complaint.getCitizen() != null && complaint.getCitizen().getId().equals(principal.getId());
+        boolean isAdmin = principal.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        if (!isOwner && !isAdmin) {
+            throw new ForbiddenException("Only the complaint owner or platform administrators may delete photos.");
+        }
+
+        UUID photoId = UUID.fromString(photoIdStr.trim());
+        ComplaintPhoto photo = complaintPhotoRepository.findByComplaintIdAndId(complaint.getId(), photoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Photograph not found for this complaint."));
+
+        if (photo.getObjectKey() != null && !photo.getObjectKey().isBlank()) {
+            storageService.deleteObject(photo.getObjectKey());
+        } else {
+            String fname = photo.getPhotoUrl().substring(photo.getPhotoUrl().lastIndexOf('/') + 1);
+            storageService.deleteFile(fname, "complaints/" + complaint.getId());
+        }
+
+        complaint.getPhotos().remove(photo);
+        complaintPhotoRepository.delete(photo);
+
+        auditService.logAction(
+                principal.getId(),
+                principal.getUsername(),
+                principal.getAuthorities().iterator().next().getAuthority(),
+                "DELETE_PHOTO",
+                "COMPLAINT",
+                complaint.getReferenceId(),
+                "Deleted photo " + photoIdStr + " from complaint #" + complaint.getReferenceId(),
+                ipAddress,
+                "SUCCESS"
+        );
     }
 
     @Transactional

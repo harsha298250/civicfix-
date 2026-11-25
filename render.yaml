@@ -1,0 +1,42 @@
+# Render Infrastructure as Code (render.yaml)
+# CivicFix — Modern Municipal Issue Reporting & Resolution Platform
+# Hosting: Render Static Site (Frontend) + Render Web Service (Backend)
+
+services:
+  # ---------------------------------------------------------------------------
+  # 1. Frontend: React + Vite Single-Page Application (Static Site)
+  # ---------------------------------------------------------------------------
+  - type: static
+    name: civicfix-frontend
+    repo: https://github.com/harsha298250/civicfix-
+    branch: main
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    routes:
+      # React Router SPA Client-Side Fallback Rewrite
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://civicfix-backend-wx6m.onrender.com/api
+      - key: VITE_DEMO_MODE
+        value: "false"
+      # Note: VITE_FIREBASE_* credentials should be set in Render Dashboard Environment Settings
+
+  # Note: The backend web service 'civicfix-backend' (https://civicfix-backend-wx6m.onrender.com)
+  # is already provisioned on Render. To prevent duplicate backend creation, this Blueprint provisions
+  # exclusively the 'civicfix-frontend' Static Site, linking to the existing backend API.

@@ -18,6 +18,7 @@ public class AuthUserResponse {
     private String ward;
     private Integer trustScore;
     private String accountStatus;
+    private boolean emailVerified;
 
     public AuthUserResponse() {}
 
@@ -31,6 +32,7 @@ public class AuthUserResponse {
         resp.setWard(user.getWard());
         resp.setTrustScore(user.getTrustScore());
         resp.setAccountStatus(user.getAccountStatus());
+        resp.setEmailVerified(user.isEmailVerified());
 
         Set<String> roleNames = user.getRoles().stream()
                 .map(r -> r.getName().name())
@@ -40,6 +42,7 @@ public class AuthUserResponse {
         // Primary role (default to CITIZEN, or highest privilege)
         if (roleNames.contains("ADMIN")) resp.setRole("ADMIN");
         else if (roleNames.contains("OFFICER")) resp.setRole("OFFICER");
+        else if (roleNames.contains("SUPERVISOR")) resp.setRole("SUPERVISOR");
         else if (roleNames.contains("WORKER")) resp.setRole("WORKER");
         else resp.setRole("CITIZEN");
 
@@ -124,5 +127,13 @@ public class AuthUserResponse {
 
     public void setAccountStatus(String accountStatus) {
         this.accountStatus = accountStatus;
+    }
+
+    public boolean isEmailVerified() {
+        return emailVerified;
+    }
+
+    public void setEmailVerified(boolean emailVerified) {
+        this.emailVerified = emailVerified;
     }
 }
