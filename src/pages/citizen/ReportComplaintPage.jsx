@@ -23,12 +23,12 @@ export const ReportComplaintPage = () => {
     categoryId: 'roads',
     description: '',
     priority: 'HIGH',
-    address: 'Anna Salai, Near Spencer Plaza, Chennai',
+    address: '',
     ward: currentUser?.ward || '',
     landmark: '',
-    coordinates: { lat: 13.0604, lng: 80.2642 },
+    coordinates: null,
     accuracyMeters: null,
-    locationConfirmed: true,
+    locationConfirmed: false,
     photos: [],
     visionConsent: false
   });
@@ -185,6 +185,9 @@ export const ReportComplaintPage = () => {
       }
       if (!formData.locationConfirmed) {
         newErrors.locationConfirmed = 'Please confirm this location before proceeding.';
+      }
+      if (!formData.coordinates || formData.coordinates.lat == null || formData.coordinates.lng == null) {
+        newErrors.address = newErrors.address || 'Please pinpoint the defect on the map, use GPS, or locate your address.';
       }
     }
     setErrors(newErrors);
@@ -450,13 +453,14 @@ export const ReportComplaintPage = () => {
                   categoryId: 'roads',
                   description: '',
                   priority: 'HIGH',
-                  address: 'Anna Salai, Chennai',
+                  address: '',
                   ward: currentUser?.ward || '',
                   landmark: '',
-                  coordinates: { lat: 13.0604, lng: 80.2642 },
+                  coordinates: null,
                   accuracyMeters: null,
-                  locationConfirmed: true,
-                  photos: []
+                  locationConfirmed: false,
+                  photos: [],
+                  visionConsent: false
                 });
               }}
               className="w-full sm:w-auto px-5 py-2.5 bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-semibold rounded-xl transition-all"
@@ -906,11 +910,17 @@ export const ReportComplaintPage = () => {
                     <span className="flex items-center gap-1.5 text-primary-container font-semibold">
                       <span className="material-symbols-outlined text-[16px]">sensors</span>
                       <span>
-                        Coordinates: {formData.coordinates.lat.toFixed(5)}° N, {formData.coordinates.lng.toFixed(5)}° E
+                        {formData.coordinates?.lat != null && formData.coordinates?.lng != null
+                          ? `Coordinates: ${Number(formData.coordinates.lat).toFixed(5)}° N, ${Number(formData.coordinates.lng).toFixed(5)}° E`
+                          : 'Coordinates: Not selected yet — use GPS, search, or click the map'}
                       </span>
                     </span>
                     <span className="font-mono text-[11px] text-tertiary">
-                      {formData.accuracyMeters ? `±${formData.accuracyMeters}m accuracy` : 'Manual Pinpoint'}
+                      {formData.accuracyMeters
+                        ? `±${formData.accuracyMeters}m accuracy`
+                        : formData.coordinates?.lat != null
+                        ? 'Manual Pinpoint'
+                        : 'Pending'}
                     </span>
                   </div>
 

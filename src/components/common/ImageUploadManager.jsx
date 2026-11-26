@@ -129,14 +129,31 @@ export const ImageUploadManager = ({
 
   // Connect active camera stream to video element whenever modal is open
   useEffect(() => {
-    if (cameraActive && cameraStream && videoRef.current) {
-      if (videoRef.current.srcObject !== cameraStream) {
-        videoRef.current.srcObject = cameraStream;
-      }
-      videoRef.current
-        .play()
-        .catch((err) => console.warn('Video auto-playback warning:', err));
+    const videoEl = videoRef.current;
+    if (!cameraActive || !cameraStream || !videoEl) {
+      return;
     }
+
+    videoEl.muted = true;
+    videoEl.playsInline = true;
+    videoEl.autoplay = true;
+    if (videoEl.srcObject !== cameraStream) {
+      videoEl.srcObject = cameraStream;
+    }
+
+    let cancelled = false;
+    videoEl
+      .play()
+      .then(() => {
+        if (!cancelled && videoEl.videoWidth > 0) {
+          setCameraReady(true);
+        }
+      })
+      .catch((err) => console.warn('Video auto-playback warning:', err));
+
+    return () => {
+      cancelled = true;
+    };
   }, [cameraActive, cameraStream]);
 
   // Start live webcam for desktop / browser
@@ -582,6 +599,12 @@ export const ImageUploadManager = ({
                     onLoadedMetadata={(e) => {
                       if (e.target.videoWidth > 0) setCameraReady(true);
                       e.target.play().catch(() => {});
+                    }}
+                    onLoadedData={(e) => {
+                      if (e.target.videoWidth > 0) setCameraReady(true);
+                    }}
+                    onCanPlay={(e) => {
+                      if (e.target.videoWidth > 0) setCameraReady(true);
                     }}
                     onPlaying={(e) => {
                       if (e.target.videoWidth > 0) setCameraReady(true);

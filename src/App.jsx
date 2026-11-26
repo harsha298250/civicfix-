@@ -90,8 +90,10 @@ function App() {
     try {
       const liveUser = await authService.checkSession();
       setServerUnreachable(false);
-      if (liveUser) setCurrentUser(liveUser);
-      await refreshComplaints();
+      if (liveUser) {
+        setCurrentUser(liveUser);
+        await refreshComplaints();
+      }
     } catch {
       setServerUnreachable(true);
     } finally {

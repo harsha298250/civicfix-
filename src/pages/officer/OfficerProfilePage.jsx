@@ -45,7 +45,7 @@ export const OfficerProfilePage = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-outline-variant/30 text-xs">
           <div className="p-4 rounded-xl bg-surface-container-low space-y-1">
             <span className="text-tertiary block text-[10px] uppercase">Official Email</span>
-            <span className="font-semibold text-on-surface">{currentUser?.email || 'officer@metro.gov'}</span>
+            <span className="font-semibold text-on-surface">{currentUser?.email || 'officer@civicfix.gov'}</span>
           </div>
           <div className="p-4 rounded-xl bg-surface-container-low space-y-1">
             <span className="text-tertiary block text-[10px] uppercase">Official Contact</span>

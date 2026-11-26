@@ -206,9 +206,39 @@ export const LoginPage = () => {
       return;
     }
 
+    if (emailToUse.toLowerCase().endsWith('@civicfix.gov')) {
+      setResendStatus({
+        type: 'error',
+        message:
+          'Municipal staff accounts (@civicfix.gov) do not use public inbox verification. Ask Municipal IT Administration to mark the account email as verified in Firebase Authentication or issue an activation link.'
+      });
+      return;
+    }
+
     setResending(true);
     setResendStatus(null);
     try {
+      if (firebaseAuthService.isConfigured()) {
+        try {
+          await firebaseAuthService.resendVerificationEmail();
+          setResendStatus({
+            type: 'success',
+            message: `Verification email sent to ${emailToUse} via Firebase Authentication. Please check your inbox and spam folder.`
+          });
+          return;
+        } catch (fbErr) {
+          // If there is no active unverified Firebase user (e.g. user cleared form or legacy pending account),
+          // fall through to backend verification resend if applicable.
+          if (fbErr?.message && !fbErr.message.includes('No active Firebase user session')) {
+            setResendStatus({
+              type: 'error',
+              message: fbErr.message || 'Unable to send Firebase verification email. Please try again later.'
+            });
+            return;
+          }
+        }
+      }
+
       const res = await authService.resendVerification(emailToUse);
       if (res?.success === false) {
         setResendStatus({

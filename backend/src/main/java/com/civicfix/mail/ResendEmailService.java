@@ -255,6 +255,7 @@ public class ResendEmailService implements EmailService {
                         + "<tr><td style=\"padding: 8px; border-bottom: 1px solid #E2E7ED; color: #667384;\">Ward:</td><td style=\"padding: 8px; border-bottom: 1px solid #E2E7ED;\">" + escapeHtml(ward) + "</td></tr>"
                         + "</table>"
                         + "<p>Municipal officers have been notified and will review your ticket for field assignment.</p>"
+                        + "<p style=\"margin: 20px 0;\"><a href=\"" + escapeHtml(appBaseUrl) + "/citizen/complaints/" + escapeHtml(referenceId) + "\" style=\"display: inline-block; background-color: #137A70; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: bold;\">View Complaint Status</a></p>"
         );
     }
 
@@ -299,7 +300,7 @@ public class ResendEmailService implements EmailService {
                         + "<p>A new civic complaint requires triage in <strong>" + escapeHtml(ward) + "</strong>:</p>"
                         + "<p style=\"font-size: 14px; font-weight: bold;\">" + escapeHtml(title) + "</p>"
                         + "<p>Assessed Priority: <strong>" + escapeHtml(priority) + "</strong></p>"
-                        + "<p style=\"margin: 20px 0;\"><a href=\"https://civicfix-red.vercel.app/officer/complaints/" + referenceId + "/review\" style=\"display: inline-block; background-color: #137A70; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: bold;\">Review Intake Ticket</a></p>"
+                        + "<p style=\"margin: 20px 0;\"><a href=\"" + escapeHtml(appBaseUrl) + "/officer/complaints/" + escapeHtml(referenceId) + "/review\" style=\"display: inline-block; background-color: #137A70; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: bold;\">Review Intake Ticket</a></p>"
         );
     }
 
@@ -377,7 +378,7 @@ public class ResendEmailService implements EmailService {
                 + "<h2 style=\"color: #137A70; margin-top: 0; margin-bottom: 20px; font-size: 20px;\">" + escapeHtml(heading) + "</h2>"
                 + content
                 + "<hr style=\"border: none; border-top: 1px solid #E2E7ED; margin: 24px 0;\" />"
-                + "<p style=\"font-size: 11px; color: #94A3B8; margin: 0;\">CivicFix AI Platform &bull; Automated Municipal Remediation Infrastructure &bull; Ward 08 Chennai</p>"
+                + "<p style=\"font-size: 11px; color: #94A3B8; margin: 0;\">CivicFix AI Platform &bull; Automated Municipal Remediation Infrastructure</p>"
                 + "</div></body></html>";
     }
 

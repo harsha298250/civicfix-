@@ -38,7 +38,12 @@ export function mapFirebaseAuthError(fbErr) {
     case 'auth/user-not-found':
       return 'No account found with this email address.';
     case 'auth/invalid-credential':
+    case 'auth/invalid-login-credentials':
       return 'Invalid email address or password. Please verify your credentials.';
+    case 'auth/missing-password':
+      return 'Please enter your account password.';
+    case 'auth/operation-not-allowed':
+      return 'Email/password sign-in is not enabled for this project. Please contact your administrator.';
     case 'auth/invalid-email':
       return 'Please enter a valid email address.';
     case 'auth/user-disabled':

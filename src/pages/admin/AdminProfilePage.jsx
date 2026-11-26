@@ -26,7 +26,7 @@ const AdminProfilePage = () => {
                 Super Administrator
               </span>
             </div>
-            <p className="text-sm text-[#667384] mt-1">{currentPersona?.email || 'admin@metro.gov'}</p>
+            <p className="text-sm text-[#667384] mt-1">{currentPersona?.email || 'admin@civicfix.gov'}</p>
             <p className="text-xs text-[#667384] mt-0.5">Role: System Architect & Platform Oversight</p>
           </div>
         </div>

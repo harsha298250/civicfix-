@@ -16,11 +16,13 @@ export const OfficerLayout = () => {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const pendingQueueCount = complaints.filter(
+  const safeComplaints = Array.isArray(complaints) ? complaints : [];
+
+  const pendingQueueCount = safeComplaints.filter(
     c => c.status === COMPLAINT_STATUS.SUBMITTED || c.status === COMPLAINT_STATUS.UNDER_REVIEW
   ).length;
 
-  const verificationQueueCount = complaints.filter(
+  const verificationQueueCount = safeComplaints.filter(
     c => c.status === COMPLAINT_STATUS.RESOLUTION_SUBMITTED
   ).length;
 
@@ -213,7 +215,7 @@ export const OfficerLayout = () => {
               title="Notifications"
             >
               <span className="material-symbols-outlined text-[22px]">notifications</span>
-              {unreadOfficerNotifs > 0 && (
+              {(unreadCount || 0) > 0 && (
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-error animate-pulse" />
               )}
             </Link>

@@ -67,7 +67,7 @@
     "roleCitizenTab": "Resident Citizen",
     "roleOfficerTab": "Municipal Officer",
     "officerInstructionsTitle": "Municipal Officer Portal",
-    "officerInstructionsDesc": "Official municipal accounts are provisioned exclusively by Municipal IT Administration. Officers must sign in using their official government email (@metro.gov) or registered department mobile number.",
+    "officerInstructionsDesc": "Official municipal accounts are provisioned exclusively by Municipal IT Administration. Officers must sign in using their official government email (@civicfix.gov) or registered department mobile number.",
     "officerNoticeDemo": "Demo evaluation account available:",
     "officerNoticeProd": "Contact your Municipal IT Administrator or Department Supervisor if you require officer account provisioning or password reset.",
     "loginTitle": "Citizen & Staff Sign In",

@@ -39,6 +39,7 @@ export const ComplaintDetailsPage = () => {
   const [rejectPhoto, setRejectPhoto] = useState(null);
   const [rejecting, setRejecting] = useState(false);
   const [rejectError, setRejectError] = useState(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const isOwningCitizen = currentUser && (
     currentUser.role === 'CITIZEN' ||
@@ -261,8 +262,6 @@ export const ComplaintDetailsPage = () => {
     showToast(`Copied #${ref} to clipboard!`, 'info');
   };
 
-  const [downloadingPdf, setDownloadingPdf] = useState(false);
-
   const handleDownloadPdfReceipt = async () => {
     if (!complaint) return;
     setDownloadingPdf(true);
@@ -320,7 +319,7 @@ export const ComplaintDetailsPage = () => {
         items={[
           { label: 'Citizen Portal', path: '/citizen/dashboard', icon: 'home' },
           { label: 'My Complaints', path: '/citizen/complaints' },
-          { label: `#${complaint.id}` }
+          { label: `#${complaint.referenceId || complaint.id}` }
         ]}
       />
 

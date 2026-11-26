@@ -616,8 +616,8 @@ public class TriageEvaluationRunnerTest {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
 
         sb.append("# CivicFix AI Triage & Duplicate Engine Benchmark Report\n\n");
-        sb.append("> **Execution Timestamp**: `").append(timestamp).append("`  \n");
-        sb.append("> **Dataset**: `backend/src/test/resources/evaluation/test_set.csv` (`100` synthetic labelled test samples)  \n");
+        sb.append("> **Execution Timestamp**: `").append(timestamp).append("`\n");
+        sb.append("> **Dataset**: `backend/src/test/resources/evaluation/test_set.csv` (`100` synthetic labelled test samples)\n");
         sb.append("> **Evaluation Rigor**: 100% computed from automated execution. No numbers or metrics in this document were estimated or fabricated.\n\n");
 
         sb.append("---\n\n");

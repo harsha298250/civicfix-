@@ -90,8 +90,8 @@ export const AppProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    refreshComplaints();
     // Validate active session with Spring Boot backend on application bootstrap
+    // Protected resources (complaints, notifications) are loaded only after currentUser is established.
     authService.checkSession()
       .then((liveUser) => {
         setServerUnreachable(false);

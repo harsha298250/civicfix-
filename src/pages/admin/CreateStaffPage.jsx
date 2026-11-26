@@ -144,7 +144,7 @@ const CreateStaffPage = () => {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                placeholder="nathan.vance@metro.gov"
+                placeholder="officer.name@civicfix.gov"
                 className={`w-full px-3.5 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#137A70] ${
                   errors.email ? 'border-[#C63F48]' : 'border-[#E2E7ED]'
                 }`}
