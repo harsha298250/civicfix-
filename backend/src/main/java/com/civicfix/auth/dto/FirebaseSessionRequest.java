@@ -10,6 +10,7 @@ public class FirebaseSessionRequest {
     private String name;
     private String ward;
     private String phone;
+    private Boolean rememberMe;
 
     public FirebaseSessionRequest() {}
 
@@ -54,5 +55,13 @@ public class FirebaseSessionRequest {
 
     public void setPhone(String phone) {
         this.phone = phone;
+    }
+
+    public Boolean getRememberMe() {
+        return rememberMe;
+    }
+
+    public void setRememberMe(Boolean rememberMe) {
+        this.rememberMe = rememberMe;
     }
 }

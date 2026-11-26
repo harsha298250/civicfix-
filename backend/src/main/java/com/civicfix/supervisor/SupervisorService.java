@@ -496,6 +496,9 @@ public class SupervisorService {
             return false; // Unknown or unauthorized department -> fail closed!
         }
         String normCategory = normalizeCategory(category);
+        if ("OTHERS".equalsIgnoreCase(normCategory)) {
+            return true;
+        }
         return allowedCategories.contains(normCategory);
     }
 

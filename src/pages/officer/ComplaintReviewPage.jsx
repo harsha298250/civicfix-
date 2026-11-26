@@ -10,6 +10,7 @@ import { SlaBadge } from '../../components/common/SlaBadge.jsx';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { LocationMiniMap } from '../../components/common/LocationMiniMap';
 import { PotholeDetectionOverlay } from '../../components/common/PotholeDetectionOverlay';
+import AuthenticatedImage from '../../components/common/AuthenticatedImage';
 import { hasValidCoordinates, formatCoordinates } from '../../services/complaintService';
 import { COMPLAINT_STATUS } from '../../constants/statusConstants';
 
@@ -21,7 +22,8 @@ const CATEGORY_CHOICES = [
   { value: 'DRAINAGE', label: 'Drainage & Flooding' },
   { value: 'PUBLIC_TRANSPORT', label: 'Signals & Public Transport' },
   { value: 'PARKS', label: 'Public Parks & Tree Hazards' },
-  { value: 'GENERAL_MAINTENANCE', label: 'General Civic Maintenance' }
+  { value: 'GENERAL_MAINTENANCE', label: 'General Civic Maintenance' },
+  { value: 'OTHERS', label: 'Others (Citizen Specified)' }
 ];
 
 const PRIORITY_CHOICES = [
@@ -474,22 +476,22 @@ export const ComplaintReviewPage = () => {
       <div className="w-full flex flex-col gap-6">
         <Breadcrumb
           items={[
-            { label: 'Operations Command', path: '/officer/dashboard', icon: 'account_balance' },
-            { label: 'Complaint Queue', path: '/officer/complaints' },
-            { label: 'Ticket Not Found' }
+            { label: t('common.operationsCommand'), path: '/officer/dashboard', icon: 'account_balance' },
+            { label: t('common.complaintQueue'), path: '/officer/complaints' },
+            { label: t('officer.reviewNotFound.breadcrumb') }
           ]}
         />
         <div className="text-center py-16 bg-surface-container-lowest rounded-2xl p-8 max-w-lg mx-auto shadow-sm border border-outline-variant/30 space-y-4">
           <span className="material-symbols-outlined text-[48px] text-tertiary">search_off</span>
-          <h2 className="text-xl font-bold text-on-surface">Complaint Record Not Found</h2>
+          <h2 className="text-xl font-bold text-on-surface">{t('officer.reviewNotFound.title')}</h2>
           <p className="text-xs text-on-surface-variant leading-relaxed">
-            Ticket ID #{complaintId} could not be located in the PostgreSQL database.
+            {t('officer.reviewNotFound.desc', { id: complaintId })}
           </p>
           <Link
             to="/officer/complaints"
             className="inline-block px-5 py-2.5 bg-primary-container text-white text-xs font-semibold rounded-xl hover:bg-primary shadow-sm transition-colors"
           >
-            Return to Complaint Queue
+            {t('officer.reviewNotFound.returnToQueue')}
           </Link>
         </div>
       </div>
@@ -501,21 +503,21 @@ export const ComplaintReviewPage = () => {
       <div className="w-full flex flex-col gap-6">
         <Breadcrumb
           items={[
-            { label: 'Operations Command', path: '/officer/dashboard', icon: 'account_balance' },
-            { label: 'Complaint Queue', path: '/officer/complaints' },
-            { label: 'Error' }
+            { label: t('common.operationsCommand'), path: '/officer/dashboard', icon: 'account_balance' },
+            { label: t('common.complaintQueue'), path: '/officer/complaints' },
+            { label: t('errors.generic') }
           ]}
         />
         <div className="text-center py-16 bg-surface-container-lowest rounded-2xl p-8 max-w-lg mx-auto shadow-sm border border-outline-variant/30 space-y-4">
           <span className="material-symbols-outlined text-[48px] text-amber-600">warning</span>
-          <h2 className="text-xl font-bold text-on-surface">Server Communication Error</h2>
+          <h2 className="text-xl font-bold text-on-surface">{t('officer.reviewNotFound.serverErrorTitle')}</h2>
           <p className="text-xs text-on-surface-variant leading-relaxed">{error}</p>
           <button
             type="button"
             onClick={fetchComplaintDetail}
             className="inline-block px-5 py-2.5 bg-primary-container text-white text-xs font-semibold rounded-xl hover:bg-primary shadow-sm transition-colors"
           >
-            Retry Connection
+            {t('common.retryConnection')}
           </button>
         </div>
       </div>
@@ -573,14 +575,16 @@ export const ComplaintReviewPage = () => {
               <span>{t('officerReview.escalate', 'Escalate')}</span>
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setShowRejectModal(true)}
-            className="px-4 py-2 rounded-xl bg-error-container hover:bg-red-200 text-on-error-container text-xs font-semibold transition-colors flex items-center gap-1.5"
-          >
-            <span className="material-symbols-outlined text-[16px]">cancel</span>
-            <span>{t('officerReview.rejectClarify', 'Reject / Clarify')}</span>
-          </button>
+          {complaint.status !== 'RESOLVED' && complaint.status !== 'REJECTED' && complaint.status !== 'CLOSED' && complaint.status !== 'PENDING_CITIZEN_CONFIRMATION' && (
+            <button
+              type="button"
+              onClick={() => setShowRejectModal(true)}
+              className="px-4 py-2 rounded-xl bg-error-container hover:bg-red-200 text-on-error-container text-xs font-semibold transition-colors flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[16px]">cancel</span>
+              <span>{t('officerReview.rejectClarify', 'Reject / Clarify')}</span>
+            </button>
+          )}
           <Link
             to="/officer/complaints"
             className="px-4 py-2 rounded-xl border border-outline-variant/40 hover:bg-surface-container text-on-surface text-xs font-semibold transition-colors"
@@ -675,14 +679,12 @@ export const ComplaintReviewPage = () => {
                 <div className="grid grid-cols-2 gap-3">
                   {complaint.photos.map((p, idx) => (
                     <div key={idx} className="rounded-xl overflow-hidden aspect-video bg-surface-container border border-outline-variant/40">
-                      <img
+                      <AuthenticatedImage
                         src={p}
                         alt={`Defect proof ${idx + 1}`}
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.onerror = null;
-                          e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='225' viewBox='0 0 400 225'%3E%3Crect width='400' height='225' fill='%231e293b'/%3E%3Ctext x='50%25' y='45%25' dominant-baseline='middle' text-anchor='middle' fill='%2394a3b8' font-family='sans-serif' font-size='14'%3EPhoto Evidence Archived%3C/text%3E%3Ctext x='50%25' y='60%25' dominant-baseline='middle' text-anchor='middle' fill='%2364748b' font-family='sans-serif' font-size='11'%3ECivicFix Municipal Record%3C/text%3E%3C/svg%3E";
-                        }}
+                        enableLightbox
+                        downloadFilename={`complaint-${complaint.referenceId || complaint.id}-photo-${idx + 1}.jpg`}
                       />
                     </div>
                   ))}
@@ -1532,7 +1534,7 @@ export const ComplaintReviewPage = () => {
 
       {/* Reject Modal */}
       {showRejectModal && (
-        <div className="fixed inset-0 z-50 bg-[#111c28]/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[80] bg-[#111c28]/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-surface-container-lowest rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 border border-outline-variant/40">
             <div className="flex items-center gap-2 text-error">
               <span className="material-symbols-outlined text-[24px]">warning</span>
@@ -1573,7 +1575,7 @@ export const ComplaintReviewPage = () => {
 
       {/* Manual SLA Escalation Modal */}
       {showEscalateModal && (
-        <div className="fixed inset-0 z-50 bg-[#111c28]/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[80] bg-[#111c28]/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <form
             onSubmit={handleEscalateComplaint}
             className="bg-surface-container-lowest rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 border border-outline-variant/40"
@@ -1634,7 +1636,7 @@ export const ComplaintReviewPage = () => {
       )}
       {/* Override Rule Recommendation Modal */}
       {showOverrideModal && (
-        <div className="fixed inset-0 z-50 bg-[#111c28]/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[80] bg-[#111c28]/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <form
             onSubmit={handleOverrideAiTriage}
             className="bg-surface-container-lowest rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-4 border border-outline-variant/40"
@@ -1720,7 +1722,7 @@ export const ComplaintReviewPage = () => {
 
       {/* Dismiss Rule Advice Modal */}
       {showDismissModal && (
-        <div className="fixed inset-0 z-50 bg-[#111c28]/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[80] bg-[#111c28]/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <form
             onSubmit={handleDismissAiTriage}
             className="bg-surface-container-lowest rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 border border-outline-variant/40"
@@ -1770,7 +1772,7 @@ export const ComplaintReviewPage = () => {
 
       {/* Phase 4: Confirm Link Duplicate Modal */}
       {showLinkConfirmModal && candidateToLink && (
-        <div className="fixed inset-0 z-50 bg-[#111c28]/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[80] bg-[#111c28]/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-surface-container-lowest rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 border border-outline-variant/40">
             <div className="flex items-center gap-2 text-primary-container">
               <span className="material-symbols-outlined text-[24px]">link</span>

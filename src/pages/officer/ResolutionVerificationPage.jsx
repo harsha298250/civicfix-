@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { officerService } from '../../services/officerService';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
+import AuthenticatedImage from '../../components/common/AuthenticatedImage';
 import { COMPLAINT_STATUS } from '../../constants/statusConstants';
 
 export const ResolutionVerificationPage = () => {
@@ -283,8 +284,8 @@ export const ResolutionVerificationPage = () => {
             </div>
             {beforePhoto ? (
               <div className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-surface-container border border-outline-variant/40 shadow-inner">
-                <img src={beforePhoto} alt="Before repair defect" className="w-full h-full object-cover" />
-                <div className="absolute bottom-3 left-3 bg-[#111c28]/80 backdrop-blur-md text-white text-[10px] px-3 py-1 rounded-full">
+                <AuthenticatedImage src={beforePhoto} alt="Before repair defect" className="w-full h-full object-cover" enableLightbox />
+                <div className="absolute bottom-3 left-3 bg-[#111c28]/80 backdrop-blur-md text-white text-[10px] px-3 py-1 rounded-full pointer-events-none">
                   Original Reported Defect {citizenPhotos.length > 1 && `(${activeCitizenPhotoIdx + 1}/${citizenPhotos.length})`}
                 </div>
               </div>
@@ -309,7 +310,7 @@ export const ResolutionVerificationPage = () => {
                         : 'border-outline-variant/40 opacity-70 hover:opacity-100'
                     }`}
                   >
-                    <img src={url} alt={`Citizen photo ${idx + 1}`} className="w-full h-full object-cover" />
+                    <AuthenticatedImage src={url} alt={`Citizen photo ${idx + 1}`} className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>
@@ -333,8 +334,8 @@ export const ResolutionVerificationPage = () => {
             </div>
             {afterPhoto ? (
               <div className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-surface-container border border-outline-variant/40 shadow-inner">
-                <img src={afterPhoto} alt="After repair proof" className="w-full h-full object-cover" />
-                <div className="absolute bottom-3 left-3 bg-emerald-950/85 backdrop-blur-md text-emerald-200 text-[10px] px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                <AuthenticatedImage src={afterPhoto} alt="After repair proof" className="w-full h-full object-cover" enableLightbox />
+                <div className="absolute bottom-3 left-3 bg-emerald-950/85 backdrop-blur-md text-emerald-200 text-[10px] px-3 py-1 rounded-full flex items-center gap-1 shadow-sm pointer-events-none">
                   <span className="material-symbols-outlined text-[12px]">check</span>
                   <span>Submitted Work Proof #{activeAfterPhotoIdx + 1} of {evidencePhotos.length}</span>
                 </div>
@@ -367,7 +368,7 @@ export const ResolutionVerificationPage = () => {
                           : 'border-outline-variant/40 opacity-70 hover:opacity-100 hover:border-emerald-400'
                       }`}
                     >
-                      <img src={url} alt={`Evidence photo ${idx + 1}`} className="w-full h-full object-cover" />
+                      <AuthenticatedImage src={url} alt={`Evidence photo ${idx + 1}`} className="w-full h-full object-cover" />
                       <div className="absolute bottom-0 inset-x-0 bg-black/75 backdrop-blur-xs text-white text-[9px] font-semibold px-1 py-0.5 text-center flex items-center justify-center gap-0.5">
                         <span className="material-symbols-outlined text-[10px]">
                           {isCameraPhoto ? 'photo_camera' : 'image'}

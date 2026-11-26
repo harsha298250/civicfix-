@@ -27,6 +27,13 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
     @Query("UPDATE Notification n SET n.isRead = true, n.readAt = :now WHERE n.recipient.id = :recipientId AND n.isRead = false")
     int markAllAsReadByRecipientId(@Param("recipientId") UUID recipientId, @Param("now") OffsetDateTime now);
 
+    @Modifying
+    @Query("UPDATE Notification n SET n.isRead = true, n.readAt = :now WHERE n.complaint.id = :complaintId AND n.notificationType = :type AND n.isRead = false")
+    int markComplaintNotificationsAsReadByType(
+            @Param("complaintId") UUID complaintId,
+            @Param("type") NotificationType type,
+            @Param("now") OffsetDateTime now);
+
     boolean existsByRecipientIdAndComplaintIdAndNotificationTypeAndCreatedAtAfter(
             UUID recipientId, UUID complaintId, NotificationType notificationType, OffsetDateTime after);
 }

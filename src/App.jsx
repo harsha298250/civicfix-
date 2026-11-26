@@ -220,6 +220,9 @@ function App() {
         >
           <Route index element={<Navigate to="/supervisor/escalations" replace />} />
           <Route path="escalations" element={<SupervisorEscalationsPage />} />
+          <Route path="analytics" element={<OfficerAnalyticsPage />} />
+          <Route path="map" element={<CivicIssueMapPage />} />
+          <Route path="notifications" element={<OfficerNotificationsPage />} />
         </Route>
 
         {/* Administrator Routes — Protected for Tier-0 platform governance */}

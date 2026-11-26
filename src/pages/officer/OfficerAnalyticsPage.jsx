@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useTranslation } from '../../context/LanguageContext';
 import { officerService } from '../../services/officerService';
+import { apiClient } from '../../services/apiClient';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
 import ClosureTrustBadge from '../../components/common/ClosureTrustBadge';
+import { translateCategory, translateErrorMessage } from '../../utils/i18nHelpers';
 
 const CATEGORY_COLORS = [
   'bg-primary-container',
@@ -15,6 +19,9 @@ const CATEGORY_COLORS = [
 ];
 
 export const OfficerAnalyticsPage = () => {
+  const { t } = useTranslation();
+  const location = useLocation();
+  const isSupervisorScope = location.pathname.startsWith('/supervisor');
   const [summary, setSummary] = useState(null);
   const [trustScores, setTrustScores] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -29,13 +36,16 @@ export const OfficerAnalyticsPage = () => {
     setLoading(true);
     setError(null);
     try {
+      const summaryParams = {
+        from: fromDate || undefined,
+        to: toDate || undefined,
+        ward: wardFilter !== 'ALL' ? wardFilter : undefined,
+        category: categoryFilter !== 'ALL' ? categoryFilter : undefined,
+      };
       const [summaryData, trustData] = await Promise.all([
-        officerService.getAnalyticsSummary({
-          from: fromDate || undefined,
-          to: toDate || undefined,
-          ward: wardFilter !== 'ALL' ? wardFilter : undefined,
-          category: categoryFilter !== 'ALL' ? categoryFilter : undefined,
-        }),
+        isSupervisorScope
+          ? apiClient.supervisor.getAnalyticsSummary(summaryParams).then((res) => res?.data || res)
+          : officerService.getAnalyticsSummary(summaryParams),
         officerService.getClosureTrustScores({
           from: fromDate || undefined,
           to: toDate || undefined,
@@ -50,7 +60,7 @@ export const OfficerAnalyticsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [fromDate, toDate, wardFilter, categoryFilter]);
+  }, [fromDate, toDate, wardFilter, categoryFilter, isSupervisorScope]);
 
   useEffect(() => {
     fetchAnalytics();
@@ -73,20 +83,20 @@ export const OfficerAnalyticsPage = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-headline-lg text-2xl sm:text-3xl font-extrabold text-on-surface tracking-tight">
-            Operational Analytics & Telemetry Ledger
+            {t('officer.analytics.title')}
           </h1>
           <p className="text-body-md text-sm text-on-surface-variant mt-1">
-            Database-backed civic turnaround times, resolution metrics, and defect distribution matrices.
+            {t('officer.analytics.subtitle')}
           </p>
         </div>
         <button
           onClick={fetchAnalytics}
           disabled={loading}
           className="px-4 py-2 bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 self-start sm:self-auto border border-outline-variant/30"
-          title="Refresh Live Metrics"
+          title={t('officer.analytics.refreshButton')}
         >
           <span className={`material-symbols-outlined text-[16px] ${loading ? 'animate-spin' : ''}`}>refresh</span>
-          <span>Refresh Analytics</span>
+          <span>{t('officer.analytics.refreshButton')}</span>
         </button>
       </div>
 
@@ -94,7 +104,7 @@ export const OfficerAnalyticsPage = () => {
       <div className="bg-surface-container-lowest p-4 rounded-2xl border border-outline-variant/30 shadow-sm flex flex-wrap gap-3 items-center justify-between text-xs">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1.5">
-            <span className="text-tertiary font-semibold uppercase text-[11px]">From:</span>
+            <span className="text-tertiary font-semibold uppercase text-[11px]">{t('officer.analytics.from')}</span>
             <input
               type="date"
               value={fromDate}
@@ -103,7 +113,7 @@ export const OfficerAnalyticsPage = () => {
             />
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-tertiary font-semibold uppercase text-[11px]">To:</span>
+            <span className="text-tertiary font-semibold uppercase text-[11px]">{t('officer.analytics.to')}</span>
             <input
               type="date"
               value={toDate}
@@ -116,7 +126,7 @@ export const OfficerAnalyticsPage = () => {
             onChange={(e) => setWardFilter(e.target.value)}
             className="px-3 py-1.5 border border-outline-variant/40 rounded-lg text-on-surface bg-surface-container-lowest"
           >
-            <option value="ALL">All Wards</option>
+            <option value="ALL">{t('common.allWards')}</option>
             <option value="Ward 10, T. Nagar">Ward 10, T. Nagar</option>
             <option value="Ward 13, Adyar">Ward 13, Adyar</option>
             <option value="Ward 14, Velachery">Ward 14, Velachery</option>
@@ -130,12 +140,12 @@ export const OfficerAnalyticsPage = () => {
             onChange={(e) => setCategoryFilter(e.target.value)}
             className="px-3 py-1.5 border border-outline-variant/40 rounded-lg text-on-surface bg-surface-container-lowest"
           >
-            <option value="ALL">All Categories</option>
-            <option value="Roads & Pavements">Roads & Pavements</option>
-            <option value="Water Supply & Sewage Management">Water Supply & Drainage</option>
-            <option value="Solid Waste & Sanitation">Sanitation & Garbage</option>
-            <option value="Municipal Traffic & Electrical">Street Lights & Electrical</option>
-            <option value="Parks & Urban Environment">Parks & Environment</option>
+            <option value="ALL">{t('common.allCategories')}</option>
+            <option value="Roads & Pavements">{t('categories.roads')}</option>
+            <option value="Water Supply & Sewage Management">{t('categories.water')}</option>
+            <option value="Solid Waste & Sanitation">{t('categories.garbage')}</option>
+            <option value="Municipal Traffic & Electrical">{t('categories.lighting')}</option>
+            <option value="Parks & Urban Environment">{t('categories.health')}</option>
           </select>
         </div>
 
@@ -149,7 +159,7 @@ export const OfficerAnalyticsPage = () => {
             }}
             className="text-primary hover:underline font-semibold text-xs"
           >
-            Reset Filters
+            {t('common.resetFilters')}
           </button>
         )}
       </div>
@@ -158,13 +168,13 @@ export const OfficerAnalyticsPage = () => {
         <div className="p-4 bg-error-container/20 border border-error/30 rounded-2xl flex items-center justify-between text-error text-xs font-semibold">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[20px]">error</span>
-            <span>{error}</span>
+            <span>{translateErrorMessage(error, t)}</span>
           </div>
           <button
             onClick={fetchAnalytics}
             className="px-3 py-1 bg-error text-white rounded-lg text-xs font-bold hover:bg-error/90 transition-colors"
           >
-            Retry
+            {t('common.retry')}
           </button>
         </div>
       )}
@@ -172,7 +182,7 @@ export const OfficerAnalyticsPage = () => {
       {loading && !summary ? (
         <div className="p-16 text-center text-on-surface-variant flex flex-col items-center justify-center gap-3">
           <span className="material-symbols-outlined text-4xl animate-spin text-primary-container">progress_activity</span>
-          <p className="text-sm font-semibold">Computing live SQL database aggregates...</p>
+          <p className="text-sm font-semibold">{t('officer.analytics.computing')}</p>
         </div>
       ) : (
         <>
@@ -181,50 +191,59 @@ export const OfficerAnalyticsPage = () => {
             {/* Mean & Median Resolution Time */}
             <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-outline-variant/30 flex flex-col justify-between">
               <div>
-                <span className="text-xs font-bold text-tertiary uppercase">Mean Resolution Time</span>
+                <span className="text-xs font-bold text-tertiary uppercase">{t('officer.analytics.meanResolutionTime')}</span>
                 <p className="font-display text-3xl font-bold text-primary mt-2">
-                  {summary?.averageResolutionHours != null ? `${summary.averageResolutionHours} hrs` : 'No data'}
+                  {summary?.averageResolutionHours != null ? `${summary.averageResolutionHours} hrs` : t('common.noData')}
                 </p>
               </div>
               <span className="text-xs text-on-surface-variant font-medium mt-2 block">
-                {summary?.medianResolutionHours != null ? `Median: ${summary.medianResolutionHours} hrs` : 'Awaiting ticket resolutions'}
+                {summary?.medianResolutionHours != null
+                  ? t('officer.analytics.medianHours', { hours: summary.medianResolutionHours })
+                  : t('officer.analytics.awaitingResolutions')}
               </span>
             </div>
 
             {/* First-Pass Verification & Rework Rate */}
             <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-outline-variant/30 flex flex-col justify-between">
               <div>
-                <span className="text-xs font-bold text-tertiary uppercase">First-Pass Verification Rate</span>
+                <span className="text-xs font-bold text-tertiary uppercase">{t('officer.analytics.firstPassRate')}</span>
                 <p className="font-display text-3xl font-bold text-secondary mt-2">
                   {summary?.reworkRate != null ? `${(100 - summary.reworkRate).toFixed(1)}%` : '100%'}
                 </p>
               </div>
               <span className="text-xs text-secondary font-semibold mt-2 block">
-                Rework rate: {summary?.reworkRate != null ? `${summary.reworkRate}%` : '0%'}
+                {t('officer.analytics.reworkRate', { rate: summary?.reworkRate != null ? summary.reworkRate : 0 })}
               </span>
             </div>
 
             {/* Rule Adjudication & Duplicates */}
             <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-outline-variant/30 flex flex-col justify-between">
               <div>
-                <span className="text-xs font-bold text-tertiary uppercase">Rule-Based Triage & Screening</span>
+                <span className="text-xs font-bold text-tertiary uppercase">{t('officer.analytics.ruleTriageTitle')}</span>
                 <p className="font-display text-3xl font-bold text-emerald-700 mt-2">
-                  {summary?.aiAdjudicationCounts?.accepted ?? 0} Accepted
+                  {t('officer.analytics.acceptedCount', { count: summary?.aiAdjudicationCounts?.accepted ?? 0 })}
                 </p>
               </div>
               <span className="text-xs text-tertiary mt-2 block truncate">
-                {summary?.aiAdjudicationCounts?.overridden ?? 0} Overridden • {summary?.aiAdjudicationCounts?.dismissed ?? 0} Dismissed • {summary?.duplicatesLinked ?? 0} Duplicates
+                {t('officer.analytics.triageBreakdown', {
+                  overridden: summary?.aiAdjudicationCounts?.overridden ?? 0,
+                  dismissed: summary?.aiAdjudicationCounts?.dismissed ?? 0,
+                  duplicates: summary?.duplicatesLinked ?? 0
+                })}
               </span>
             </div>
 
             {/* Total Defect Inventory */}
             <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-outline-variant/30 flex flex-col justify-between">
               <div>
-                <span className="text-xs font-bold text-tertiary uppercase">Total Defect Inventory</span>
+                <span className="text-xs font-bold text-tertiary uppercase">{t('officer.analytics.totalInventory')}</span>
                 <p className="font-display text-3xl font-bold text-on-surface mt-2">{total}</p>
               </div>
               <span className="text-xs text-tertiary mt-2 block">
-                Resolved: {summary?.countsByStatus?.RESOLVED ?? 0} • In Progress: {summary?.countsByStatus?.IN_PROGRESS ?? 0}
+                {t('officer.analytics.inventoryBreakdown', {
+                  resolved: summary?.countsByStatus?.RESOLVED ?? 0,
+                  inProgress: summary?.countsByStatus?.IN_PROGRESS ?? 0
+                })}
               </span>
             </div>
           </div>
@@ -234,13 +253,13 @@ export const OfficerAnalyticsPage = () => {
             {/* Category Distribution (7 cols) */}
             <div className="lg:col-span-7 bg-surface-container-lowest rounded-2xl p-6 shadow-sm border border-outline-variant/30 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-title text-base font-bold text-on-surface">Defects by Category Distribution</h3>
-                <span className="text-xs text-tertiary font-mono">{categories.length} Categories</span>
+                <h3 className="font-title text-base font-bold text-on-surface">{t('officer.analytics.categoryDistTitle')}</h3>
+                <span className="text-xs text-tertiary font-mono">{t('officer.analytics.categoriesCount', { count: categories.length })}</span>
               </div>
 
               {categories.length === 0 ? (
                 <div className="p-8 text-center text-xs text-tertiary">
-                  No complaint data matching selected filters.
+                  {t('officer.analytics.noCategoryData')}
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -250,8 +269,8 @@ export const OfficerAnalyticsPage = () => {
                     return (
                       <div key={catName} className="space-y-1 text-xs">
                         <div className="flex justify-between">
-                          <span className="font-semibold text-on-surface">{catName}</span>
-                          <span className="font-code text-tertiary">{count} cases ({pct}%)</span>
+                          <span className="font-semibold text-on-surface">{translateCategory(catName, t)}</span>
+                          <span className="font-code text-tertiary">{t('common.casesCount', { count })} ({pct}%)</span>
                         </div>
                         <div className="w-full bg-surface-container-low rounded-full h-2 overflow-hidden">
                           <div className={`${color} h-full rounded-full transition-all`} style={{ width: `${pct}%` }} />
@@ -268,13 +287,13 @@ export const OfficerAnalyticsPage = () => {
               {/* Ward Breakdown */}
               <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-sm border border-outline-variant/30 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-title text-base font-bold text-on-surface">Volume by Municipal Ward</h3>
-                  <span className="text-xs text-tertiary font-mono">{wards.length} Wards</span>
+                  <h3 className="font-title text-base font-bold text-on-surface">{t('officer.analytics.wardVolumeTitle')}</h3>
+                  <span className="text-xs text-tertiary font-mono">{t('officer.analytics.wardsCount', { count: wards.length })}</span>
                 </div>
 
                 {wards.length === 0 ? (
                   <div className="p-8 text-center text-xs text-tertiary">
-                    No ward data matching selected filters.
+                    {t('officer.analytics.noWardData')}
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -282,7 +301,7 @@ export const OfficerAnalyticsPage = () => {
                       <div key={wardName} className="p-2.5 rounded-xl bg-surface-container-low flex justify-between items-center text-xs">
                         <span className="font-semibold text-on-surface">{wardName}</span>
                         <span className="font-code font-bold text-primary-container px-2 py-0.5 rounded bg-surface-container">
-                          {count} tickets
+                          {t('common.ticketsCount', { count })}
                         </span>
                       </div>
                     ))}
@@ -292,21 +311,21 @@ export const OfficerAnalyticsPage = () => {
 
               {/* SLA & Compliance Status */}
               <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-sm border border-outline-variant/30 space-y-4">
-                <h3 className="font-title text-base font-bold text-on-surface">SLA & Governance Telemetry</h3>
+                <h3 className="font-title text-base font-bold text-on-surface">{t('officer.analytics.slaTelemetryTitle')}</h3>
                 <div className="space-y-2.5 text-xs">
                   <div className="p-3 bg-surface-container-low rounded-xl flex justify-between items-center">
-                    <span className="text-tertiary font-medium">SLA Target Adherence:</span>
+                    <span className="text-tertiary font-medium">{t('officer.analytics.slaAdherence')}</span>
                     <span className="font-semibold px-2 py-0.5 rounded text-[11px] bg-slate-200 text-slate-700">
-                      {summary?.slaAdherenceRate != null ? `${summary.slaAdherenceRate}%` : 'SLA not configured'}
+                      {summary?.slaAdherenceRate != null ? `${summary.slaAdherenceRate}%` : t('officer.analytics.slaNotConfigured')}
                     </span>
                   </div>
                   <div className="p-3 bg-surface-container-low rounded-xl flex justify-between items-center">
-                    <span className="text-tertiary font-medium">PostgreSQL Query Aggregates:</span>
-                    <span className="font-semibold text-emerald-600">Active (Direct SQL)</span>
+                    <span className="text-tertiary font-medium">{t('officer.analytics.postgresAggregates')}:</span>
+                    <span className="font-semibold text-emerald-600">SQL</span>
                   </div>
                   <div className="p-3 bg-surface-container-low rounded-xl flex justify-between items-center">
-                    <span className="text-tertiary font-medium">Cryptographic Audit Ledger:</span>
-                    <span className="font-semibold text-primary-container">RFC 3161 Verified</span>
+                    <span className="text-tertiary font-medium">{t('officer.analytics.auditLedgerTitle')}</span>
+                    <span className="font-semibold text-primary-container">{t('officer.analytics.auditActive')}</span>
                   </div>
                 </div>
               </div>
@@ -319,10 +338,10 @@ export const OfficerAnalyticsPage = () => {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-primary text-[24px]">verified_user</span>
-                  <h3 className="font-title text-lg font-bold text-on-surface">Closure Trust Score & Verification Telemetry</h3>
+                  <h3 className="font-title text-lg font-bold text-on-surface">{t('supervisor.closureTrustTitle')}</h3>
                 </div>
                 <p className="text-xs text-on-surface-variant mt-1">
-                  Integrity index quantifying post-repair verification quality. Tracks citizen confirmations vs. rejections and rework.
+                  {t('supervisor.closureTrustDesc')}
                 </p>
               </div>
 

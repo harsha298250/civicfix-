@@ -11,6 +11,7 @@ import { TamilNaduLocationPicker } from '../../components/common/TamilNaduLocati
 import { geolocationService } from '../../services/geolocationService';
 import VoiceInputButton from '../../components/common/VoiceInputButton';
 import { suggestCategoryFromText, mapBackendCategoryToFrontendId } from '../../utils/triageUtils';
+import { CALIBRATION_MARKERS, computeCalibratedMeasurement, runCanvasAutoMeasurement } from '../../utils/defectMeasurement';
 
 export const ReportComplaintPage = () => {
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ export const ReportComplaintPage = () => {
   const [formData, setFormData] = useState({
     title: '',
     categoryId: 'roads',
+    otherCategoryDescription: '',
     description: '',
     priority: 'HIGH',
     address: '',
@@ -30,10 +32,37 @@ export const ReportComplaintPage = () => {
     accuracyMeters: null,
     locationConfirmed: false,
     photos: [],
-    visionConsent: false
+    visionConsent: false,
+    calibrationReferenceType: 'NONE',
+    customMarkerCm: '',
+    markerPixelSpan: '',
+    defectLengthPx: '',
+    defectWidthPx: '',
+    aiEstimatedLengthCm: null,
+    aiEstimatedWidthCm: null,
+    aiMeasurementConfidence: null,
+    citizenConfirmedLengthCm: '',
+    citizenConfirmedWidthCm: ''
   });
 
+  const calibratedEstimate = useMemo(() => computeCalibratedMeasurement({
+    markerType: formData.calibrationReferenceType,
+    customMarkerCm: formData.customMarkerCm,
+    markerPixelSpan: formData.markerPixelSpan,
+    defectLengthPx: formData.defectLengthPx,
+    defectWidthPx: formData.defectWidthPx
+  }), [
+    formData.calibrationReferenceType,
+    formData.customMarkerCm,
+    formData.markerPixelSpan,
+    formData.defectLengthPx,
+    formData.defectWidthPx
+  ]);
+
   const [features, setFeatures] = useState({ visionEnabled: false, visionProviderName: null });
+  const [autoMeasuring, setAutoMeasuring] = useState(false);
+  const [autoMeasureNote, setAutoMeasureNote] = useState('');
+  const [autoOverlay, setAutoOverlay] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -173,6 +202,12 @@ export const ReportComplaintPage = () => {
       } else if (trimmedDesc.length > 2000) {
         newErrors.description = 'Description cannot exceed 2000 characters.';
       }
+      if (formData.categoryId === 'others') {
+        const trimmedOther = (formData.otherCategoryDescription || '').trim();
+        if (!trimmedOther || trimmedOther.length < 5) {
+          newErrors.otherCategoryDescription = t('reportComplaint.otherCategoryRequired') || 'Please specify the category or issue type (at least 5 characters).';
+        }
+      }
     }
     if (step === 3) {
       const trimmedAddress = formData.address.trim();
@@ -229,8 +264,9 @@ export const ReportComplaintPage = () => {
 
       const created = await complaintService.create({
         title: formData.title,
-        category: selectedCat.name,
+        category: selectedCat.backendKey || selectedCat.name,
         categoryId: formData.categoryId,
+        customCategoryDescription: formData.categoryId === 'others' ? formData.otherCategoryDescription.trim() : null,
         description: formData.description,
         priority: formData.priority,
         address: formData.address,
@@ -241,6 +277,12 @@ export const ReportComplaintPage = () => {
         photos: photoUrls,
         files: realFiles,
         visionConsent: Boolean(formData.visionConsent),
+        calibrationReferenceType: formData.calibrationReferenceType !== 'NONE' ? formData.calibrationReferenceType : null,
+        aiEstimatedLengthCm: calibratedEstimate.calibrated ? calibratedEstimate.estimatedLengthCm : null,
+        aiEstimatedWidthCm: calibratedEstimate.calibrated ? calibratedEstimate.estimatedWidthCm : null,
+        aiMeasurementConfidence: calibratedEstimate.calibrated ? calibratedEstimate.confidence : null,
+        citizenConfirmedLengthCm: formData.citizenConfirmedLengthCm ? Number(formData.citizenConfirmedLengthCm) : null,
+        citizenConfirmedWidthCm: formData.citizenConfirmedWidthCm ? Number(formData.citizenConfirmedWidthCm) : null,
         citizenId: currentUser?.id,
         citizenName: currentUser?.name,
         citizenEmail: currentUser?.email
@@ -612,6 +654,27 @@ export const ReportComplaintPage = () => {
                         </button>
                       ))}
                     </div>
+
+                    {formData.categoryId === 'others' && (
+                      <div className="pt-2 space-y-1.5 animate-fade-in">
+                        <label className="block text-xs font-semibold text-on-surface" htmlFor="other-category-desc">
+                          {t('reportComplaint.otherCategoryLabel') || 'Specify Issue Category'} *
+                        </label>
+                        <input
+                          id="other-category-desc"
+                          type="text"
+                          maxLength={200}
+                          required
+                          placeholder={t('reportComplaint.otherCategoryPlaceholder') || 'e.g. Open manhole cover, stray cattle hazard, damaged bus shelter...'}
+                          value={formData.otherCategoryDescription}
+                          onChange={(e) => setFormData({ ...formData, otherCategoryDescription: e.target.value })}
+                          className="w-full px-3.5 py-2.5 bg-surface-container-low rounded-xl text-sm text-on-surface placeholder:text-outline border border-primary-container/40 focus:border-primary-container focus:bg-surface-container-lowest focus:outline-none transition-all"
+                        />
+                        {errors.otherCategoryDescription && (
+                          <p className="text-xs text-error">{errors.otherCategoryDescription}</p>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Description & Web Speech API Voice Input */}
@@ -675,6 +738,295 @@ export const ReportComplaintPage = () => {
                     label={t('reportComplaint.photosLabel')}
                     helperText={t('reportComplaint.photosHelper')}
                   />
+
+                  {/* Calibration-Assisted Defect Measurement (Optional, Never Invents Scale) */}
+                  <div className="p-4 rounded-xl bg-surface-container-low border border-outline-variant/30 space-y-3" data-testid="defect-measurement-panel">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <h4 className="text-xs font-bold text-on-surface uppercase tracking-wider">
+                          Approximate Defect Measurement (Optional)
+                        </h4>
+                        <p className="text-[11px] text-on-surface-variant mt-0.5">
+                          Single photos cannot estimate real-world centimetres without a coplanar reference marker.
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-surface-container text-tertiary shrink-0">
+                        {calibratedEstimate.calibrated ? 'Provisional Calibrated Scale' : 'Visual Only (No Invented Scale)'}
+                      </span>
+                    </div>
+
+                    {formData.photos.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={autoMeasuring}
+                          onClick={async () => {
+                            const firstPhoto = formData.photos[0];
+                            if (!firstPhoto?.url) return;
+                            setAutoMeasuring(true);
+                            setAutoMeasureNote('');
+                            try {
+                              const targetMarker = formData.calibrationReferenceType !== 'NONE'
+                                ? formData.calibrationReferenceType
+                                : 'A4_SHEET';
+                              const res = await runCanvasAutoMeasurement(
+                                firstPhoto.url,
+                                targetMarker,
+                                formData.customMarkerCm
+                              );
+                              setAutoOverlay({
+                                imageUrl: firstPhoto.url,
+                                analysisWidth: res.analysisWidth,
+                                analysisHeight: res.analysisHeight,
+                                markerBox: res.markerBox,
+                                defectBox: res.defectBox
+                              });
+                              if (res.calibrated) {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  calibrationReferenceType: targetMarker,
+                                  markerPixelSpan: String(res.markerPixelSpan),
+                                  defectLengthPx: String(res.defectLengthPx),
+                                  defectWidthPx: String(res.defectWidthPx)
+                                }));
+                                setAutoMeasureNote(`Auto-detected reference & defect (${res.method}). Review and confirm below.`);
+                              } else {
+                                setAutoMeasureNote(res.limitationNote);
+                              }
+                            } catch {
+                              setAutoMeasureNote('Could not auto-scan image pixels. You may enter manual measurements below.');
+                            } finally {
+                              setAutoMeasuring(false);
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-primary-container hover:bg-primary text-white text-xs font-semibold transition-colors flex items-center gap-1.5 disabled:opacity-60"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">straighten</span>
+                          <span>{autoMeasuring ? 'Scanning Photo...' : 'Auto-Detect Marker & Defect from Photo'}</span>
+                        </button>
+                        {autoMeasureNote && (
+                          <span className="text-[11px] text-on-surface-variant">{autoMeasureNote}</span>
+                        )}
+                      </div>
+                    )}
+
+                    {autoOverlay && (autoOverlay.markerBox || autoOverlay.defectBox) && (
+                      <div className="space-y-1.5" data-testid="measurement-overlay-preview">
+                        <div className="relative inline-block max-w-full rounded-xl overflow-hidden border border-outline-variant/40 bg-black/5">
+                          <img
+                            src={autoOverlay.imageUrl}
+                            alt="Uploaded defect with detected calibration and boundary overlay"
+                            className="max-h-64 w-auto object-contain block"
+                          />
+                          <svg
+                            viewBox={`0 0 ${autoOverlay.analysisWidth || 100} ${autoOverlay.analysisHeight || 100}`}
+                            preserveAspectRatio="none"
+                            className="absolute inset-0 w-full h-full pointer-events-none"
+                          >
+                            {autoOverlay.markerBox && (
+                              <rect
+                                x={autoOverlay.markerBox.x}
+                                y={autoOverlay.markerBox.y}
+                                width={autoOverlay.markerBox.width}
+                                height={autoOverlay.markerBox.height}
+                                fill="rgba(37, 99, 235, 0.12)"
+                                stroke="#2563eb"
+                                strokeWidth="2"
+                                strokeDasharray="4 2"
+                              />
+                            )}
+                            {autoOverlay.defectBox && (
+                              <rect
+                                x={autoOverlay.defectBox.x}
+                                y={autoOverlay.defectBox.y}
+                                width={autoOverlay.defectBox.width}
+                                height={autoOverlay.defectBox.height}
+                                fill="rgba(16, 185, 129, 0.14)"
+                                stroke="#10b981"
+                                strokeWidth="2"
+                              />
+                            )}
+                          </svg>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 text-[11px]">
+                          {autoOverlay.markerBox && (
+                            <span className="inline-flex items-center gap-1 text-blue-700 font-semibold">
+                              <span className="w-2.5 h-2.5 inline-block border-2 border-blue-600 border-dashed" />
+                              Reference Marker ({autoOverlay.markerBox.width}&times;{autoOverlay.markerBox.height} px)
+                            </span>
+                          )}
+                          {autoOverlay.defectBox && (
+                            <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold">
+                              <span className="w-2.5 h-2.5 inline-block border-2 border-emerald-600" />
+                              Defect Boundary ({autoOverlay.defectBox.width}&times;{autoOverlay.defectBox.height} px)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div className="space-y-1">
+                        <label className="block font-semibold text-on-surface" htmlFor="calibration-marker-select">
+                          Reference Object in Photo
+                        </label>
+                        <select
+                          id="calibration-marker-select"
+                          value={formData.calibrationReferenceType}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, calibrationReferenceType: e.target.value }))}
+                          className="w-full px-3 py-2 bg-surface-container-lowest rounded-lg border border-outline-variant/40 text-xs text-on-surface"
+                        >
+                          {CALIBRATION_MARKERS.map((m) => (
+                            <option key={m.id} value={m.id}>{m.label}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {formData.calibrationReferenceType === 'CUSTOM_MARKER' && (
+                        <div className="space-y-1">
+                          <label className="block font-semibold text-on-surface" htmlFor="custom-marker-cm">
+                            Reference Object Length (cm)
+                          </label>
+                          <input
+                            id="custom-marker-cm"
+                            type="number"
+                            min="1"
+                            step="0.1"
+                            placeholder="e.g. 30.0"
+                            value={formData.customMarkerCm}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, customMarkerCm: e.target.value }))}
+                            className="w-full px-3 py-2 bg-surface-container-lowest rounded-lg border border-outline-variant/40 text-xs text-on-surface"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {formData.calibrationReferenceType !== 'NONE' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                        <div className="space-y-1">
+                          <label className="block text-[11px] font-semibold text-on-surface-variant" htmlFor="marker-px">
+                            Marker Span (px)
+                          </label>
+                          <input
+                            id="marker-px"
+                            type="number"
+                            min="10"
+                            placeholder="e.g. 120"
+                            value={formData.markerPixelSpan}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, markerPixelSpan: e.target.value }))}
+                            className="w-full px-3 py-1.5 bg-surface-container-lowest rounded-lg border border-outline-variant/40 text-xs text-on-surface"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block text-[11px] font-semibold text-on-surface-variant" htmlFor="defect-len-px">
+                            Defect Length (px)
+                          </label>
+                          <input
+                            id="defect-len-px"
+                            type="number"
+                            min="1"
+                            placeholder="e.g. 240"
+                            value={formData.defectLengthPx}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, defectLengthPx: e.target.value }))}
+                            className="w-full px-3 py-1.5 bg-surface-container-lowest rounded-lg border border-outline-variant/40 text-xs text-on-surface"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block text-[11px] font-semibold text-on-surface-variant" htmlFor="defect-wid-px">
+                            Defect Width (px)
+                          </label>
+                          <input
+                            id="defect-wid-px"
+                            type="number"
+                            min="1"
+                            placeholder="e.g. 160"
+                            value={formData.defectWidthPx}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, defectWidthPx: e.target.value }))}
+                            className="w-full px-3 py-1.5 bg-surface-container-lowest rounded-lg border border-outline-variant/40 text-xs text-on-surface"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {calibratedEstimate.calibrated ? (
+                      <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs space-y-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-bold text-emerald-900">
+                            Provisional Estimate: {calibratedEstimate.estimatedLengthCm} cm &times; {calibratedEstimate.estimatedWidthCm} cm (~{calibratedEstimate.estimatedAreaSqm} m&sup2;)
+                          </span>
+                          <span className="font-mono text-[11px] text-emerald-800">
+                            Heuristic Confidence: {calibratedEstimate.confidence}%
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-emerald-800">
+                          Method: {calibratedEstimate.method}. {calibratedEstimate.limitationNote}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setFormData((prev) => ({
+                              ...prev,
+                              citizenConfirmedLengthCm: String(calibratedEstimate.estimatedLengthCm),
+                              citizenConfirmedWidthCm: String(calibratedEstimate.estimatedWidthCm)
+                            }))}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold transition-colors"
+                          >
+                            Confirm &amp; Apply Approximate Measurement
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFormData((prev) => ({
+                              ...prev,
+                              calibrationReferenceType: 'NONE',
+                              markerPixelSpan: '',
+                              defectLengthPx: '',
+                              defectWidthPx: ''
+                            }))}
+                            className="px-3 py-1.5 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-100 text-emerald-900 text-xs font-semibold transition-colors"
+                          >
+                            Reject AI Estimate
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        {calibratedEstimate.limitationNote}
+                      </p>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-outline-variant/20 text-xs">
+                      <div className="space-y-1">
+                        <label className="block text-[11px] font-semibold text-on-surface" htmlFor="confirmed-len-cm">
+                          Citizen-Confirmed Approx. Length (cm)
+                        </label>
+                        <input
+                          id="confirmed-len-cm"
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          placeholder="Optional manual entry (cm)"
+                          value={formData.citizenConfirmedLengthCm}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, citizenConfirmedLengthCm: e.target.value }))}
+                          className="w-full px-3 py-1.5 bg-surface-container-lowest rounded-lg border border-outline-variant/40 text-xs text-on-surface"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block text-[11px] font-semibold text-on-surface" htmlFor="confirmed-wid-cm">
+                          Citizen-Confirmed Approx. Width (cm)
+                        </label>
+                        <input
+                          id="confirmed-wid-cm"
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          placeholder="Optional manual entry (cm)"
+                          value={formData.citizenConfirmedWidthCm}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, citizenConfirmedWidthCm: e.target.value }))}
+                          className="w-full px-3 py-1.5 bg-surface-container-lowest rounded-lg border border-outline-variant/40 text-xs text-on-surface"
+                        />
+                      </div>
+                    </div>
+                  </div>
 
                   {/* Optional Vision Photo Analysis Layer (Only shown when server feature is enabled) */}
                   {features.visionEnabled && (
@@ -875,6 +1227,27 @@ export const ReportComplaintPage = () => {
                         </button>
                       ))}
                     </div>
+
+                    {formData.categoryId === 'others' && (
+                      <div className="pt-2 space-y-1.5 animate-fade-in">
+                        <label className="block text-xs font-semibold text-on-surface" htmlFor="other-category-desc">
+                          {t('reportComplaint.otherCategoryLabel') || 'Specify Issue Category'} *
+                        </label>
+                        <input
+                          id="other-category-desc"
+                          type="text"
+                          maxLength={200}
+                          required
+                          placeholder={t('reportComplaint.otherCategoryPlaceholder') || 'e.g. Open manhole cover, stray cattle hazard, damaged bus shelter...'}
+                          value={formData.otherCategoryDescription}
+                          onChange={(e) => setFormData({ ...formData, otherCategoryDescription: e.target.value })}
+                          className="w-full px-3.5 py-2.5 bg-surface-container-low rounded-xl text-sm text-on-surface placeholder:text-outline border border-primary-container/40 focus:border-primary-container focus:bg-surface-container-lowest focus:outline-none transition-all"
+                        />
+                        {errors.otherCategoryDescription && (
+                          <p className="text-xs text-error">{errors.otherCategoryDescription}</p>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

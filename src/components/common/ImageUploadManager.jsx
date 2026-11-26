@@ -42,28 +42,40 @@ export const ImageUploadManager = ({
     }
   ];
 
+  const [capturedPreview, setCapturedPreview] = useState(null);
+
   // Stop camera stream when modal closes or unmounts
   const stopCameraStream = () => {
     const activeStream = cameraStreamRef.current || cameraStream;
     if (activeStream) {
       activeStream.getTracks().forEach((track) => track.stop());
     }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    if (capturedPreview?.previewUrl) {
+      URL.revokeObjectURL(capturedPreview.previewUrl);
+    }
     cameraStreamRef.current = null;
     setCameraStream(null);
     setCameraReady(false);
     setCameraActive(false);
     setCameraError('');
+    setCapturedPreview(null);
   };
 
   useEffect(() => {
     cameraStreamRef.current = cameraStream;
+  }, [cameraStream]);
+
+  useEffect(() => {
     return () => {
       if (cameraStreamRef.current) {
         cameraStreamRef.current.getTracks().forEach((track) => track.stop());
         cameraStreamRef.current = null;
       }
     };
-  }, [cameraStream]);
+  }, []);
 
   // Process selected files from input
   const processFiles = async (fileList) => {
@@ -234,26 +246,54 @@ export const ImageUploadManager = ({
         if (!blob) return;
         const file = new File([blob], `evidence_camera_${Date.now()}.jpg`, { type: 'image/jpeg' });
         const previewUrl = URL.createObjectURL(file);
-
-        const newPhoto = {
-          id: `cam_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+        setCapturedPreview({
           file,
+          previewUrl,
           name: file.name,
-          sizeBytes: file.size,
-          sizeFormatted: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
-          type: 'image/jpeg',
-          url: previewUrl,
-          isLocal: true,
-          uploadStatus: 'pending',
-          source: 'Live Camera Capture'
-        };
-
-        stopCameraStream();
-        onChange([...photos, newPhoto]);
+          sizeFormatted: (file.size / (1024 * 1024)).toFixed(2) + ' MB'
+        });
       },
       'image/jpeg',
       0.92
     );
+  };
+
+  const handleConfirmCaptured = () => {
+    if (!capturedPreview) return;
+    const { file, previewUrl, sizeFormatted } = capturedPreview;
+    const newPhoto = {
+      id: `cam_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      file,
+      name: file.name,
+      sizeBytes: file.size,
+      sizeFormatted,
+      type: 'image/jpeg',
+      url: previewUrl,
+      isLocal: true,
+      uploadStatus: 'pending',
+      source: 'Live Camera Capture'
+    };
+    setCapturedPreview(null);
+    const activeStream = cameraStreamRef.current || cameraStream;
+    if (activeStream) {
+      activeStream.getTracks().forEach((track) => track.stop());
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    cameraStreamRef.current = null;
+    setCameraStream(null);
+    setCameraReady(false);
+    setCameraActive(false);
+    setCameraError('');
+    onChange([...photos, newPhoto]);
+  };
+
+  const handleRetakeCaptured = () => {
+    if (capturedPreview?.previewUrl) {
+      URL.revokeObjectURL(capturedPreview.previewUrl);
+    }
+    setCapturedPreview(null);
   };
 
   // Remove photo
@@ -589,6 +629,17 @@ export const ImageUploadManager = ({
                     </button>
                   </div>
                 </div>
+              ) : capturedPreview ? (
+                <div className="w-full flex flex-col items-center gap-3">
+                  <img
+                    src={capturedPreview.previewUrl}
+                    alt="Captured snapshot preview"
+                    className="w-full max-h-[360px] object-contain rounded-lg border border-white/20"
+                  />
+                  <span className="text-xs text-emerald-400 font-medium">
+                    Snapshot captured ({capturedPreview.sizeFormatted}) — review before attaching
+                  </span>
+                </div>
               ) : (
                 <>
                   <video
@@ -607,6 +658,9 @@ export const ImageUploadManager = ({
                       if (e.target.videoWidth > 0) setCameraReady(true);
                     }}
                     onPlaying={(e) => {
+                      if (e.target.videoWidth > 0) setCameraReady(true);
+                    }}
+                    onResize={(e) => {
                       if (e.target.videoWidth > 0) setCameraReady(true);
                     }}
                     className="w-full max-h-[360px] object-contain rounded-lg"
@@ -636,7 +690,7 @@ export const ImageUploadManager = ({
               </button>
 
               <div className="flex items-center gap-2">
-                {allowSampleDemo && (
+                {allowSampleDemo && !capturedPreview && (
                   <button
                     type="button"
                     onClick={() => {
@@ -651,15 +705,36 @@ export const ImageUploadManager = ({
                   </button>
                 )}
 
-                <button
-                  type="button"
-                  onClick={handleCaptureSnapshot}
-                  disabled={!cameraStream || !cameraReady || Boolean(cameraError)}
-                  className="px-5 py-2.5 bg-primary-container hover:bg-primary text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <span className="material-symbols-outlined text-[18px]">camera</span>
-                  <span>Capture Snapshot</span>
-                </button>
+                {capturedPreview ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleRetakeCaptured}
+                      className="px-4 py-2 bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">refresh</span>
+                      <span>Retake Photo</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmCaptured}
+                      className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 shadow-sm transition-all"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                      <span>Use This Photo</span>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleCaptureSnapshot}
+                    disabled={!cameraStream || !cameraReady || Boolean(cameraError)}
+                    className="px-5 py-2.5 bg-primary-container hover:bg-primary text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">camera</span>
+                    <span>Capture Snapshot</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>

@@ -120,6 +120,36 @@ public class NotificationService {
                     }
                     break;
 
+                case COMPLAINT_UNDER_REVIEW:
+                    sendNotification(
+                            complaint.getCitizen(),
+                            actor,
+                            complaint,
+                            refId,
+                            "Complaint Accepted for Review #" + refId,
+                            "Your complaint has been accepted by municipal intake and is now under officer review.",
+                            NotificationType.STATUS_CHANGED,
+                            NotificationSeverity.INFO,
+                            "/citizen/complaints/" + refId
+                    );
+                    if (complaint.getCitizen() != null && complaint.getCitizen().getEmail() != null) {
+                        try {
+                            dispatchStatusUpdateEmail(
+                                    complaint.getCitizen(),
+                                    complaint,
+                                    refId,
+                                    "SUBMITTED",
+                                    "UNDER_REVIEW",
+                                    event.getNotes() != null && !event.getNotes().isBlank()
+                                            ? event.getNotes().trim()
+                                            : "Accepted by municipal intake for review and crew assignment."
+                            );
+                        } catch (Exception ex) {
+                            log.warn("Non-fatal email error on UNDER_REVIEW #{}: {}", refId, ex.getMessage());
+                        }
+                    }
+                    break;
+
                 case WORKER_ASSIGNED:
                     // 1. Notify assigned field technician
                     if (complaint.getAssignedWorker() != null) {
@@ -255,6 +285,13 @@ public class NotificationService {
                     break;
 
                 case COMPLAINT_RESOLVED:
+                    if (complaint.getId() != null) {
+                        notificationRepository.markComplaintNotificationsAsReadByType(
+                                complaint.getId(),
+                                NotificationType.COMPLAINT_CREATED,
+                                OffsetDateTime.now()
+                        );
+                    }
                     // 1. Notify citizen of official closure
                     sendNotification(
                             complaint.getCitizen(),
@@ -312,6 +349,14 @@ public class NotificationService {
                     break;
 
                 case COMPLAINT_REJECTED:
+                    // Mark earlier unread intake notifications for this rejected complaint as read while preserving audit history
+                    if (complaint.getId() != null) {
+                        notificationRepository.markComplaintNotificationsAsReadByType(
+                                complaint.getId(),
+                                NotificationType.COMPLAINT_CREATED,
+                                OffsetDateTime.now()
+                        );
+                    }
                     // Notify citizen of rejection
                     String rejectReason = event.getNotes() != null && !event.getNotes().isBlank()
                             ? event.getNotes().trim()
@@ -846,7 +891,8 @@ public class NotificationService {
         String ward = complaint.getWard();
 
         if (emailOutboxService != null) {
-            String idemKey = "assign_" + complaint.getId() + "_" + worker.getId() + "_" + System.currentTimeMillis();
+            long minuteBucket = System.currentTimeMillis() / 60000L;
+            String idemKey = "assign_" + complaint.getId() + "_" + worker.getId() + "_" + minuteBucket;
             emailOutboxService.enqueueEmail(
                     idemKey,
                     toEmail,
@@ -875,7 +921,8 @@ public class NotificationService {
         String title = complaint.getTitle();
 
         if (emailOutboxService != null) {
-            String idemKey = "status_" + complaint.getId() + "_" + newStatus + "_" + System.currentTimeMillis();
+            long minuteBucket = System.currentTimeMillis() / 60000L;
+            String idemKey = "status_" + complaint.getId() + "_" + newStatus + "_" + minuteBucket;
             emailOutboxService.enqueueEmail(
                     idemKey,
                     toEmail,

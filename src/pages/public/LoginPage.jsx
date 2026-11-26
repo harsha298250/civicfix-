@@ -475,6 +475,11 @@ export const LoginPage = () => {
                   ? 'Enter your registered email address (Firebase Authentication).'
                   : 'Accepts registered email or standard 10-digit Indian mobile (+91).'}
               </p>
+              {selectedRole === 'CITIZEN' && identifier.trim().toLowerCase().endsWith('@civicfix.gov') && (
+                <p className="text-[11px] text-teal-800 bg-teal-50 border border-teal-200 rounded-lg px-2.5 py-1.5 mt-1.5">
+                  Municipal staff account detected — after sign-in you will be directed to your backend-authorized staff workspace.
+                </p>
+              )}
             </div>
 
             <div>

@@ -70,7 +70,7 @@ export function LanguageProvider({ children }) {
         window.localStorage.setItem(LANGUAGE_STORAGE_KEY, validLang);
       }
       if (typeof document !== 'undefined') {
-        document.documentElement.lang = validLang;
+        document.documentElement.lang = validLang === 'ta' ? 'ta-IN' : 'en-IN';
       }
     } catch {
       // Ignore localStorage write failures
@@ -79,9 +79,11 @@ export function LanguageProvider({ children }) {
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
-      document.documentElement.lang = language;
+      document.documentElement.lang = language === 'ta' ? 'ta-IN' : 'en-IN';
     }
   }, [language]);
+
+  const locale = language === 'ta' ? 'ta-IN' : 'en-IN';
 
   const t = useCallback((key, params) => {
     if (!key) return '';
@@ -107,10 +109,11 @@ export function LanguageProvider({ children }) {
 
   const contextValue = useMemo(() => ({
     language,
+    locale,
     changeLanguage,
     t,
     isTamil: language === 'ta',
-  }), [language, changeLanguage, t]);
+  }), [language, locale, changeLanguage, t]);
 
   return (
     <LanguageContext.Provider value={contextValue}>
@@ -132,6 +135,7 @@ export function useTranslation() {
     };
     return {
       language: DEFAULT_LANGUAGE,
+      locale: 'en-IN',
       changeLanguage: () => {},
       t: fallbackT,
       isTamil: false,

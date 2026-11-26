@@ -229,6 +229,11 @@ public class EmailOutboxService {
                 String verificationUrl = resolveDecryptedField(data, "verificationUrlEncrypted", "verificationUrl");
                 yield resendEmailService.buildEmailVerificationHtml(name, verificationUrl);
             }
+            case "STAFF_ACTIVATION_INVITE" -> {
+                String name = (String) data.getOrDefault("fullName", data.getOrDefault("name", "Municipal Staff"));
+                String activationUrl = resolveDecryptedField(data, "activationUrlEncrypted", "activationUrl");
+                yield resendEmailService.buildEmailVerificationHtml(name, activationUrl);
+            }
             case "PASSWORD_RESET" -> {
                 String resetUrl = resolveDecryptedField(data, "resetUrlEncrypted", "resetUrl");
                 yield resendEmailService.buildPasswordResetHtml(resetUrl);

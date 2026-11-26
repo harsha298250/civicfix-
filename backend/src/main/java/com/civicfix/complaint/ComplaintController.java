@@ -338,12 +338,14 @@ public class ComplaintController {
         Resource fileResource = complaintService.loadEvidenceFile(filename, principal);
 
         String contentType = "application/octet-stream";
-        String lower = filename.toLowerCase();
-        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+        String resolvedName = (fileResource != null && fileResource.getFilename() != null && fileResource.getFilename().contains("."))
+                ? fileResource.getFilename().toLowerCase()
+                : filename.toLowerCase();
+        if (resolvedName.endsWith(".jpg") || resolvedName.endsWith(".jpeg")) {
             contentType = "image/jpeg";
-        } else if (lower.endsWith(".png")) {
+        } else if (resolvedName.endsWith(".png")) {
             contentType = "image/png";
-        } else if (lower.endsWith(".webp")) {
+        } else if (resolvedName.endsWith(".webp")) {
             contentType = "image/webp";
         }
 

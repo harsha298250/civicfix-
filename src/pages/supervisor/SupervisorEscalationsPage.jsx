@@ -5,6 +5,7 @@ import { SlaBadge } from '../../components/common/SlaBadge.jsx';
 import ClosureTrustBadge from '../../components/common/ClosureTrustBadge.jsx';
 import ModalDialog from '../../components/common/ModalDialog.jsx';
 import { useTranslation } from '../../context/LanguageContext.jsx';
+import { translateCategory, translateErrorMessage } from '../../utils/i18nHelpers.js';
 
 const WARDS = [
   'ALL',
@@ -94,7 +95,7 @@ export const SupervisorEscalationsPage = () => {
       if (trustData) setTrustScores(trustData);
     } catch (err) {
       console.error('Failed to fetch escalations:', err);
-      setError(err.message || 'Failed to retrieve escalated complaints.');
+      setError(translateErrorMessage(err, t, 'supervisor.failedToLoad'));
     } finally {
       setLoading(false);
     }
@@ -276,13 +277,13 @@ export const SupervisorEscalationsPage = () => {
         <div>
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-red-500 text-[28px]">crisis_alert</span>
-            <h2 className="text-2xl font-bold font-title text-on-surface">Escalations Queue</h2>
+            <h2 className="text-2xl font-bold font-title text-on-surface">{t('supervisor.escalationsQueue')}</h2>
             <span className="ml-2 px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300">
-              {totalElements} Active
+              {t('common.activeCount', { count: totalElements })}
             </span>
           </div>
           <p className="text-sm text-on-surface-variant mt-1">
-            Supervisory oversight of SLA-breached reports and manual supervisor interventions.
+            {t('supervisor.escalationsSubtitle')}
           </p>
         </div>
 
@@ -292,7 +293,7 @@ export const SupervisorEscalationsPage = () => {
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold bg-surface-container hover:bg-surface-container-high border border-outline/20 text-on-surface transition-all shadow-sm self-start sm:self-auto"
         >
           <span className={`material-symbols-outlined text-[18px] ${loading ? 'animate-spin' : ''}`}>refresh</span>
-          <span>Refresh</span>
+          <span>{t('common.refresh')}</span>
         </button>
       </div>
 
@@ -318,9 +319,9 @@ export const SupervisorEscalationsPage = () => {
                 <span className="material-symbols-outlined text-[24px]">verified</span>
               </div>
               <div>
-                <h3 className="text-base font-bold text-on-surface">Closure Trust Score & Verification Oversight</h3>
+                <h3 className="text-base font-bold text-on-surface">{t('supervisor.closureTrustTitle')}</h3>
                 <p className="text-xs text-on-surface-variant">
-                  Quantifies citizen verification rates. Score = confirmed / (confirmed + rejected + reopened).
+                  {t('supervisor.closureTrustDesc')}
                 </p>
               </div>
             </div>
@@ -340,7 +341,7 @@ export const SupervisorEscalationsPage = () => {
                 onClick={() => setShowTrustDetails(prev => !prev)}
                 className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container-low hover:bg-surface-container"
               >
-                <span>{showTrustDetails ? 'Hide Ward & Officer Breakdown' : 'View Ward & Officer Breakdown'}</span>
+                <span>{showTrustDetails ? t('supervisor.hideBreakdown') : t('supervisor.showBreakdown')}</span>
                 <span className="material-symbols-outlined text-[16px]">
                   {showTrustDetails ? 'expand_less' : 'expand_more'}
                 </span>
@@ -457,7 +458,7 @@ export const SupervisorEscalationsPage = () => {
       {/* Filter Controls Bar */}
       <div className="bg-surface-container-low p-4 rounded-2xl border border-outline/10 flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2 min-w-[200px]">
-          <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Ward:</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">{t('supervisor.wardFilter')}</span>
           <select
             value={selectedWard}
             onChange={(e) => {
@@ -467,13 +468,13 @@ export const SupervisorEscalationsPage = () => {
             className="flex-1 bg-surface border border-outline/20 rounded-xl px-3 py-1.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
           >
             {WARDS.map(w => (
-              <option key={w} value={w}>{w === 'ALL' ? 'All Municipal Wards' : w}</option>
+              <option key={w} value={w}>{w === 'ALL' ? t('common.allWards') : w}</option>
             ))}
           </select>
         </div>
 
         <div className="flex items-center gap-2 min-w-[220px]">
-          <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Category:</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">{t('supervisor.categoryFilter')}</span>
           <select
             value={selectedCategory}
             onChange={(e) => {
@@ -483,7 +484,7 @@ export const SupervisorEscalationsPage = () => {
             className="flex-1 bg-surface border border-outline/20 rounded-xl px-3 py-1.5 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
           >
             {CATEGORIES.map(c => (
-              <option key={c} value={c}>{c === 'ALL' ? 'All Categories' : c}</option>
+              <option key={c} value={c}>{c === 'ALL' ? t('common.allCategories') : translateCategory(c, t)}</option>
             ))}
           </select>
         </div>
@@ -497,7 +498,7 @@ export const SupervisorEscalationsPage = () => {
             }}
             className="text-xs text-primary font-semibold hover:underline ml-auto"
           >
-            Clear Filters
+            {t('common.clearFilters')}
           </button>
         )}
       </div>
@@ -507,18 +508,18 @@ export const SupervisorEscalationsPage = () => {
         {loading ? (
           <div className="p-12 text-center text-on-surface-variant flex flex-col items-center justify-center">
             <span className="material-symbols-outlined text-[36px] animate-spin text-primary">progress_activity</span>
-            <p className="mt-3 text-sm font-medium">Loading escalated complaints from database...</p>
+            <p className="mt-3 text-sm font-medium">{t('supervisor.loadingEscalations')}</p>
           </div>
         ) : error ? (
           <div className="p-12 text-center text-error flex flex-col items-center justify-center">
             <span className="material-symbols-outlined text-[40px]">error</span>
-            <p className="mt-2 text-base font-bold">Failed to load escalated complaints</p>
+            <p className="mt-2 text-base font-bold">{t('supervisor.failedToLoad')}</p>
             <p className="text-sm text-on-surface-variant mt-1">{error}</p>
             <button
               onClick={fetchEscalations}
               className="mt-4 px-4 py-2 rounded-xl bg-primary text-white font-semibold text-sm hover:bg-primary/90"
             >
-              Retry
+              {t('common.retry')}
             </button>
           </div>
         ) : escalations.length === 0 ? (
@@ -526,9 +527,9 @@ export const SupervisorEscalationsPage = () => {
             <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center text-emerald-600 mb-3">
               <span className="material-symbols-outlined text-[32px]">task_alt</span>
             </div>
-            <h3 className="text-base font-bold text-on-surface">No Escalated Complaints</h3>
+            <h3 className="text-base font-bold text-on-surface">{t('supervisor.noEscalationsTitle')}</h3>
             <p className="text-sm max-w-md mt-1 text-on-surface-variant">
-              There are currently no complaints in breached or manually escalated status for the selected criteria.
+              {t('supervisor.noEscalationsDesc')}
             </p>
           </div>
         ) : (
@@ -536,12 +537,12 @@ export const SupervisorEscalationsPage = () => {
             <table className="w-full text-left text-sm">
               <thead className="bg-surface-container-low text-xs uppercase font-bold text-on-surface-variant border-b border-outline/10">
                 <tr>
-                  <th className="px-4 py-3.5">Reference & Title</th>
-                  <th className="px-4 py-3.5">Category & Priority</th>
-                  <th className="px-4 py-3.5">Ward / Location</th>
-                  <th className="px-4 py-3.5">SLA State</th>
-                  <th className="px-4 py-3.5">Assigned Worker</th>
-                  <th className="px-4 py-3.5 text-right">Actions</th>
+                  <th className="px-4 py-3.5">{t('supervisor.colReferenceTitle')}</th>
+                  <th className="px-4 py-3.5">{t('supervisor.colCategoryPriority')}</th>
+                  <th className="px-4 py-3.5">{t('supervisor.colWardLocation')}</th>
+                  <th className="px-4 py-3.5">{t('supervisor.colSlaState')}</th>
+                  <th className="px-4 py-3.5">{t('supervisor.colAssignedWorker')}</th>
+                  <th className="px-4 py-3.5 text-right">{t('supervisor.colActions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-outline/10">

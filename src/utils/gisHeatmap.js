@@ -124,7 +124,7 @@ export function createHotspotLayerGroup(hotspots, L = (typeof window !== 'undefi
           <b>${h.count}</b> Total Issues (${h.criticalCount} Critical, ${h.highCount} High)
         </div>
         <div style="color: #64748B; font-size: 10px;">
-          Area: ${h.ward}
+          Area: ${String(h.ward || '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]))}
         </div>
       </div>
     `;

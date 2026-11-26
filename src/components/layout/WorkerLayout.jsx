@@ -27,31 +27,40 @@ export const WorkerLayout = () => {
   const activeTaskId = myAssignedTasks.find(c => c.status === COMPLAINT_STATUS.IN_PROGRESS)?.id || myAssignedTasks[0]?.id || null;
 
   const navItems = [
-    { label: t('nav.workerDashboard'), path: '/worker/dashboard', icon: 'dashboard' },
+    { id: 'workerDashboard', label: t('nav.workerDashboard'), path: '/worker/dashboard', icon: 'dashboard' },
     {
+      id: 'assignedTasks',
       label: t('nav.assignedTasks'),
       path: '/worker/tasks',
       icon: 'assignment',
-      badge: myAssignedTasks.length > 0 ? myAssignedTasks.length : null
+      badge: myAssignedTasks.length > 0 ? myAssignedTasks.length : null,
+      match: (pathname) => pathname === '/worker/tasks'
     },
     {
+      id: 'taskDetails',
       label: t('nav.taskDetails'),
       path: activeTaskId ? `/worker/tasks/${activeTaskId}` : '/worker/tasks',
-      icon: 'manage_search'
+      icon: 'manage_search',
+      match: (pathname) => /^\/worker\/tasks\/[^/]+$/.test(pathname)
     },
     {
+      id: 'updateProgress',
       label: t('nav.updateProgress'),
       path: activeTaskId ? `/worker/tasks/${activeTaskId}/progress` : '/worker/tasks',
       icon: 'pending_actions',
       badge: activeTaskCount > 0 ? `${activeTaskCount} Active` : null,
-      badgeColor: 'bg-primary-container text-white'
+      badgeColor: 'bg-primary-container text-white',
+      match: (pathname) => /^\/worker\/tasks\/[^/]+\/progress$/.test(pathname)
     },
     {
+      id: 'submitEvidence',
       label: t('nav.submitEvidence'),
       path: activeTaskId ? `/worker/tasks/${activeTaskId}/evidence` : '/worker/tasks',
-      icon: 'fact_check'
+      icon: 'fact_check',
+      match: (pathname) => /^\/worker\/tasks\/[^/]+\/evidence$/.test(pathname)
     },
     {
+      id: 'notifications',
       label: t('nav.notifications'),
       path: '/worker/notifications',
       icon: 'notifications',
@@ -116,10 +125,12 @@ export const WorkerLayout = () => {
           {/* Navigation Items */}
           <nav className="flex-1 px-3 space-y-1 overflow-y-auto no-scrollbar">
             {navItems.map((item) => {
-              const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+              const isActive = item.match
+                ? item.match(location.pathname)
+                : (location.pathname === item.path || location.pathname.startsWith(`${item.path}/`));
               return (
                 <Link
-                  key={item.path}
+                  key={item.id || item.path}
                   to={item.path}
                   onClick={() => setMobileSidebarOpen(false)}
                   className={`flex items-center justify-between px-3 py-2 rounded-xl text-body-md transition-all ${

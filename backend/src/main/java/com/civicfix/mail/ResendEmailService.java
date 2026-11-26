@@ -261,8 +261,10 @@ public class ResendEmailService implements EmailService {
 
     public String buildComplaintStatusUpdateHtml(String citizenName, String referenceId, String title, String oldStatus, String newStatus, String notes) {
         String notesBlock = (notes != null && !notes.isBlank())
-                ? "<div style=\"background: #F8FAFC; padding: 12px; border-radius: 8px; margin: 12px 0; font-size: 12px; color: #334155;\"><strong>Remarks:</strong> " + escapeHtml(notes) + "</div>"
+                ? "<div style=\"background: #F8FAFC; padding: 12px; border-radius: 8px; margin: 12px 0; font-size: 12px; color: #334155;\"><strong>Remarks / Reason:</strong> " + escapeHtml(notes) + "</div>"
                 : "";
+        String timestamp = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Kolkata"))
+                .format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a z"));
 
         return wrapTemplate(
                 "Civic Remediation Progress",
@@ -271,7 +273,9 @@ public class ResendEmailService implements EmailService {
                         + "<p>There is an operational update on your municipal complaint:</p>"
                         + "<p style=\"font-size: 15px; font-weight: bold; color: #137A70;\">" + escapeHtml(title) + "</p>"
                         + "<p>Status changed from <strong>" + escapeHtml(oldStatus) + "</strong> &rarr; <span style=\"background-color: #E8F4F1; color: #137A70; padding: 4px 8px; border-radius: 4px; font-weight: bold;\">" + escapeHtml(newStatus) + "</span></p>"
+                        + "<p style=\"font-size: 12px; color: #667384;\">Updated on: <strong>" + escapeHtml(timestamp) + "</strong></p>"
                         + notesBlock
+                        + "<p style=\"margin: 20px 0;\"><a href=\"" + escapeHtml(appBaseUrl) + "/citizen/complaints/" + escapeHtml(referenceId) + "\" style=\"display: inline-block; background-color: #137A70; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: bold;\">View Complaint Details</a></p>"
                         + "<p style=\"font-size: 12px; color: #667384;\">You can view complete progress logs and photos directly on your citizen dashboard.</p>"
         );
     }

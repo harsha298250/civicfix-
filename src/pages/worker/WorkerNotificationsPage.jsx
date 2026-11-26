@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { useTranslation } from '../../context/LanguageContext';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
+import { translateNotificationItem } from '../../utils/i18nHelpers';
 
 export const WorkerNotificationsPage = () => {
+  const { t } = useTranslation();
   const {
     notifications,
     unreadCount,
@@ -42,18 +45,18 @@ export const WorkerNotificationsPage = () => {
     <div className="w-full flex flex-col gap-6">
       <Breadcrumb
         items={[
-          { label: 'Field Ops', path: '/worker/dashboard', icon: 'engineering' },
-          { label: 'Worker Notifications' }
+          { label: t('common.fieldOps'), path: '/worker/dashboard', icon: 'engineering' },
+          { label: t('notifications.workerBreadcrumb') }
         ]}
       />
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-headline-lg text-2xl sm:text-3xl font-extrabold text-on-surface tracking-tight">
-            Field Dispatch Alerts
+            {t('notifications.workerTitle')}
           </h1>
           <p className="text-body-md text-sm text-on-surface-variant mt-1">
-            Work order dispatches, priority escalations, and officer verification feedback.
+            {t('notifications.workerSubtitle')}
           </p>
         </div>
 
@@ -69,7 +72,7 @@ export const WorkerNotificationsPage = () => {
                   : 'text-on-surface-variant hover:text-on-surface'
               }`}
             >
-              All
+              {t('notifications.all')}
             </button>
             <button
               type="button"
@@ -80,7 +83,7 @@ export const WorkerNotificationsPage = () => {
                   : 'text-on-surface-variant hover:text-on-surface'
               }`}
             >
-              <span>Unread</span>
+              <span>{t('notifications.unread')}</span>
               {unreadCount > 0 && (
                 <span className="px-1.5 py-0.2 rounded-full bg-error text-white text-[10px] font-bold">
                   {unreadCount}
@@ -96,7 +99,7 @@ export const WorkerNotificationsPage = () => {
               className="px-4 py-2 bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-semibold rounded-xl border border-outline-variant/30 transition-colors flex items-center gap-1.5 shadow-sm"
             >
               <span className="material-symbols-outlined text-[16px] text-secondary">done_all</span>
-              <span>Mark All as Read ({unreadCount})</span>
+              <span>{t('notifications.markAllRead')} ({unreadCount})</span>
             </button>
           )}
         </div>
@@ -106,20 +109,21 @@ export const WorkerNotificationsPage = () => {
         {notificationsLoading && notifications.length === 0 ? (
           <div className="text-center py-12 space-y-2">
             <span className="material-symbols-outlined animate-spin text-primary text-[32px]">sync</span>
-            <p className="text-sm font-semibold text-on-surface">Loading dispatch notices...</p>
-            <p className="text-xs text-tertiary">Connecting to municipal notification engine.</p>
+            <p className="text-sm font-semibold text-on-surface">{t('notifications.loadingAlerts')}</p>
+            <p className="text-xs text-tertiary">{t('notifications.connectingEngine')}</p>
           </div>
         ) : notifications.length === 0 ? (
           <div className="text-center py-12 space-y-2">
             <span className="material-symbols-outlined text-tertiary text-[36px]">notifications_paused</span>
-            <p className="text-sm font-semibold text-on-surface">No field alerts pending.</p>
+            <p className="text-sm font-semibold text-on-surface">{t('notifications.noAlertsPending')}</p>
             <p className="text-xs text-tertiary">
-              {unreadOnly ? 'All dispatch notifications have been reviewed.' : 'Your active field log is up to date.'}
+              {unreadOnly ? t('notifications.allMarkedRead') : t('notifications.queueClear')}
             </p>
           </div>
         ) : (
           notifications.map(n => {
             const iconConfig = getWorkerIcon(n.type, n.severity);
+            const translatedNotif = translateNotificationItem(n, t);
             const targetPath = n.targetUrl || (n.referenceId ? `/worker/tasks/${n.referenceId}` : null);
 
             return (
@@ -137,14 +141,14 @@ export const WorkerNotificationsPage = () => {
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-title text-sm font-bold text-on-surface">{n.title}</h3>
+                      <h3 className="font-title text-sm font-bold text-on-surface">{translatedNotif.title}</h3>
                       {!n.read && (
                         <span className="px-2 py-0.2 rounded-full bg-secondary text-white text-[10px] font-bold">
-                          NEW
+                          {t('notifications.actionRequired')}
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-on-surface-variant">{n.message}</p>
+                    <p className="text-xs text-on-surface-variant">{translatedNotif.message}</p>
                     <span className="text-[11px] text-tertiary block font-code">{n.time}</span>
                   </div>
                 </div>
@@ -155,9 +159,9 @@ export const WorkerNotificationsPage = () => {
                       type="button"
                       onClick={() => markNotificationRead(n.id)}
                       className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-tertiary hover:text-on-surface hover:bg-surface-container transition-colors"
-                      title="Mark as read"
+                      title={t('notifications.markRead')}
                     >
-                      Mark Read
+                      {t('notifications.markRead')}
                     </button>
                   )}
                   {targetPath && (
@@ -166,7 +170,7 @@ export const WorkerNotificationsPage = () => {
                       onClick={() => !n.read && markNotificationRead(n.id)}
                       className="px-3 py-1.5 rounded-lg bg-surface-container hover:bg-primary-container hover:text-white text-xs font-semibold text-on-surface transition-colors"
                     >
-                      View Task
+                      {t('notifications.inspectCase')}
                     </Link>
                   )}
                 </div>
@@ -185,11 +189,11 @@ export const WorkerNotificationsPage = () => {
               className="px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high disabled:opacity-40 disabled:pointer-events-none text-xs font-semibold text-on-surface transition-colors flex items-center gap-1"
             >
               <span className="material-symbols-outlined text-[16px]">chevron_left</span>
-              <span>Previous</span>
+              <span>{t('common.previous')}</span>
             </button>
 
             <span className="text-xs text-on-surface-variant font-medium">
-              Page {notificationsPagination.page + 1} of {notificationsPagination.totalPages}
+              {t('common.pageOf', { page: notificationsPagination.page + 1, total: notificationsPagination.totalPages })}
             </span>
 
             <button
@@ -198,7 +202,7 @@ export const WorkerNotificationsPage = () => {
               onClick={() => handlePageChange(notificationsPagination.page + 1)}
               className="px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high disabled:opacity-40 disabled:pointer-events-none text-xs font-semibold text-on-surface transition-colors flex items-center gap-1"
             >
-              <span>Next</span>
+              <span>{t('common.next')}</span>
               <span className="material-symbols-outlined text-[16px]">chevron_right</span>
             </button>
           </div>

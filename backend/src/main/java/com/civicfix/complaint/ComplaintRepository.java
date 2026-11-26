@@ -191,13 +191,19 @@ public interface ComplaintRepository extends JpaRepository<Complaint, UUID> {
     int autoConfirmResolution(@Param("id") UUID id, @Param("now") OffsetDateTime now);
 
     @Query("SELECT c FROM Complaint c WHERE c.escalatedAt IS NOT NULL " +
-           "AND (:ward IS NULL OR LOWER(c.ward) = LOWER(:ward)) " +
-           "AND (:category IS NULL OR LOWER(c.category) = LOWER(:category)) " +
+           "AND (:wardFilter = '' OR LOWER(c.ward) = :wardFilter) " +
+           "AND (:categoryFilter = '' OR LOWER(c.category) = :categoryFilter) " +
            "ORDER BY c.escalatedAt DESC")
-    Page<Complaint> findEscalatedComplaints(
-            @Param("ward") String ward,
-            @Param("category") String category,
+    Page<Complaint> findEscalatedComplaintsFiltered(
+            @Param("wardFilter") String wardFilter,
+            @Param("categoryFilter") String categoryFilter,
             Pageable pageable);
+
+    default Page<Complaint> findEscalatedComplaints(String ward, String category, Pageable pageable) {
+        String wardFilter = (ward != null && !ward.isBlank()) ? ward.trim().toLowerCase(java.util.Locale.ROOT) : "";
+        String categoryFilter = (category != null && !category.isBlank()) ? category.trim().toLowerCase(java.util.Locale.ROOT) : "";
+        return findEscalatedComplaintsFiltered(wardFilter, categoryFilter, pageable);
+    }
 
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Complaint c SET c.visionStatus = 'RUNNING', c.visionAt = :now WHERE c.id = :id AND c.visionStatus = 'NOT_RUN'")

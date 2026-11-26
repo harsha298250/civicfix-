@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { useTranslation } from '../../context/LanguageContext';
 import { apiClient } from '../../services/apiClient';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriorityBadge } from '../../components/common/PriorityBadge';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
+import { translateErrorMessage } from '../../utils/i18nHelpers';
 
 export const AssignmentsPage = () => {
   const { complaints, complaintsError, refreshComplaints } = useApp();
+  const { t } = useTranslation();
   const [workers, setWorkers] = useState([]);
   const [loadingWorkers, setLoadingWorkers] = useState(true);
 
@@ -34,18 +37,18 @@ export const AssignmentsPage = () => {
     <div className="w-full flex flex-col gap-6">
       <Breadcrumb
         items={[
-          { label: 'Operations Command', path: '/officer/dashboard', icon: 'account_balance' },
-          { label: 'Worker Assignments' }
+          { label: t('common.operationsCommand'), path: '/officer/dashboard', icon: 'account_balance' },
+          { label: t('officer.assignments.breadcrumb') }
         ]}
       />
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-headline-lg text-2xl sm:text-3xl font-extrabold text-on-surface tracking-tight">
-            Field Worker Assignments & Allocation
+            {t('officer.assignments.title')}
           </h1>
           <p className="text-body-md text-sm text-on-surface-variant mt-1">
-            Active dispatched units, vehicle rigs, and work order tracking across District 04.
+            {t('officer.assignments.subtitle')}
           </p>
         </div>
 
@@ -54,7 +57,7 @@ export const AssignmentsPage = () => {
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary-container text-white text-xs font-semibold shadow-sm hover:bg-primary"
         >
           <span className="material-symbols-outlined text-[18px]">add_task</span>
-          <span>Assign From Queue</span>
+          <span>{t('officer.assignments.assignFromQueue')}</span>
         </Link>
       </div>
 
@@ -62,11 +65,11 @@ export const AssignmentsPage = () => {
         {loadingWorkers ? (
           <div className="col-span-3 p-8 text-center text-xs text-on-surface-variant bg-surface-container-lowest rounded-2xl border border-outline-variant/30 flex items-center justify-center gap-2">
             <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
-            <span>Loading active field workers...</span>
+            <span>{t('officer.assignments.loadingWorkers')}</span>
           </div>
         ) : workers.length === 0 ? (
           <div className="col-span-3 p-6 text-center text-xs text-tertiary bg-surface-container-lowest rounded-2xl border border-outline-variant/30">
-            No active field workers registered in the municipal database.
+            {t('officer.assignments.noWorkers')}
           </div>
         ) : (
           workers.map((worker) => (
@@ -74,18 +77,18 @@ export const AssignmentsPage = () => {
               <div className="flex items-center justify-between">
                 <span className="font-bold text-sm text-on-surface">{worker.fullName}</span>
                 <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold">
-                  {worker.activeOrdersCount || 0} Active Orders
+                  {t('officer.assignments.activeOrders', { count: worker.activeOrdersCount || 0 })}
                 </span>
               </div>
-              <p className="text-xs text-tertiary">{worker.department || 'Municipal Operations'}</p>
+              <p className="text-xs text-tertiary">{worker.department || t('common.operationsCommand')}</p>
               <div className="flex items-center gap-2 text-[11px] text-on-surface-variant font-code bg-surface-container-low p-2 rounded-lg">
-                <span>Pending: {worker.pendingOrdersCount || 0}</span>
+                <span>{t('officer.assignments.pending', { count: worker.pendingOrdersCount || 0 })}</span>
                 <span>•</span>
-                <span>In Progress: {worker.inProgressOrdersCount || 0}</span>
+                <span>{t('officer.assignments.inProgress', { count: worker.inProgressOrdersCount || 0 })}</span>
                 {worker.overdueOrdersCount > 0 && (
                   <>
                     <span>•</span>
-                    <span className="text-rose-600 font-bold">{worker.overdueOrdersCount} Overdue</span>
+                    <span className="text-rose-600 font-bold">{t('officer.assignments.overdue', { count: worker.overdueOrdersCount })}</span>
                   </>
                 )}
               </div>
@@ -95,24 +98,24 @@ export const AssignmentsPage = () => {
       </div>
 
       <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-sm border border-outline-variant/30 space-y-4">
-        <h2 className="font-title text-base font-bold text-on-surface">Active Dispatched Tickets</h2>
+        <h2 className="font-title text-base font-bold text-on-surface">{t('officer.assignments.activeDispatchedTitle')}</h2>
 
         <div className="space-y-3">
           {complaintsError ? (
             <div className="p-8 text-center text-xs space-y-3">
               <span className="material-symbols-outlined text-3xl text-red-600">cloud_off</span>
-              <p className="font-semibold text-on-surface">Unable to load assigned tickets</p>
-              <p className="text-on-surface-variant max-w-xs mx-auto">{complaintsError}</p>
+              <p className="font-semibold text-on-surface">{t('officer.assignments.loadError')}</p>
+              <p className="text-on-surface-variant max-w-xs mx-auto">{translateErrorMessage(complaintsError, t)}</p>
               <button
                 onClick={refreshComplaints}
                 className="px-3 py-1.5 bg-primary-container text-white rounded-lg font-semibold hover:bg-primary transition-colors inline-flex items-center gap-1"
               >
                 <span className="material-symbols-outlined text-[14px]">refresh</span>
-                <span>Retry</span>
+                <span>{t('common.retry')}</span>
               </button>
             </div>
           ) : assignedComplaints.length === 0 ? (
-            <p className="text-xs text-tertiary text-center py-8">No tickets currently dispatched.</p>
+            <p className="text-xs text-tertiary text-center py-8">{t('officer.assignments.noDispatched')}</p>
           ) : (
             assignedComplaints.map(c => (
               <div

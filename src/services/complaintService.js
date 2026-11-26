@@ -24,6 +24,7 @@ export const normalizeCategory = (cat) => {
   if (raw.includes('waste') || raw.includes('garbage') || raw.includes('dump')) return { id: 'waste', name: 'Solid Waste & Illegal Dumping' };
   if (raw.includes('traffic') || raw.includes('signal')) return { id: 'traffic', name: 'Signals & Traffic Obstacles' };
   if (raw.includes('park') || raw.includes('tree')) return { id: 'parks', name: 'Public Parks & Tree Hazards' };
+  if (raw.includes('other')) return { id: 'others', name: 'Others' };
   return { id: String(cat).toLowerCase().replace(/[\s_]+/g, '-'), name: cat };
 };
 
@@ -269,9 +270,11 @@ export const complaintService = {
           };
         }
         const safeId = item.id != null ? String(item.id) : String(idx + 1);
+        const normCat = normalizeCategory(item.category);
         return {
           id: safeId,
           category: item.category || 'General Civic Concern',
+          categoryId: normCat.id,
           priority: item.priority || 'MEDIUM',
           status: item.status || 'SUBMITTED',
           ward: item.ward || null,
@@ -408,19 +411,39 @@ export const complaintService = {
   create: async (newComplaint) => {
     const timestamp = new Date().toISOString();
 
+    const backendCatMap = {
+      roads: 'ROADS',
+      lighting: 'STREET_LIGHT',
+      water: 'WATER_SEWERAGE',
+      waste: 'GARBAGE',
+      traffic: 'PUBLIC_TRANSPORT',
+      parks: 'PARKS',
+      others: 'OTHERS'
+    };
+    const rawCatKey = String(newComplaint.categoryId || '').toLowerCase();
+    const mappedCategory = backendCatMap[rawCatKey]
+      || (newComplaint.category || 'ROADS').toUpperCase().replace(/\s+/g, '_');
+
     // Map fields explicitly to backend CreateComplaintRequest contract
     const payload = {
       title: newComplaint.title ? newComplaint.title.trim() : '',
       description: newComplaint.description ? newComplaint.description.trim() : '',
-      category: (newComplaint.categoryId || newComplaint.category || 'ROADS').toUpperCase().replace(/\s+/g, '_'),
+      category: mappedCategory,
+      customCategoryDescription: newComplaint.customCategoryDescription ? newComplaint.customCategoryDescription.trim() : null,
       priority: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(newComplaint.priority)
         ? newComplaint.priority
         : 'MEDIUM',
       address: newComplaint.address ? newComplaint.address.trim() : '',
-      latitude: newComplaint.coordinates?.lat != null ? Number(newComplaint.coordinates.lat) : 13.0604,
-      longitude: newComplaint.coordinates?.lng != null ? Number(newComplaint.coordinates.lng) : 80.2642,
+      latitude: newComplaint.coordinates?.lat != null ? Number(newComplaint.coordinates.lat) : null,
+      longitude: newComplaint.coordinates?.lng != null ? Number(newComplaint.coordinates.lng) : null,
       ward: newComplaint.ward && newComplaint.ward.trim() ? newComplaint.ward.trim() : null,
-      visionConsent: Boolean(newComplaint.visionConsent)
+      visionConsent: Boolean(newComplaint.visionConsent),
+      calibrationReferenceType: newComplaint.calibrationReferenceType || null,
+      aiEstimatedLengthCm: newComplaint.aiEstimatedLengthCm ?? null,
+      aiEstimatedWidthCm: newComplaint.aiEstimatedWidthCm ?? null,
+      aiMeasurementConfidence: newComplaint.aiMeasurementConfidence ?? null,
+      citizenConfirmedLengthCm: newComplaint.citizenConfirmedLengthCm ?? null,
+      citizenConfirmedWidthCm: newComplaint.citizenConfirmedWidthCm ?? null
     };
 
     // If real image files are provided, package as FormData for multipart upload

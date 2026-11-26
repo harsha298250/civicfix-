@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from '../../context/LanguageContext';
+import { translateErrorMessage } from '../../utils/i18nHelpers';
 import { apiClient } from '../../services/apiClient';
 import { firebaseAuthService } from '../../services/firebaseAuth';
 
 export default function StaffActivationPage() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const token = searchParams.get('token');
@@ -21,7 +24,7 @@ export default function StaffActivationPage() {
 
   useEffect(() => {
     if (!token) {
-      setVerifyError('No activation token provided. Please use the activation link sent to your email.');
+      setVerifyError(t('staffActivation.noToken'));
       setLoading(false);
       return;
     }
@@ -33,19 +36,19 @@ export default function StaffActivationPage() {
         if (res?.data) {
           setStaffInfo(res.data);
         } else {
-          setVerifyError('Invalid activation token response.');
+          setVerifyError(t('staffActivation.invalidResponse'));
         }
       })
       .catch(err => {
         if (!isMounted) return;
-        setVerifyError(err.message || 'The activation token is invalid, expired, or has already been used.');
+        setVerifyError(translateErrorMessage(err, t, 'staffActivation.invalidOrExpired'));
       })
       .finally(() => {
         if (isMounted) setLoading(false);
       });
 
     return () => { isMounted = false; };
-  }, [token]);
+  }, [token, t]);
 
   // Validation rules
   const hasMinLength = password.length >= 8;
@@ -80,7 +83,7 @@ export default function StaffActivationPage() {
       await apiClient.auth.activateStaff({ token, newPassword: password, idToken });
       setSuccess(true);
     } catch (err) {
-      setSubmitError(err.message || 'Failed to activate staff account. Please try again.');
+      setSubmitError(translateErrorMessage(err, t, 'staffActivation.activateFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -96,10 +99,10 @@ export default function StaffActivationPage() {
           <span className="text-2xl font-bold tracking-tight text-slate-900">CivicFix AI</span>
         </div>
         <h2 className="mt-4 text-center text-2xl font-bold tracking-tight text-slate-900">
-          Staff Account Activation
+          {t('staffActivation.title')}
         </h2>
         <p className="mt-1 text-center text-sm text-slate-600">
-          Set up your official credentials to access municipal services
+          {t('staffActivation.subtitle')}
         </p>
       </div>
 
@@ -108,7 +111,7 @@ export default function StaffActivationPage() {
           {loading ? (
             <div className="py-12 flex flex-col items-center justify-center space-y-4">
               <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-sm font-medium text-slate-600">Verifying activation invitation...</p>
+              <p className="text-sm font-medium text-slate-600">{t('staffActivation.verifying')}</p>
             </div>
           ) : verifyError ? (
             <div className="space-y-6">
@@ -116,20 +119,20 @@ export default function StaffActivationPage() {
                 <div className="flex items-start space-x-3">
                   <span className="text-red-500 font-bold text-lg">⚠️</span>
                   <div>
-                    <h3 className="font-semibold text-red-900">Activation Link Invalid or Expired</h3>
+                    <h3 className="font-semibold text-red-900">{t('staffActivation.linkInvalidTitle')}</h3>
                     <p className="mt-1">{verifyError}</p>
                   </div>
                 </div>
               </div>
               <p className="text-xs text-slate-500 text-center">
-                Activation invitations expire after 72 hours. If you need a new activation link, please contact your municipal platform administrator.
+                {t('staffActivation.expiryNote')}
               </p>
               <div className="pt-2 text-center">
                 <Link
                   to="/login"
                   className="w-full inline-flex justify-center items-center px-4 py-2.5 text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-colors"
                 >
-                  Return to Login
+                  {t('staffActivation.returnToLogin')}
                 </Link>
               </div>
             </div>
@@ -139,9 +142,9 @@ export default function StaffActivationPage() {
                 ✓
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Account Activated Successfully!</h3>
+                <h3 className="text-lg font-bold text-slate-900">{t('staffActivation.successTitle')}</h3>
                 <p className="mt-2 text-sm text-slate-600">
-                  Your permanent password has been configured and your staff account is now active.
+                  {t('staffActivation.successDesc')}
                 </p>
               </div>
               <button
@@ -149,7 +152,7 @@ export default function StaffActivationPage() {
                 onClick={() => navigate('/login')}
                 className="w-full inline-flex justify-center items-center px-4 py-2.5 text-sm font-semibold rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-colors"
               >
-                Sign In Now
+                {t('staffActivation.signInNow')}
               </button>
             </div>
           ) : (
@@ -157,16 +160,16 @@ export default function StaffActivationPage() {
               {/* Staff Details Card */}
               <div className="mb-6 p-4 bg-blue-50/70 border border-blue-200/60 rounded-xl space-y-2">
                 <div className="text-xs font-semibold text-blue-800 uppercase tracking-wider">
-                  Verified Staff Member
+                  {t('staffActivation.verifiedStaffMember')}
                 </div>
                 <div className="text-base font-bold text-slate-900">
                   {staffInfo?.fullName}
                 </div>
                 <div className="text-xs text-slate-600 flex flex-wrap gap-y-1 gap-x-3">
-                  <span><strong className="text-slate-700">Email:</strong> {staffInfo?.email}</span>
-                  <span><strong className="text-slate-700">Role:</strong> {staffInfo?.role}</span>
+                  <span><strong className="text-slate-700">{t('staffActivation.emailLabel')}</strong> {staffInfo?.email}</span>
+                  <span><strong className="text-slate-700">{t('staffActivation.roleLabel')}</strong> {staffInfo?.role}</span>
                   {staffInfo?.department && (
-                    <span><strong className="text-slate-700">Dept:</strong> {staffInfo?.department}</span>
+                    <span><strong className="text-slate-700">{t('staffActivation.deptLabel')}</strong> {staffInfo?.department}</span>
                   )}
                 </div>
               </div>
@@ -181,14 +184,14 @@ export default function StaffActivationPage() {
                 <div>
                   <div className="flex justify-between items-center mb-1">
                     <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                      New Password
+                      {t('staffActivation.newPassword')}
                     </label>
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       className="text-xs text-blue-600 hover:text-blue-800 font-medium"
                     >
-                      {showPassword ? 'Hide' : 'Show'}
+                      {showPassword ? t('staffActivation.hide') : t('staffActivation.show')}
                     </button>
                   </div>
                   <input
@@ -196,47 +199,47 @@ export default function StaffActivationPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    placeholder="Create a strong password"
+                    placeholder={t('staffActivation.passwordPlaceholder')}
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                    Confirm Password
+                    {t('staffActivation.confirmPassword')}
                   </label>
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
-                    placeholder="Re-enter your password"
+                    placeholder={t('staffActivation.confirmPlaceholder')}
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
                   />
                 </div>
 
                 {/* Password Criteria Checklist */}
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 text-xs text-slate-600">
-                  <div className="font-semibold text-slate-700 mb-1">Password Requirements:</div>
+                  <div className="font-semibold text-slate-700 mb-1">{t('staffActivation.requirementsTitle')}</div>
                   <div className={`flex items-center space-x-2 ${hasMinLength ? 'text-emerald-700 font-medium' : 'text-slate-500'}`}>
                     <span>{hasMinLength ? '✓' : '•'}</span>
-                    <span>At least 8 characters</span>
+                    <span>{t('staffActivation.reqLength')}</span>
                   </div>
                   <div className={`flex items-center space-x-2 ${hasUpper && hasLower ? 'text-emerald-700 font-medium' : 'text-slate-500'}`}>
                     <span>{hasUpper && hasLower ? '✓' : '•'}</span>
-                    <span>Uppercase & lowercase letters</span>
+                    <span>{t('staffActivation.reqUpperLower')}</span>
                   </div>
                   <div className={`flex items-center space-x-2 ${hasDigit ? 'text-emerald-700 font-medium' : 'text-slate-500'}`}>
                     <span>{hasDigit ? '✓' : '•'}</span>
-                    <span>At least one number</span>
+                    <span>{t('staffActivation.reqDigit')}</span>
                   </div>
                   <div className={`flex items-center space-x-2 ${hasSpecial ? 'text-emerald-700 font-medium' : 'text-slate-500'}`}>
                     <span>{hasSpecial ? '✓' : '•'}</span>
-                    <span>At least one special character (!@#$%^&*)</span>
+                    <span>{t('staffActivation.reqSpecial')}</span>
                   </div>
                   <div className={`flex items-center space-x-2 ${isMatch ? 'text-emerald-700 font-medium' : 'text-slate-500'}`}>
                     <span>{isMatch ? '✓' : '•'}</span>
-                    <span>Passwords match</span>
+                    <span>{t('staffActivation.reqMatch')}</span>
                   </div>
                 </div>
 
@@ -249,7 +252,7 @@ export default function StaffActivationPage() {
                       : 'bg-slate-300 cursor-not-allowed opacity-70'
                   }`}
                 >
-                  {submitting ? 'Activating Account...' : 'Set Password & Activate'}
+                  {submitting ? t('staffActivation.activating') : t('staffActivation.submitBtn')}
                 </button>
               </form>
             </div>

@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { officerService } from '../../services/officerService';
+import { useTranslation } from '../../context/LanguageContext';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriorityBadge } from '../../components/common/PriorityBadge';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
+import { translateErrorMessage } from '../../utils/i18nHelpers';
 
 export const VerificationQueuePage = () => {
+  const { t } = useTranslation();
   const [verificationItems, setVerificationItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -33,18 +36,18 @@ export const VerificationQueuePage = () => {
     <div className="w-full flex flex-col gap-6">
       <Breadcrumb
         items={[
-          { label: 'Operations Command', path: '/officer/dashboard', icon: 'account_balance' },
-          { label: 'Resolution Verification Queue' }
+          { label: t('common.operationsCommand'), path: '/officer/dashboard', icon: 'account_balance' },
+          { label: t('officer.verifications.breadcrumb') }
         ]}
       />
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-headline-lg text-2xl sm:text-3xl font-extrabold text-on-surface tracking-tight">
-            Resolution Verification Queue
+            {t('officer.verifications.title')}
           </h1>
           <p className="text-body-md text-sm text-on-surface-variant mt-1">
-            Work orders completed by field maintenance crews awaiting official municipal officer sign-off.
+            {t('officer.verifications.subtitle')}
           </p>
         </div>
 
@@ -54,16 +57,18 @@ export const VerificationQueuePage = () => {
             onClick={fetchQueue}
             disabled={loading}
             className="p-2 rounded-xl border border-outline-variant/40 hover:bg-surface-container text-on-surface text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50"
-            title="Refresh Queue"
+            title={t('common.refresh')}
           >
             <span className={`material-symbols-outlined text-[16px] ${loading ? 'animate-spin' : ''}`}>
               refresh
             </span>
-            <span className="hidden sm:inline">Refresh</span>
+            <span className="hidden sm:inline">{t('common.refresh')}</span>
           </button>
 
           <div className="px-3.5 py-1.5 rounded-full bg-secondary text-white text-xs font-bold">
-            {verificationItems.length} {verificationItems.length === 1 ? 'Case' : 'Cases'} Awaiting Adjudication
+            {verificationItems.length === 1
+              ? t('officer.verifications.casesAwaitingSingular', { count: verificationItems.length })
+              : t('officer.verifications.casesAwaitingPlural', { count: verificationItems.length })}
           </div>
         </div>
       </div>
@@ -73,14 +78,14 @@ export const VerificationQueuePage = () => {
         <div className="p-4 rounded-2xl bg-error-container/20 border border-error/30 text-on-surface flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in">
           <div className="flex items-center gap-2 text-error">
             <span className="material-symbols-outlined text-[20px]">error</span>
-            <span className="text-xs font-semibold">{error}</span>
+            <span className="text-xs font-semibold">{translateErrorMessage(error, t)}</span>
           </div>
           <button
             type="button"
             onClick={fetchQueue}
             className="px-3 py-1.5 bg-error text-white rounded-xl text-xs font-semibold hover:bg-red-700 transition-colors shrink-0"
           >
-            Retry Connection
+            {t('common.retryConnection')}
           </button>
         </div>
       )}
@@ -111,15 +116,15 @@ export const VerificationQueuePage = () => {
           {verificationItems.length === 0 ? (
             <div className="text-center py-16 bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/30 space-y-3">
               <span className="material-symbols-outlined text-emerald-600 text-[48px]">task_alt</span>
-              <h3 className="font-title text-base font-bold text-on-surface">Queue Clear!</h3>
+              <h3 className="font-title text-base font-bold text-on-surface">{t('officer.verifications.queueClearTitle')}</h3>
               <p className="text-xs text-on-surface-variant max-w-sm mx-auto">
-                All field repairs have been inspected and verified. You have zero pending verification requests.
+                {t('officer.verifications.queueClearDesc')}
               </p>
               <Link
                 to="/officer/dashboard"
                 className="inline-block px-4 py-2 rounded-xl bg-primary-container text-white text-xs font-semibold"
               >
-                Back to Dashboard
+                {t('common.backToDashboard')}
               </Link>
             </div>
           ) : (

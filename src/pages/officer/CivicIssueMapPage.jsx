@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { useTranslation } from '../../context/LanguageContext';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriorityBadge } from '../../components/common/PriorityBadge';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
@@ -9,9 +10,11 @@ import { CATEGORIES } from '../../constants/statusConstants';
 import { TAMIL_NADU_DISTRICTS } from '../../constants/tamilNaduDistricts';
 import { geolocationService } from '../../services/geolocationService';
 import { complaintService, hasValidCoordinates } from '../../services/complaintService';
+import { translateCategory, translateErrorMessage } from '../../utils/i18nHelpers';
 
 export const CivicIssueMapPage = () => {
   const { showToast } = useApp();
+  const { t } = useTranslation();
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -152,8 +155,8 @@ export const CivicIssueMapPage = () => {
     <div className="w-full flex flex-col gap-4">
       <Breadcrumb
         items={[
-          { label: 'Operations Command', path: '/officer/dashboard', icon: 'account_balance' },
-          { label: 'Civic Issue Map (Tamil Nadu)' }
+          { label: t('common.operationsCommand'), path: '/officer/dashboard', icon: 'account_balance' },
+          { label: t('officer.map.breadcrumb') }
         ]}
       />
 
@@ -161,14 +164,14 @@ export const CivicIssueMapPage = () => {
         <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center justify-between text-red-800 text-xs">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-red-600 text-[20px]">error</span>
-            <span>{error}</span>
+            <span>{translateErrorMessage(error, t)}</span>
           </div>
           <button
             onClick={fetchComplaints}
             className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg shrink-0 transition-colors flex items-center gap-1"
           >
             <span className="material-symbols-outlined text-[16px]">refresh</span>
-            <span>Retry</span>
+            <span>{t('common.retry')}</span>
           </button>
         </div>
       )}
@@ -178,13 +181,13 @@ export const CivicIssueMapPage = () => {
           <div className="flex items-center gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="font-headline-sm text-xl font-bold text-on-surface">Tamil Nadu Civic Issue Map</h1>
+                <h1 className="font-headline-sm text-xl font-bold text-on-surface">{t('officer.map.title')}</h1>
                 <span className="font-code text-xs px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">
-                  OpenStreetMap Live
+                  {t('officer.map.osmLive')}
                 </span>
               </div>
               <p className="text-xs text-on-surface-variant">
-                Statewide spatial operations workspace — Visual defect pins across Chennai, Coimbatore, Madurai, Trichy & Salem
+                {t('officer.map.subtitle')}
               </p>
             </div>
 
@@ -198,7 +201,7 @@ export const CivicIssueMapPage = () => {
                 }`}
               >
                 <span className="material-symbols-outlined text-[16px]">splitscreen</span>
-                <span>Map + Split List</span>
+                <span>{t('officer.map.splitView')}</span>
               </button>
               <button
                 type="button"
@@ -208,7 +211,7 @@ export const CivicIssueMapPage = () => {
                 }`}
               >
                 <span className="material-symbols-outlined text-[16px]">map</span>
-                <span>Full Map View</span>
+                <span>{t('officer.map.fullMapView')}</span>
               </button>
             </div>
           </div>
@@ -220,7 +223,7 @@ export const CivicIssueMapPage = () => {
               </span>
               <input
                 type="text"
-                placeholder="Search coordinates, street, ID..."
+                placeholder={t('officer.map.searchPlaceholder')}
                 value={searchGis}
                 onChange={(e) => setSearchGis(e.target.value)}
                 className="pl-9 pr-14 py-1.5 bg-surface-container-low rounded-xl text-xs text-on-surface placeholder:text-outline border border-transparent focus:border-primary-container focus:outline-none w-56 sm:w-72"
@@ -230,7 +233,7 @@ export const CivicIssueMapPage = () => {
                 disabled={searchingLocation}
                 className="absolute right-1 px-2 py-0.5 rounded-lg bg-surface-container-lowest text-primary-container hover:bg-primary-container hover:text-white font-semibold text-[11px] border border-outline-variant/30 transition-colors"
               >
-                {searchingLocation ? '...' : 'Locate'}
+                {searchingLocation ? '...' : t('officer.map.locate')}
               </button>
             </form>
             <button
@@ -238,56 +241,56 @@ export const CivicIssueMapPage = () => {
               className="px-3.5 py-1.5 bg-primary-container hover:bg-primary text-white text-xs font-semibold rounded-xl shadow-sm flex items-center gap-1.5 shrink-0"
             >
               <span className="material-symbols-outlined text-[16px]">file_download</span>
-              <span className="hidden sm:inline">Export GeoJSON</span>
+              <span className="hidden sm:inline">{t('officer.map.exportGeoJson')}</span>
             </button>
           </div>
         </div>
 
         {/* Filter Chips Bar */}
         <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-outline-variant/30 text-xs">
-          <span className="text-tertiary text-[11px] font-semibold uppercase">Category:</span>
+          <span className="text-tertiary text-[11px] font-semibold uppercase">{t('officer.map.categoryLabel')}</span>
           <select
             value={activeCategory}
             onChange={(e) => setActiveCategory(e.target.value)}
             className="px-2.5 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 text-xs text-on-surface"
           >
-            <option value="ALL">All Categories</option>
+            <option value="ALL">{t('common.allCategories')}</option>
             {CATEGORIES.map((cat) => (
               <option key={cat.id} value={cat.id}>
-                {cat.name}
+                {translateCategory(cat.name, t)}
               </option>
             ))}
           </select>
 
-          <span className="text-tertiary text-[11px] font-semibold uppercase ml-2">Priority:</span>
+          <span className="text-tertiary text-[11px] font-semibold uppercase ml-2">{t('officer.map.priorityLabel')}</span>
           <select
             value={activePriority}
             onChange={(e) => setActivePriority(e.target.value)}
             className="px-2.5 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 text-xs text-on-surface"
           >
-            <option value="ALL">All Priorities</option>
-            <option value="CRITICAL">Critical (P1)</option>
-            <option value="HIGH">High (P2)</option>
-            <option value="MEDIUM">Medium (P3)</option>
-            <option value="LOW">Low (P4)</option>
+            <option value="ALL">{t('common.allPriorities')}</option>
+            <option value="CRITICAL">{t('priorities.CRITICAL')}</option>
+            <option value="HIGH">{t('priorities.HIGH')}</option>
+            <option value="MEDIUM">{t('priorities.MEDIUM')}</option>
+            <option value="LOW">{t('priorities.LOW')}</option>
           </select>
 
-          <span className="text-tertiary text-[11px] font-semibold uppercase ml-2">Status:</span>
+          <span className="text-tertiary text-[11px] font-semibold uppercase ml-2">{t('officer.map.statusLabel')}</span>
           <select
             value={activeStatus}
             onChange={(e) => setActiveStatus(e.target.value)}
             className="px-2.5 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 text-xs text-on-surface"
           >
-            <option value="ALL">All Statuses</option>
-            <option value="SUBMITTED">Submitted</option>
-            <option value="UNDER_REVIEW">Under Review</option>
-            <option value="ASSIGNED">Assigned</option>
-            <option value="IN_PROGRESS">In Progress</option>
-            <option value="RESOLUTION_SUBMITTED">Resolution Submitted</option>
-            <option value="RESOLVED">Resolved</option>
+            <option value="ALL">{t('common.allStatuses')}</option>
+            <option value="SUBMITTED">{t('status.SUBMITTED')}</option>
+            <option value="UNDER_REVIEW">{t('status.UNDER_REVIEW')}</option>
+            <option value="ASSIGNED">{t('status.ASSIGNED')}</option>
+            <option value="IN_PROGRESS">{t('status.IN_PROGRESS')}</option>
+            <option value="RESOLUTION_SUBMITTED">{t('status.RESOLUTION_SUBMITTED')}</option>
+            <option value="RESOLVED">{t('status.RESOLVED')}</option>
           </select>
 
-          <span className="text-tertiary text-[11px] font-semibold uppercase ml-2">District:</span>
+          <span className="text-tertiary text-[11px] font-semibold uppercase ml-2">{t('officer.map.districtLabel')}</span>
           <select
             value={activeDistrict}
             onChange={(e) => {
@@ -302,7 +305,7 @@ export const CivicIssueMapPage = () => {
             }}
             className="px-2.5 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 text-xs text-on-surface"
           >
-            <option value="ALL">All Districts (38)</option>
+            <option value="ALL">{t('common.allDistricts')} (38)</option>
             {TAMIL_NADU_DISTRICTS.map((d) => (
               <option key={d.name} value={d.name}>
                 {d.name} ({d.region})
@@ -311,7 +314,7 @@ export const CivicIssueMapPage = () => {
           </select>
 
           <span className="text-tertiary text-xs ml-auto font-mono">
-            {filtered.length} Pinpoints Displayed
+            {t('officer.map.geotaggedListTitle')} ({filtered.length})
           </span>
         </div>
       </div>
@@ -323,28 +326,28 @@ export const CivicIssueMapPage = () => {
           <div className="lg:col-span-4 bg-surface-container-lowest rounded-2xl p-4 shadow-sm border border-outline-variant/30 flex flex-col h-full overflow-hidden">
             <div className="flex items-center justify-between pb-2 border-b border-outline-variant/30">
               <span className="text-xs font-bold text-tertiary uppercase tracking-wider">
-                Geotagged Issues List ({filtered.length})
+                {t('officer.map.geotaggedListTitle')} ({filtered.length})
               </span>
-              <span className="text-[10px] text-primary-container font-mono">Synced</span>
+              <span className="text-[10px] text-primary-container font-mono">OSM</span>
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 mt-3">
               {loading ? (
                 <div className="p-8 text-center text-xs text-tertiary space-y-2">
                   <span className="material-symbols-outlined text-2xl animate-spin text-primary">progress_activity</span>
-                  <p>Loading officer map complaints...</p>
+                  <p>{t('officer.map.loadingMap')}</p>
                 </div>
               ) : error ? (
                 <div className="p-8 text-center text-xs space-y-3">
                   <span className="material-symbols-outlined text-3xl text-red-600">cloud_off</span>
-                  <p className="font-semibold text-on-surface">Unable to load map data</p>
-                  <p className="text-on-surface-variant max-w-xs mx-auto">{error}</p>
+                  <p className="font-semibold text-on-surface">{t('errors.serverUnreachable')}</p>
+                  <p className="text-on-surface-variant max-w-xs mx-auto">{translateErrorMessage(error, t)}</p>
                   <button
                     onClick={fetchComplaints}
                     className="px-3 py-1.5 bg-primary-container text-white rounded-lg font-semibold hover:bg-primary transition-colors inline-flex items-center gap-1"
                   >
                     <span className="material-symbols-outlined text-[14px]">refresh</span>
-                    <span>Retry</span>
+                    <span>{t('common.retry')}</span>
                   </button>
                 </div>
               ) : filtered.length > 0 ? (
@@ -381,7 +384,7 @@ export const CivicIssueMapPage = () => {
               ) : (
                 <div className="p-8 text-center text-xs text-tertiary space-y-1">
                   <span className="material-symbols-outlined text-3xl text-slate-300">location_off</span>
-                  <p>No complaints match selected filters.</p>
+                  <p>{t('officer.map.noGeotagged')}</p>
                 </div>
               )}
             </div>

@@ -4,12 +4,15 @@ import com.civicfix.supervisor.dto.SupervisorWorkerResponse;
 import com.civicfix.common.ApiResponse;
 import com.civicfix.common.PagedResponse;
 import com.civicfix.complaint.dto.ComplaintResponse;
+import com.civicfix.officer.OfficerAnalyticsService;
+import com.civicfix.officer.dto.OfficerAnalyticsSummaryResponse;
 import com.civicfix.security.UserPrincipal;
 import com.civicfix.supervisor.dto.DeEscalateRequest;
 import com.civicfix.supervisor.dto.ExtendSlaRequest;
 import com.civicfix.supervisor.dto.ReassignWorkerRequest;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -28,9 +31,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class SupervisorController {
 
     private final SupervisorService supervisorService;
+    private final OfficerAnalyticsService officerAnalyticsService;
 
     public SupervisorController(SupervisorService supervisorService) {
+        this(supervisorService, null);
+    }
+
+    @Autowired
+    public SupervisorController(SupervisorService supervisorService,
+                                @Autowired(required = false) OfficerAnalyticsService officerAnalyticsService) {
         this.supervisorService = supervisorService;
+        this.officerAnalyticsService = officerAnalyticsService;
     }
 
     @GetMapping("/escalations")
@@ -84,5 +95,16 @@ public class SupervisorController {
             @AuthenticationPrincipal UserPrincipal principal) {
         java.util.List<SupervisorWorkerResponse> workers = supervisorService.getActiveWorkers(principal, department);
         return ResponseEntity.ok(ApiResponse.success(workers));
+    }
+
+    @GetMapping("/analytics/summary")
+    @PreAuthorize("hasAnyRole('SUPERVISOR', 'ADMIN')")
+    public ResponseEntity<OfficerAnalyticsSummaryResponse> getSupervisorAnalyticsSummary(
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
+            @RequestParam(required = false) String ward,
+            @RequestParam(required = false) String category) {
+        OfficerAnalyticsSummaryResponse response = officerAnalyticsService.getAnalyticsSummary(from, to, ward, category);
+        return ResponseEntity.ok(response);
     }
 }

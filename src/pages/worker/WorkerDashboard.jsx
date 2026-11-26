@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { useTranslation } from '../../context/LanguageContext';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriorityBadge } from '../../components/common/PriorityBadge';
 import { COMPLAINT_STATUS } from '../../constants/statusConstants';
+import { translateErrorMessage } from '../../utils/i18nHelpers';
 
 export const WorkerDashboard = () => {
   const { complaints, currentUser, complaintsError, refreshComplaints } = useApp();
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   // Tasks assigned to this crew
@@ -26,14 +29,14 @@ export const WorkerDashboard = () => {
         <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center justify-between text-red-800 text-xs">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-red-600 text-[20px]">error</span>
-            <span>{complaintsError}</span>
+            <span>{translateErrorMessage(complaintsError, t)}</span>
           </div>
           <button
             onClick={refreshComplaints}
             className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg shrink-0 transition-colors flex items-center gap-1"
           >
             <span className="material-symbols-outlined text-[16px]">refresh</span>
-            <span>Retry</span>
+            <span>{t('common.retry')}</span>
           </button>
         </div>
       )}
@@ -43,29 +46,24 @@ export const WorkerDashboard = () => {
           <div className="flex flex-wrap items-center gap-4 text-xs">
             <div className="flex items-center gap-1.5 text-primary-container font-bold">
               <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-              <span>Active Field Dispatch Session</span>
+              <span>{t('workerDashboard.activeSession')}</span>
             </div>
             <span className="text-gray-300">•</span>
             <div className="flex items-center gap-1">
-              <span className="text-tertiary">Crew Lead:</span>
+              <span className="text-tertiary">{t('workerDashboard.crewLead')}</span>
               <strong className="text-on-surface">{currentUser.name}</strong>
               <span className="font-code text-[11px] bg-surface-container-highest px-1.5 rounded">#FW-882</span>
             </div>
             <span className="text-gray-300">•</span>
             <div className="flex items-center gap-1 text-tertiary">
-              <span>Unit:</span>
+              <span>{t('workerDashboard.unit')}</span>
               <span className="text-on-surface font-semibold">{currentUser.department}</span>
-            </div>
-            <span className="text-gray-300">•</span>
-            <div className="flex items-center gap-1 text-tertiary">
-              <span>Rig:</span>
-              <span className="text-primary-container font-semibold font-code">Van #14 (Roller T-12 hitched)</span>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5 text-xs font-mono text-primary font-semibold">
             <span className="material-symbols-outlined text-[16px]">sensors</span>
-            <span>Device Location Services Active</span>
+            <span>{t('workerDashboard.gpsActive')}</span>
           </div>
         </div>
       </div>
@@ -74,46 +72,46 @@ export const WorkerDashboard = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-outline-variant/30 flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-tertiary uppercase tracking-wider">Assigned to Me</span>
+            <span className="text-xs font-bold text-tertiary uppercase tracking-wider">{t('workerDashboard.assignedToMe')}</span>
             <span className="material-symbols-outlined text-primary-container text-[20px]">assignment</span>
           </div>
           <div className="my-2">
             <span className="font-display text-3xl font-extrabold text-on-surface">{myTasks.length}</span>
           </div>
-          <span className="text-[11px] text-secondary font-semibold">Scheduled in District 4</span>
+          <span className="text-[11px] text-secondary font-semibold">{t('workerDashboard.scheduledField')}</span>
         </div>
 
         <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-outline-variant/30 flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-tertiary uppercase tracking-wider">In Progress</span>
+            <span className="text-xs font-bold text-tertiary uppercase tracking-wider">{t('workerDashboard.inProgress')}</span>
             <span className="material-symbols-outlined text-amber-600 text-[20px]">construction</span>
           </div>
           <div className="my-2">
             <span className="font-display text-3xl font-extrabold text-amber-700">{inProgressCount}</span>
           </div>
-          <span className="text-[11px] text-amber-600 font-semibold">Active work on site</span>
+          <span className="text-[11px] text-amber-600 font-semibold">{t('workerDashboard.activeWorkOnSite')}</span>
         </div>
 
         <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-outline-variant/30 flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-tertiary uppercase tracking-wider">Submitted for Review</span>
+            <span className="text-xs font-bold text-tertiary uppercase tracking-wider">{t('workerDashboard.submittedForReview')}</span>
             <span className="material-symbols-outlined text-secondary text-[20px]">fact_check</span>
           </div>
           <div className="my-2">
             <span className="font-display text-3xl font-extrabold text-secondary">{submittedCount}</span>
           </div>
-          <span className="text-[11px] text-secondary font-semibold">Awaiting officer verification</span>
+          <span className="text-[11px] text-secondary font-semibold">{t('workerDashboard.awaitingVerification')}</span>
         </div>
 
         <div className="bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-outline-variant/30 flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-tertiary uppercase tracking-wider">Completed Verified</span>
+            <span className="text-xs font-bold text-tertiary uppercase tracking-wider">{t('workerDashboard.completedVerified')}</span>
             <span className="material-symbols-outlined text-emerald-600 text-[20px]">task_alt</span>
           </div>
           <div className="my-2">
             <span className="font-display text-3xl font-extrabold text-emerald-700">{completedCount}</span>
           </div>
-          <span className="text-[11px] text-emerald-600 font-semibold">100% Quality pass</span>
+          <span className="text-[11px] text-emerald-600 font-semibold">{t('workerDashboard.qualityPass')}</span>
         </div>
       </div>
 
@@ -124,7 +122,7 @@ export const WorkerDashboard = () => {
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
                 <span className="px-2.5 py-0.5 rounded-full bg-primary-container text-white text-[11px] font-bold uppercase tracking-wider">
-                  CURRENT ACTIVE DISPATCH
+                  {t('workerDashboard.currentActiveDispatch')}
                 </span>
                 <span className="font-code text-xs font-bold bg-surface-container px-2 py-0.5 rounded text-on-surface">
                   #{activeTask.id}
@@ -142,7 +140,7 @@ export const WorkerDashboard = () => {
                 <span>{activeTask.location?.address}</span>
                 <span>•</span>
                 <span className="text-tertiary font-code">
-                  Coords: {activeTask.location?.coordinates?.lat}° N, {activeTask.location?.coordinates?.lng}° E
+                  {t('workerDashboard.coords')} {activeTask.location?.coordinates?.lat}° N, {activeTask.location?.coordinates?.lng}° E
                 </span>
               </p>
             </div>
@@ -152,7 +150,7 @@ export const WorkerDashboard = () => {
                 to={`/worker/tasks/${activeTask.id}`}
                 className="px-3.5 py-2 rounded-xl border border-outline-variant/40 hover:bg-surface-container text-xs font-semibold text-on-surface"
               >
-                Inspect Task Spec
+                {t('workerDashboard.inspectTaskSpec')}
               </Link>
             </div>
           </div>
@@ -160,7 +158,7 @@ export const WorkerDashboard = () => {
           {/* Progress Bar & Notes */}
           <div className="p-4 rounded-xl bg-surface-container-low border border-outline-variant/30 space-y-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-on-surface">Current Repair Progress</span>
+              <span className="font-semibold text-on-surface">{t('workerDashboard.currentRepairProgress')}</span>
               <span className="font-code text-primary-container font-bold text-sm">
                 {activeTask.progressPercent || 0}%
               </span>
@@ -172,9 +170,9 @@ export const WorkerDashboard = () => {
               />
             </div>
             <p className="text-xs text-on-surface-variant italic">
-              Latest update: {activeTask.progressNotes && activeTask.progressNotes.length > 0
+              {t('workerDashboard.latestUpdate')} {activeTask.progressNotes && activeTask.progressNotes.length > 0
                 ? activeTask.progressNotes[activeTask.progressNotes.length - 1].note
-                : 'Technician on-site.'}
+                : t('workerDashboard.technicianOnSite')}
             </p>
           </div>
 
@@ -185,7 +183,7 @@ export const WorkerDashboard = () => {
               className="px-4 py-2.5 rounded-xl bg-primary-container hover:bg-primary text-white text-xs font-semibold shadow transition-colors flex items-center gap-1.5"
             >
               <span className="material-symbols-outlined text-[16px]">pending_actions</span>
-              <span>Update Progress / Report Blocker</span>
+              <span>{t('workerDashboard.updateProgressReportBlocker')}</span>
             </Link>
 
             <Link
@@ -193,7 +191,7 @@ export const WorkerDashboard = () => {
               className="px-4 py-2.5 rounded-xl bg-secondary hover:bg-secondary-container text-white text-xs font-semibold shadow transition-colors flex items-center gap-1.5"
             >
               <span className="material-symbols-outlined text-[16px]">fact_check</span>
-              <span>Submit Repair Evidence for Review</span>
+              <span>{t('workerDashboard.submitRepairEvidence')}</span>
             </Link>
 
             <Link
@@ -201,22 +199,22 @@ export const WorkerDashboard = () => {
               className="px-4 py-2.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-semibold transition-colors flex items-center gap-1.5"
             >
               <span className="material-symbols-outlined text-[16px]">location_on</span>
-              <span>Task Location & Route</span>
+              <span>{t('workerDashboard.taskLocationRoute')}</span>
             </Link>
           </div>
         </section>
       ) : (
         <section className="bg-surface-container-lowest rounded-2xl p-8 shadow-sm border border-outline-variant/30 text-center space-y-3">
           <span className="material-symbols-outlined text-[40px] text-tertiary">assignment_turned_in</span>
-          <h2 className="text-base font-bold text-on-surface">No Active Work Orders</h2>
+          <h2 className="text-base font-bold text-on-surface">{t('workerDashboard.noActiveWorkOrders')}</h2>
           <p className="text-xs text-on-surface-variant max-w-sm mx-auto leading-relaxed">
-            You currently have no tasks in progress. View the assigned tasks queue to inspect new work orders.
+            {t('workerDashboard.noActiveWorkOrdersDesc')}
           </p>
           <Link
             to="/worker/tasks"
             className="inline-block px-4 py-2 bg-primary-container text-white text-xs font-semibold rounded-xl hover:bg-primary transition-colors"
           >
-            View Assigned Tasks
+            {t('workerDashboard.viewAssignedTasks')}
           </Link>
         </section>
       )}
@@ -224,9 +222,9 @@ export const WorkerDashboard = () => {
       {/* Assigned Tasks Table */}
       <section className="bg-surface-container-lowest rounded-2xl p-6 shadow-sm border border-outline-variant/30 space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-title text-base font-bold text-on-surface">All Assigned Tasks ({myTasks.length})</h3>
+          <h3 className="font-title text-base font-bold text-on-surface">{t('workerDashboard.allAssignedTasks', { count: myTasks.length })}</h3>
           <Link to="/worker/tasks" className="text-xs font-semibold text-primary-container hover:underline">
-            View All
+            {t('workerDashboard.viewAll')}
           </Link>
         </div>
 
@@ -234,51 +232,51 @@ export const WorkerDashboard = () => {
           {complaintsError ? (
             <div className="p-8 text-center text-xs space-y-3">
               <span className="material-symbols-outlined text-3xl text-red-600">cloud_off</span>
-              <p className="font-semibold text-on-surface">Unable to load assigned tasks</p>
+              <p className="font-semibold text-on-surface">{t('workerDashboard.unableToLoadAssignedTasks')}</p>
               <p className="text-on-surface-variant max-w-xs mx-auto">{complaintsError}</p>
               <button
                 onClick={refreshComplaints}
                 className="px-3 py-1.5 bg-primary-container text-white rounded-lg font-semibold hover:bg-primary transition-colors inline-flex items-center gap-1"
               >
                 <span className="material-symbols-outlined text-[14px]">refresh</span>
-                <span>Retry</span>
+                <span>{t('common.retry')}</span>
               </button>
             </div>
           ) : myTasks.length === 0 ? (
-            <p className="text-xs text-tertiary text-center py-8">No assigned tasks found.</p>
+            <p className="text-xs text-tertiary text-center py-8">{t('workerDashboard.noAssignedTasksFound')}</p>
           ) : (
-            myTasks.map(t => (
+            myTasks.map(task => (
             <div
-              key={t.id}
+              key={task.id}
               className="p-4 rounded-xl border border-outline-variant/40 hover:border-primary-container/40 bg-surface-container-lowest transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
             >
               <div className="space-y-1 min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-code text-xs font-bold bg-surface-container text-on-surface px-2.5 py-0.5 rounded">
-                    #{t.id}
+                    #{task.id}
                   </span>
-                  <StatusBadge status={t.status} size="sm" />
-                  <PriorityBadge priority={t.priority} />
+                  <StatusBadge status={task.status} size="sm" />
+                  <PriorityBadge priority={task.priority} />
                 </div>
-                <h4 className="font-title text-sm font-bold text-on-surface truncate">{t.title}</h4>
+                <h4 className="font-title text-sm font-bold text-on-surface truncate">{task.title}</h4>
                 <p className="text-xs text-on-surface-variant flex items-center gap-1">
                   <span className="material-symbols-outlined text-[14px] text-tertiary">location_on</span>
-                  <span>{t.location?.address}</span>
+                  <span>{task.location?.address}</span>
                 </p>
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
                 <Link
-                  to={`/worker/tasks/${t.id}/progress`}
+                  to={`/worker/tasks/${task.id}/progress`}
                   className="px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-xs font-semibold text-on-surface"
                 >
-                  Update Progress
+                  {t('workerDashboard.updateProgress')}
                 </Link>
                 <Link
-                  to={`/worker/tasks/${t.id}/evidence`}
+                  to={`/worker/tasks/${task.id}/evidence`}
                   className="px-3 py-1.5 rounded-lg bg-primary-container text-white text-xs font-semibold hover:bg-primary"
                 >
-                  Submit Proof
+                  {t('workerDashboard.submitProof')}
                 </Link>
               </div>
             </div>

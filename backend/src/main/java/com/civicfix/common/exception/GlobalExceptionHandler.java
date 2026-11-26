@@ -32,6 +32,11 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), req);
     }
 
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex, WebRequest req) {
+        return buildResponse(HttpStatus.CONFLICT, "An account or record with these unique details already exists.", req);
+    }
+
     @ExceptionHandler({
             org.springframework.orm.ObjectOptimisticLockingFailureException.class,
             jakarta.persistence.OptimisticLockException.class,

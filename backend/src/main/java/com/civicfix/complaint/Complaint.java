@@ -34,6 +34,27 @@ public class Complaint {
     @Column(length = 100, nullable = false)
     private String category;
 
+    @Column(name = "custom_category_description", length = 200)
+    private String customCategoryDescription;
+
+    @Column(name = "ai_estimated_length_cm", precision = 8, scale = 2)
+    private BigDecimal aiEstimatedLengthCm;
+
+    @Column(name = "ai_estimated_width_cm", precision = 8, scale = 2)
+    private BigDecimal aiEstimatedWidthCm;
+
+    @Column(name = "ai_measurement_confidence", precision = 5, scale = 2)
+    private BigDecimal aiMeasurementConfidence;
+
+    @Column(name = "calibration_reference_type", length = 60)
+    private String calibrationReferenceType;
+
+    @Column(name = "citizen_confirmed_length_cm", precision = 8, scale = 2)
+    private BigDecimal citizenConfirmedLengthCm;
+
+    @Column(name = "citizen_confirmed_width_cm", precision = 8, scale = 2)
+    private BigDecimal citizenConfirmedWidthCm;
+
     @Enumerated(EnumType.STRING)
     @Column(length = 20, nullable = false)
     private ComplaintPriority priority = ComplaintPriority.MEDIUM;
@@ -245,6 +266,62 @@ public class Complaint {
 
     public void setCategory(String category) {
         this.category = category;
+    }
+
+    public String getCustomCategoryDescription() {
+        return customCategoryDescription;
+    }
+
+    public void setCustomCategoryDescription(String customCategoryDescription) {
+        this.customCategoryDescription = customCategoryDescription;
+    }
+
+    public BigDecimal getAiEstimatedLengthCm() {
+        return aiEstimatedLengthCm;
+    }
+
+    public void setAiEstimatedLengthCm(BigDecimal aiEstimatedLengthCm) {
+        this.aiEstimatedLengthCm = aiEstimatedLengthCm;
+    }
+
+    public BigDecimal getAiEstimatedWidthCm() {
+        return aiEstimatedWidthCm;
+    }
+
+    public void setAiEstimatedWidthCm(BigDecimal aiEstimatedWidthCm) {
+        this.aiEstimatedWidthCm = aiEstimatedWidthCm;
+    }
+
+    public BigDecimal getAiMeasurementConfidence() {
+        return aiMeasurementConfidence;
+    }
+
+    public void setAiMeasurementConfidence(BigDecimal aiMeasurementConfidence) {
+        this.aiMeasurementConfidence = aiMeasurementConfidence;
+    }
+
+    public String getCalibrationReferenceType() {
+        return calibrationReferenceType;
+    }
+
+    public void setCalibrationReferenceType(String calibrationReferenceType) {
+        this.calibrationReferenceType = calibrationReferenceType;
+    }
+
+    public BigDecimal getCitizenConfirmedLengthCm() {
+        return citizenConfirmedLengthCm;
+    }
+
+    public void setCitizenConfirmedLengthCm(BigDecimal citizenConfirmedLengthCm) {
+        this.citizenConfirmedLengthCm = citizenConfirmedLengthCm;
+    }
+
+    public BigDecimal getCitizenConfirmedWidthCm() {
+        return citizenConfirmedWidthCm;
+    }
+
+    public void setCitizenConfirmedWidthCm(BigDecimal citizenConfirmedWidthCm) {
+        this.citizenConfirmedWidthCm = citizenConfirmedWidthCm;
     }
 
     public ComplaintPriority getPriority() {

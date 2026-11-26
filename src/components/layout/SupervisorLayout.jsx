@@ -22,17 +22,17 @@ export const SupervisorLayout = () => {
     },
     {
       label: t('nav.operationalAnalytics'),
-      path: '/officer/analytics',
+      path: '/supervisor/analytics',
       icon: 'monitoring'
     },
     {
       label: t('nav.liveIssueMap'),
-      path: '/officer/map',
+      path: '/supervisor/map',
       icon: 'map'
     },
     {
       label: t('nav.notifications'),
-      path: '/officer/notifications',
+      path: '/supervisor/notifications',
       icon: 'notifications',
       badge: unreadCount > 0 ? unreadCount : null,
       badgeColor: 'bg-red-500 text-white'

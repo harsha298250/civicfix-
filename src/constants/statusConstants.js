@@ -113,5 +113,6 @@ export const CATEGORIES = [
   { id: 'water', name: 'Water & Sanitation Leakage', icon: 'water_drop', dept: 'Water Supply & Sewerage Board' },
   { id: 'waste', name: 'Solid Waste & Illegal Dumping', icon: 'delete_sweep', dept: 'Sanitation & Environment' },
   { id: 'traffic', name: 'Signals & Traffic Obstacles', icon: 'traffic', dept: 'Urban Mobility & Traffic' },
-  { id: 'parks', name: 'Public Parks & Tree Hazards', icon: 'park', dept: 'Horticulture & Urban Forestry' }
+  { id: 'parks', name: 'Public Parks & Tree Hazards', icon: 'park', dept: 'Horticulture & Urban Forestry' },
+  { id: 'others', name: 'Others', icon: 'category', dept: 'General Municipal Services' }
 ];

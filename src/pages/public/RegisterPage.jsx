@@ -33,6 +33,8 @@ export const RegisterPage = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [duplicateAccountNotice, setDuplicateAccountNotice] = useState(false);
   const [registrationSuccessEmail, setRegistrationSuccessEmail] = useState('');
+  const [checkingVerification, setCheckingVerification] = useState(false);
+  const [verificationStatusNotice, setVerificationStatusNotice] = useState(null);
 
   // Password strength calculator
   const calculatePasswordStrength = (pass) => {
@@ -213,7 +215,7 @@ export const RegisterPage = () => {
           password: formData.password,
           name: formData.name.trim(),
           ward: formData.ward.trim(),
-          phone: formData.phone ? formData.phone.trim() : null
+          phone: formData.phone ? formatIndianPhone(formData.phone.trim()) : null
         });
       } else {
         newUser = await authService.registerCitizen({
@@ -259,8 +261,52 @@ export const RegisterPage = () => {
             <p className="text-xs text-[#667384] leading-relaxed">
               Please click the verification link in your inbox to activate your CivicFix citizen account before logging in.
             </p>
+            {verificationStatusNotice && (
+              <div className={`p-3 rounded-xl text-xs border ${
+                verificationStatusNotice.verified
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : 'bg-amber-50 border-amber-200 text-amber-800'
+              }`}>
+                {verificationStatusNotice.message}
+              </div>
+            )}
           </div>
           <div className="pt-2 flex flex-col gap-2">
+            {firebaseAuthService.isConfigured() && (
+              <button
+                type="button"
+                disabled={checkingVerification}
+                onClick={async () => {
+                  setCheckingVerification(true);
+                  setVerificationStatusNotice(null);
+                  try {
+                    const isVerified = await firebaseAuthService.checkCurrentUserVerification();
+                    if (isVerified) {
+                      setVerificationStatusNotice({
+                        verified: true,
+                        message: 'Email verified! You can now proceed to Sign In.'
+                      });
+                    } else {
+                      setVerificationStatusNotice({
+                        verified: false,
+                        message: 'Email is not verified yet. Please click the link in your inbox (check spam if needed) and try again.'
+                      });
+                    }
+                  } catch {
+                    setVerificationStatusNotice({
+                      verified: false,
+                      message: 'Unable to check status right now. Please sign in after clicking the link in your email.'
+                    });
+                  } finally {
+                    setCheckingVerification(false);
+                  }
+                }}
+                className="w-full min-h-[40px] py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 disabled:opacity-60"
+              >
+                <span className="material-symbols-outlined text-[16px]">refresh</span>
+                <span>{checkingVerification ? 'Checking Status...' : 'I Have Verified — Check Status'}</span>
+              </button>
+            )}
             <Link
               to="/login"
               className="w-full min-h-[44px] py-2.5 bg-[#137A70] hover:bg-[#0F625B] text-white text-sm font-semibold rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"

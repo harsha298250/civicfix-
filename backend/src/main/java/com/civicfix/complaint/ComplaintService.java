@@ -264,7 +264,24 @@ public class ComplaintService {
         complaint.setCitizen(citizen);
         complaint.setTitle(req.getTitle().trim());
         complaint.setDescription(req.getDescription().trim());
-        complaint.setCategory(req.getCategory().trim());
+        String normalizedCategory = req.getCategory().trim();
+        String customCatDesc = req.getCustomCategoryDescription() != null
+                ? req.getCustomCategoryDescription().trim()
+                : null;
+        if ("OTHERS".equalsIgnoreCase(normalizedCategory)) {
+            if (customCatDesc == null || customCatDesc.length() < 5) {
+                throw new BadRequestException("Please provide a meaningful description (at least 5 characters) when selecting 'Others' category.");
+            }
+            normalizedCategory = "OTHERS";
+        }
+        complaint.setCategory(normalizedCategory);
+        complaint.setCustomCategoryDescription(customCatDesc);
+        complaint.setAiEstimatedLengthCm(req.getAiEstimatedLengthCm());
+        complaint.setAiEstimatedWidthCm(req.getAiEstimatedWidthCm());
+        complaint.setAiMeasurementConfidence(req.getAiMeasurementConfidence());
+        complaint.setCalibrationReferenceType(req.getCalibrationReferenceType());
+        complaint.setCitizenConfirmedLengthCm(req.getCitizenConfirmedLengthCm());
+        complaint.setCitizenConfirmedWidthCm(req.getCitizenConfirmedWidthCm());
         complaint.setPriority(req.getPriority() != null ? req.getPriority() : ComplaintPriority.MEDIUM);
         complaint.setStatus(ComplaintStatus.SUBMITTED);
         complaint.setAddress(req.getAddress().trim());
@@ -1268,9 +1285,13 @@ public class ComplaintService {
                 if (!isOfficer && !isAdmin) {
                     throw new ForbiddenException("Only municipal officers and administrators can reject intake complaints.");
                 }
-                if (currentStatus == ComplaintStatus.PENDING_CITIZEN_CONFIRMATION) {
-                    throw new BadRequestException("Complaints awaiting citizen confirmation cannot be rejected by officers.");
+                if (currentStatus == ComplaintStatus.PENDING_CITIZEN_CONFIRMATION
+                        || currentStatus == ComplaintStatus.RESOLVED
+                        || currentStatus == ComplaintStatus.CLOSED
+                        || currentStatus == ComplaintStatus.REJECTED) {
+                    throw new BadRequestException("Complaints in status " + currentStatus + " cannot be rejected.");
                 }
+                complaint.setAssignedWorker(null);
                 break;
 
             case IN_PROGRESS:
@@ -1377,7 +1398,9 @@ public class ComplaintService {
         );
 
         ComplaintEventType eventType = null;
-        if (newStatus == ComplaintStatus.IN_PROGRESS) {
+        if (newStatus == ComplaintStatus.UNDER_REVIEW) {
+            eventType = ComplaintEventType.COMPLAINT_UNDER_REVIEW;
+        } else if (newStatus == ComplaintStatus.IN_PROGRESS) {
             eventType = ComplaintEventType.WORK_STARTED;
         } else if (newStatus == ComplaintStatus.RESOLUTION_SUBMITTED) {
             eventType = ComplaintEventType.RESOLUTION_SUBMITTED;
@@ -1688,8 +1711,9 @@ public class ComplaintService {
         }
 
         // 1. Every served file MUST be linked to an existing ResolutionEvidence or ComplaintPhoto record in the database
-        // Matches exact trailing filename segment without loose substring ambiguity or database schema migration
+        // Matches exact trailing filename segment, substring, or ComplaintPhoto UUID without loose ambiguity
         Complaint complaint = null;
+        String resolvedObjectKey = null;
         Optional<ResolutionEvidence> evidenceOpt = evidenceRepository.findFirstByPhotoUrlEndingWith(cleanName);
         if (evidenceOpt.isEmpty()) {
             evidenceOpt = evidenceRepository.findFirstByPhotoUrlContaining(cleanName);
@@ -1701,8 +1725,18 @@ public class ComplaintService {
             if (photoOpt.isEmpty()) {
                 photoOpt = complaintPhotoRepository.findFirstByPhotoUrlContaining(cleanName);
             }
+            if (photoOpt.isEmpty()) {
+                try {
+                    UUID photoId = UUID.fromString(cleanName);
+                    photoOpt = complaintPhotoRepository.findById(photoId);
+                } catch (IllegalArgumentException ignored) {
+                    // Not a UUID, keep filename lookup result
+                }
+            }
             if (photoOpt.isPresent()) {
-                complaint = photoOpt.get().getComplaint();
+                ComplaintPhoto photo = photoOpt.get();
+                complaint = photo.getComplaint();
+                resolvedObjectKey = photo.getObjectKey();
             }
         }
 
@@ -1713,10 +1747,21 @@ public class ComplaintService {
         // 2. Enforce authorization rules (Admin/Officer can access all; Worker can access if assigned; Citizen can access if complaint owner)
         enforceReadPermission(complaint, principal);
 
-        // 3. Resolve file from the complaint-specific directory: "complaints/" + complaintId
+        // 3. Resolve file from stored objectKey (when present) or complaint-specific directory: "complaints/" + complaintId
+        String targetFilename = cleanName;
         String subDirectory = "complaints/" + complaint.getId();
+        if (resolvedObjectKey != null && !resolvedObjectKey.isBlank()) {
+            String cleanKey = resolvedObjectKey.trim().replace('\\', '/');
+            int lastSlash = cleanKey.lastIndexOf('/');
+            if (lastSlash > 0 && lastSlash < cleanKey.length() - 1) {
+                subDirectory = cleanKey.substring(0, lastSlash);
+                targetFilename = cleanKey.substring(lastSlash + 1);
+            } else {
+                targetFilename = cleanKey;
+            }
+        }
         try {
-            return storageService.loadFileAsResource(cleanName, subDirectory);
+            return storageService.loadFileAsResource(targetFilename, subDirectory);
         } catch (IOException e) {
             throw new ResourceNotFoundException("Evidence photo not found or not readable: " + cleanName);
         }

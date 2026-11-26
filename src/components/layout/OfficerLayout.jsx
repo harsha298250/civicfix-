@@ -27,36 +27,45 @@ export const OfficerLayout = () => {
   ).length;
 
   const navItems = [
-    { label: t('nav.overview'), path: '/officer/dashboard', icon: 'dashboard' },
+    { id: 'overview', label: t('nav.overview'), path: '/officer/dashboard', icon: 'dashboard' },
     {
+      id: 'complaintQueue',
       label: t('nav.complaintQueue'),
       path: '/officer/complaints',
       icon: 'inbox',
-      badge: pendingQueueCount > 0 ? pendingQueueCount : null
+      badge: pendingQueueCount > 0 ? pendingQueueCount : null,
+      match: (pathname) => pathname === '/officer/complaints'
     },
     {
+      id: 'reviewAssignment',
       label: t('nav.reviewAssignment'),
-      path: '/officer/complaints/CF-2026-00124/review',
-      icon: 'assignment_turned_in'
+      path: safeComplaints[0]
+        ? `/officer/complaints/${safeComplaints[0].referenceId || safeComplaints[0].id}/review`
+        : '/officer/complaints',
+      icon: 'assignment_turned_in',
+      match: (pathname) => /^\/officer\/complaints\/[^/]+\/review$/.test(pathname)
     },
-    { label: t('nav.workerAssignments'), path: '/officer/assignments', icon: 'assignment_ind' },
+    { id: 'workerAssignments', label: t('nav.workerAssignments'), path: '/officer/assignments', icon: 'assignment_ind' },
     {
+      id: 'resolutionVerification',
       label: t('nav.resolutionVerification'),
       path: '/officer/verifications',
       icon: 'verified',
       badge: verificationQueueCount > 0 ? `${verificationQueueCount} Ready` : null,
-      badgeColor: 'bg-secondary text-white'
+      badgeColor: 'bg-secondary text-white',
+      match: (pathname) => pathname === '/officer/verifications' || /^\/officer\/complaints\/[^/]+\/verify$/.test(pathname)
     },
-    { label: t('nav.liveIssueMap'), path: '/officer/map', icon: 'map' },
-    { label: t('nav.operationalAnalytics'), path: '/officer/analytics', icon: 'monitoring' },
+    { id: 'liveIssueMap', label: t('nav.liveIssueMap'), path: '/officer/map', icon: 'map' },
+    { id: 'operationalAnalytics', label: t('nav.operationalAnalytics'), path: '/officer/analytics', icon: 'monitoring' },
     {
+      id: 'notifications',
       label: t('nav.notifications'),
       path: '/officer/notifications',
       icon: 'notifications',
       badge: unreadCount > 0 ? unreadCount : null,
       badgeColor: 'bg-error text-white'
     },
-    { label: t('nav.profileSettings'), path: '/officer/profile', icon: 'badge' }
+    { id: 'profileSettings', label: t('nav.profileSettings'), path: '/officer/profile', icon: 'badge' }
   ];
 
   const handleSearchSubmit = (e) => {
@@ -124,10 +133,12 @@ export const OfficerLayout = () => {
           {/* Nav List */}
           <nav className="flex-1 px-3 space-y-1 overflow-y-auto no-scrollbar">
             {navItems.map((item) => {
-              const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+              const isActive = item.match
+                ? item.match(location.pathname)
+                : (location.pathname === item.path || location.pathname.startsWith(`${item.path}/`));
               return (
                 <Link
-                  key={item.path}
+                  key={item.id || item.path}
                   to={item.path}
                   onClick={() => setMobileSidebarOpen(false)}
                   className={`flex items-center justify-between px-3 py-2 rounded-xl text-body-md transition-all ${

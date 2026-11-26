@@ -314,7 +314,7 @@ public class PotholeDetectionService {
 
         parts.addObject().put("text", POTHOLE_DETECTION_PROMPT);
         ObjectNode inlineData = parts.addObject().putObject("inline_data");
-        inlineData.put("mime_type", "image/jpeg");
+        inlineData.put("mime_type", detectImageMimeType(imageBytes));
         inlineData.put("data", base64Image);
 
         ObjectNode genConfig = root.putObject("generationConfig");
@@ -459,6 +459,19 @@ public class PotholeDetectionService {
             trimmed = trimmed.trim();
         }
         return trimmed;
+    }
+
+    private String detectImageMimeType(byte[] bytes) {
+        if (bytes != null && bytes.length >= 4) {
+            if ((bytes[0] & 0xFF) == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) {
+                return "image/png";
+            }
+            if (bytes.length >= 12 && bytes[0] == 'R' && bytes[1] == 'I' && bytes[2] == 'F' && bytes[3] == 'F'
+                    && bytes[8] == 'W' && bytes[9] == 'E' && bytes[10] == 'B' && bytes[11] == 'P') {
+                return "image/webp";
+            }
+        }
+        return "image/jpeg";
     }
 
     public static class PotholeInferenceResult {

@@ -84,6 +84,7 @@ export const TamilNaduOverviewMap = ({
   const stateLayerRef = useRef(null);
   const zonesLayerRef = useRef(null);
   const heatmapLayerRef = useRef(null);
+  const lastViewportKeyRef = useRef('');
 
   const [tileError, setTileError] = useState(false);
   const [showStateBoundary, setShowStateBoundary] = useState(false);
@@ -305,24 +306,30 @@ export const TamilNaduOverviewMap = ({
       });
     }
 
-    // Fly to selected complaint when changed
-    if (selectedComplaintId) {
-      const selected = complaints.find((c) => c.id === selectedComplaintId);
-      const lat = Number(selected?.location?.coordinates?.lat);
-      const lng = Number(selected?.location?.coordinates?.lng);
-      if (!isNaN(lat) && !isNaN(lng)) {
-        map.flyTo([lat, lng], 14, { duration: 1.0 });
-        if (selectedMarker) {
-          setTimeout(() => {
-            selectedMarker.openPopup();
-          }, 350);
+    const viewportKey = `${selectedComplaintId || ''}|${complaints.map((c) => c.id).join(',')}`;
+    const shouldUpdateViewport = viewportKey !== lastViewportKeyRef.current;
+
+    // Fly to selected complaint or fit bounds only when selection/data changes (never on user zoom)
+    if (shouldUpdateViewport) {
+      lastViewportKeyRef.current = viewportKey;
+      if (selectedComplaintId) {
+        const selected = complaints.find((c) => c.id === selectedComplaintId);
+        const lat = Number(selected?.location?.coordinates?.lat);
+        const lng = Number(selected?.location?.coordinates?.lng);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          map.flyTo([lat, lng], 14, { duration: 1.0 });
+          if (selectedMarker) {
+            setTimeout(() => {
+              selectedMarker.openPopup();
+            }, 350);
+          }
         }
-      }
-    } else if (bounds.length > 0) {
-      try {
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 });
-      } catch (e) {
-        // ignore bound edge cases
+      } else if (bounds.length > 0) {
+        try {
+          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 });
+        } catch (e) {
+          // ignore bound edge cases
+        }
       }
     }
   }, [complaints, selectedComplaintId, enableClustering, currentZoom]);

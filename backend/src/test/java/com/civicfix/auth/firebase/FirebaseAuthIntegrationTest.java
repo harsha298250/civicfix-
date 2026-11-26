@@ -76,7 +76,8 @@ class FirebaseAuthIntegrationTest {
         when(tokenVerifier.verifyIdToken(eq(token)))
                 .thenReturn(new FirebaseTokenClaims(uid, email, true, "Praveen Kumar", Map.of()));
 
-        FirebaseSessionRequest req = new FirebaseSessionRequest(token, "Praveen Kumar", "Ward 10, Chennai", "+91 98401 11223");
+        String uniquePhoneSuffix = String.format("%06d", Math.abs(UUID.randomUUID().hashCode()) % 1000000);
+        FirebaseSessionRequest req = new FirebaseSessionRequest(token, "Praveen Kumar", "Ward 10, Chennai", "+91 9840" + uniquePhoneSuffix);
 
         MvcResult result = mockMvc.perform(post("/api/auth/firebase/session")
                         .contentType(MediaType.APPLICATION_JSON)

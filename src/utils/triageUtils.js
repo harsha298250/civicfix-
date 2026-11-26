@@ -70,7 +70,8 @@ export function mapBackendCategoryToFrontendId(cat) {
   if (c.includes('DRAIN')) return 'water';
   if (c.includes('TRANSPORT') || c.includes('BUS') || c.includes('TRAFFIC')) return 'traffic';
   if (c.includes('PARK') || c.includes('TREE')) return 'parks';
-  return 'roads';
+  if (c.includes('OTHER')) return 'others';
+  return 'others';
 }
 
 /**

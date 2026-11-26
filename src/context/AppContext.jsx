@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { authService, isDemoModeEnabled } from '../services/authService';
-import { firebaseAuthService } from '../services/firebaseAuth';
 import { complaintService } from '../services/complaintService';
 import { notificationService } from '../services/notificationService';
 import apiClient from '../services/apiClient';
@@ -103,29 +102,36 @@ export const AppProvider = ({ children }) => {
         setServerUnreachable(true);
       });
 
-    // Synchronize Firebase Auth lifecycle state (session persistence & token revocation)
+    // Synchronize Firebase Auth lifecycle state lazily so public LandingPage doesn't block on vendor-firebase
     let unsubscribeFirebase = null;
-    if (firebaseAuthService && typeof firebaseAuthService.onAuthStateChange === 'function') {
-      unsubscribeFirebase = firebaseAuthService.onAuthStateChange(async (firebaseUser) => {
-        if (!firebaseUser) {
-          const current = authService.getCurrentUser();
-          if (current && current.authSource && current.authSource.includes('FIREBASE')) {
-            authService.setCurrentUser(null);
-            setCurrentUser(null);
-          }
-        } else {
-          const current = authService.getCurrentUser();
-          if (!current) {
-            try {
-              const liveUser = await authService.checkSession();
-              if (liveUser) setCurrentUser(liveUser);
-            } catch (e) {}
-          }
+    let active = true;
+    import('../services/firebaseAuth')
+      .then(({ firebaseAuthService }) => {
+        if (!active || !firebaseAuthService || typeof firebaseAuthService.onAuthStateChange !== 'function') {
+          return;
         }
-      });
-    }
+        unsubscribeFirebase = firebaseAuthService.onAuthStateChange(async (firebaseUser) => {
+          if (!firebaseUser) {
+            const current = authService.getCurrentUser();
+            if (current && current.authSource && current.authSource.includes('FIREBASE')) {
+              authService.setCurrentUser(null);
+              setCurrentUser(null);
+            }
+          } else {
+            const current = authService.getCurrentUser();
+            if (!current) {
+              try {
+                const liveUser = await authService.checkSession();
+                if (liveUser) setCurrentUser(liveUser);
+              } catch (e) {}
+            }
+          }
+        });
+      })
+      .catch(() => {});
 
     return () => {
+      active = false;
       if (typeof unsubscribeFirebase === 'function') {
         unsubscribeFirebase();
       }

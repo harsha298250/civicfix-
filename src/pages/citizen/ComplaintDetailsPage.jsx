@@ -536,6 +536,8 @@ export const ComplaintDetailsPage = () => {
                         src={url}
                         alt={`Reported defect photo ${i + 1}`}
                         className="w-full h-full object-cover"
+                        enableLightbox
+                        downloadFilename={`complaint-${complaint.referenceId || complaint.id}-photo-${i + 1}.jpg`}
                       />
                     </div>
                   ))}
@@ -633,7 +635,13 @@ export const ComplaintDetailsPage = () => {
                     <div className="grid grid-cols-2 gap-3 pt-2">
                       {complaint.resolutionEvidence.photos.map((url, i) => (
                         <div key={i} className="rounded-xl overflow-hidden aspect-video bg-surface-container border border-outline-variant/40">
-                          <AuthenticatedImage src={url} alt={`Completed repair evidence ${i + 1}`} className="w-full h-full object-cover" />
+                          <AuthenticatedImage
+                            src={url}
+                            alt={`Completed repair evidence ${i + 1}`}
+                            className="w-full h-full object-cover"
+                            enableLightbox
+                            downloadFilename={`complaint-${complaint.referenceId || complaint.id}-evidence-${i + 1}.jpg`}
+                          />
                         </div>
                       ))}
                     </div>

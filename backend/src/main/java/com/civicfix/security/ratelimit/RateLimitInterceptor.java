@@ -50,11 +50,11 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        // 1b. Password Reset Request: 5 per IP per 15 minutes
-        if ("POST".equalsIgnoreCase(method) && "/api/auth/forgot-password".equals(path)) {
+        // 1b. Password Reset & Verification Resend: 5 per IP per 15 minutes
+        if ("POST".equalsIgnoreCase(method) && ("/api/auth/forgot-password".equals(path) || "/api/auth/resend-verification".equals(path))) {
             String ip = clientIpResolver.resolveClientIp(request);
-            String key = "forgot_password:" + ip;
-            checkRateLimit(key, properties.getForgotPassword(), "Password reset request limit exceeded. Please wait before trying again.", path, ip);
+            String key = ("/api/auth/resend-verification".equals(path) ? "resend_verification:" : "forgot_password:") + ip;
+            checkRateLimit(key, properties.getForgotPassword(), "Too many requests. Please wait before trying again.", path, ip);
             return true;
         }
 

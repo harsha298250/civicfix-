@@ -101,15 +101,23 @@ public class FirebaseAuthService {
             if (!emailVerified) {
                 throw new BadRequestException("Your email address is not verified. Please verify your email with Firebase before signing in.");
             }
+            boolean changed = false;
             if (!user.isEmailVerified()) {
                 user.setEmailVerified(true);
+                changed = true;
+            }
+            if ("PENDING_VERIFICATION".equalsIgnoreCase(user.getAccountStatus())) {
+                user.setAccountStatus("ACTIVE");
+                changed = true;
+            }
+            if (changed) {
                 userRepository.save(user);
             }
             if (!"ACTIVE".equalsIgnoreCase(user.getAccountStatus())) {
                 throw new BadRequestException("Your account is pending activation or disabled. Please contact your municipal administrator.");
             }
 
-            establishSession(user, httpRequest, httpResponse);
+            establishSession(user, httpRequest, httpResponse, Boolean.TRUE.equals(request.getRememberMe()));
 
             auditService.logAction(
                     user.getId(),
@@ -155,7 +163,7 @@ public class FirebaseAuthService {
             user.setEmailVerified(true);
             User savedUser = userRepository.save(user);
 
-            establishSession(savedUser, httpRequest, httpResponse);
+            establishSession(savedUser, httpRequest, httpResponse, Boolean.TRUE.equals(request.getRememberMe()));
 
             String primaryRole = resolvePrimaryRole(savedUser);
             auditService.logAction(
@@ -190,7 +198,7 @@ public class FirebaseAuthService {
                 : null;
 
         if (phone != null && userRepository.existsByPhone(phone)) {
-            phone = null; // Do not fail registration on duplicate optional phone, skip phone field
+            throw new ConflictException("An account with these contact details already exists.");
         }
 
         User newUser = new User();
@@ -199,7 +207,7 @@ public class FirebaseAuthService {
         newUser.setPhone(phone);
         newUser.setWard(ward);
         newUser.setDepartment("Resident Community Member");
-        newUser.setAccountStatus("ACTIVE");
+        newUser.setAccountStatus(emailVerified ? "ACTIVE" : "PENDING_VERIFICATION");
         newUser.setEmailVerified(emailVerified);
         newUser.setTrustScore(90);
         newUser.setFirebaseUid(uid);
@@ -223,7 +231,9 @@ public class FirebaseAuthService {
             }
         }
 
-        establishSession(savedUser, httpRequest, httpResponse);
+        if (emailVerified) {
+            establishSession(savedUser, httpRequest, httpResponse, Boolean.TRUE.equals(request.getRememberMe()));
+        }
 
         auditService.logAction(
                 savedUser.getId(),
@@ -240,7 +250,7 @@ public class FirebaseAuthService {
         return AuthUserResponse.fromEntity(savedUser);
     }
 
-    private void establishSession(User user, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+    private void establishSession(User user, HttpServletRequest httpRequest, HttpServletResponse httpResponse, boolean rememberMe) {
         if (httpRequest == null || httpResponse == null) {
             return;
         }
@@ -250,6 +260,9 @@ public class FirebaseAuthService {
         context.setAuthentication(authentication);
         securityContextHolderStrategy.setContext(context);
         securityContextRepository.saveContext(context, httpRequest, httpResponse);
+        if (httpRequest.getSession(false) != null) {
+            httpRequest.getSession(false).setMaxInactiveInterval(rememberMe ? 30 * 24 * 3600 : 3600);
+        }
     }
 
     private String resolvePrimaryRole(User user) {

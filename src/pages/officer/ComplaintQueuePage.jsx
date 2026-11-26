@@ -71,7 +71,7 @@ export const ComplaintQueuePage = () => {
       (c.category && c.category.toLowerCase().includes(term));
 
     const matchesStatus =
-      statusFilter === 'ALL' ? true :
+      statusFilter === 'ALL' ? (c.status !== COMPLAINT_STATUS.REJECTED && c.status !== 'CLOSED') :
       statusFilter === 'AWAITING' ? (c.status === COMPLAINT_STATUS.SUBMITTED || c.status === COMPLAINT_STATUS.UNDER_REVIEW) :
       statusFilter === 'ASSIGNED' ? c.status === COMPLAINT_STATUS.ASSIGNED :
       statusFilter === 'IN_PROGRESS' ? c.status === COMPLAINT_STATUS.IN_PROGRESS :

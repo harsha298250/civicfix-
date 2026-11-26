@@ -4,6 +4,7 @@ import { workerService } from '../../services/workerService.js';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriorityBadge } from '../../components/common/PriorityBadge';
 import { Breadcrumb } from '../../components/common/Breadcrumb';
+import AuthenticatedImage from '../../components/common/AuthenticatedImage';
 
 export const TaskDetailsPage = () => {
   const { taskId } = useParams();
@@ -366,7 +367,13 @@ export const TaskDetailsPage = () => {
             <div className="grid grid-cols-2 gap-3">
               {task.photos.map((p, i) => (
                 <div key={i} className="rounded-xl overflow-hidden aspect-video bg-surface-container border border-outline-variant/40">
-                  <img src={p} alt="Defect" className="w-full h-full object-cover" />
+                  <AuthenticatedImage
+                    src={p}
+                    alt={`Defect reference ${i + 1}`}
+                    className="w-full h-full object-cover"
+                    enableLightbox
+                    downloadFilename={`task-${task.referenceId || task.id}-photo-${i + 1}.jpg`}
+                  />
                 </div>
               ))}
             </div>

@@ -375,7 +375,16 @@ export const apiClient = {
       method: 'POST',
       body: payload
     }),
-    getWorkers: () => apiRequest('/supervisor/workers')
+    getWorkers: () => apiRequest('/supervisor/workers'),
+    getAnalyticsSummary: (params = {}) => {
+      const query = new URLSearchParams();
+      if (params.from) query.append('from', params.from);
+      if (params.to) query.append('to', params.to);
+      if (params.ward && params.ward !== 'ALL') query.append('ward', params.ward);
+      if (params.category && params.category !== 'ALL') query.append('category', params.category);
+      const qs = query.toString();
+      return apiRequest(`/supervisor/analytics/summary${qs ? '?' + qs : ''}`);
+    }
   },
 
   // Public Features Endpoint

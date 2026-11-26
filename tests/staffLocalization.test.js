@@ -3,6 +3,19 @@ import assert from 'node:assert';
 import enTranslations from '../src/locales/en.json' with { type: 'json' };
 import taTranslations from '../src/locales/ta.json' with { type: 'json' };
 
+const flattenNamespace = (obj, prefix = '') => {
+  const out = {};
+  for (const [k, v] of Object.entries(obj || {})) {
+    const key = prefix ? `${prefix}.${k}` : k;
+    if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+      Object.assign(out, flattenNamespace(v, key));
+    } else {
+      out[key] = v;
+    }
+  }
+  return out;
+};
+
 describe('Phase 2.2 — Staff & Cross-Role Tamil Localization Tests', () => {
 
   const staffNamespaces = ['officer', 'worker', 'supervisor', 'admin', 'publicMap', 'accessibility'];
@@ -18,8 +31,8 @@ describe('Phase 2.2 — Staff & Cross-Role Tamil Localization Tests', () => {
 
   it('2. 100% key parity between English and Tamil for all staff namespaces', () => {
     for (const ns of staffNamespaces) {
-      const enKeys = Object.keys(enTranslations[ns]).sort();
-      const taKeys = Object.keys(taTranslations[ns]).sort();
+      const enKeys = Object.keys(flattenNamespace(enTranslations[ns])).sort();
+      const taKeys = Object.keys(flattenNamespace(taTranslations[ns])).sort();
 
       assert.deepStrictEqual(
         taKeys,
@@ -34,8 +47,10 @@ describe('Phase 2.2 — Staff & Cross-Role Tamil Localization Tests', () => {
     const tamilUnicodeRegex = /[\u0B80-\u0BFF]/;
 
     for (const ns of staffNamespaces) {
-      for (const [key, taVal] of Object.entries(taTranslations[ns])) {
-        const enVal = enTranslations[ns][key];
+      const flatEn = flattenNamespace(enTranslations[ns]);
+      const flatTa = flattenNamespace(taTranslations[ns]);
+      for (const [key, taVal] of Object.entries(flatTa)) {
+        const enVal = flatEn[key];
 
         assert.ok(taVal && typeof taVal === 'string', `${ns}.${key} in Tamil must be a non-empty string`);
         assert.ok(
@@ -69,13 +84,16 @@ describe('Phase 2.2 — Staff & Cross-Role Tamil Localization Tests', () => {
 
   it('5. Interpolation placeholders match exactly between English and Tamil strings', () => {
     const extractPlaceholders = (str) => {
+      if (typeof str !== 'string') return [];
       const matches = str.match(/\{\{\s*(\w+)\s*\}\}/g);
       return matches ? matches.map(m => m.replace(/[{}]/g, '').trim()).sort() : [];
     };
 
     for (const ns of staffNamespaces) {
-      for (const [key, enVal] of Object.entries(enTranslations[ns])) {
-        const taVal = taTranslations[ns][key];
+      const flatEn = flattenNamespace(enTranslations[ns]);
+      const flatTa = flattenNamespace(taTranslations[ns]);
+      for (const [key, enVal] of Object.entries(flatEn)) {
+        const taVal = flatTa[key];
         const enPlaceholders = extractPlaceholders(enVal);
         const taPlaceholders = extractPlaceholders(taVal);
 

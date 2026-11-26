@@ -20,6 +20,21 @@ public class ComplaintResponse {
     private String title;
     private String description;
     private String category;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String customCategoryDescription;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private BigDecimal aiEstimatedLengthCm;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private BigDecimal aiEstimatedWidthCm;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private BigDecimal aiMeasurementConfidence;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String calibrationReferenceType;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private BigDecimal citizenConfirmedLengthCm;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private BigDecimal citizenConfirmedWidthCm;
     private String priority;
     private String status;
     private String address;
@@ -236,6 +251,13 @@ public class ComplaintResponse {
         resp.setTitle(c.getTitle());
         resp.setDescription(c.getDescription());
         resp.setCategory(c.getCategory());
+        resp.setCustomCategoryDescription(c.getCustomCategoryDescription());
+        resp.setAiEstimatedLengthCm(c.getAiEstimatedLengthCm());
+        resp.setAiEstimatedWidthCm(c.getAiEstimatedWidthCm());
+        resp.setAiMeasurementConfidence(c.getAiMeasurementConfidence());
+        resp.setCalibrationReferenceType(c.getCalibrationReferenceType());
+        resp.setCitizenConfirmedLengthCm(c.getCitizenConfirmedLengthCm());
+        resp.setCitizenConfirmedWidthCm(c.getCitizenConfirmedWidthCm());
         resp.setPriority(c.getPriority() != null ? c.getPriority().name() : null);
         resp.setStatus(c.getStatus().name());
         resp.setAddress(c.getAddress());
@@ -368,6 +390,62 @@ public class ComplaintResponse {
 
     public void setCategory(String category) {
         this.category = category;
+    }
+
+    public String getCustomCategoryDescription() {
+        return customCategoryDescription;
+    }
+
+    public void setCustomCategoryDescription(String customCategoryDescription) {
+        this.customCategoryDescription = customCategoryDescription;
+    }
+
+    public BigDecimal getAiEstimatedLengthCm() {
+        return aiEstimatedLengthCm;
+    }
+
+    public void setAiEstimatedLengthCm(BigDecimal aiEstimatedLengthCm) {
+        this.aiEstimatedLengthCm = aiEstimatedLengthCm;
+    }
+
+    public BigDecimal getAiEstimatedWidthCm() {
+        return aiEstimatedWidthCm;
+    }
+
+    public void setAiEstimatedWidthCm(BigDecimal aiEstimatedWidthCm) {
+        this.aiEstimatedWidthCm = aiEstimatedWidthCm;
+    }
+
+    public BigDecimal getAiMeasurementConfidence() {
+        return aiMeasurementConfidence;
+    }
+
+    public void setAiMeasurementConfidence(BigDecimal aiMeasurementConfidence) {
+        this.aiMeasurementConfidence = aiMeasurementConfidence;
+    }
+
+    public String getCalibrationReferenceType() {
+        return calibrationReferenceType;
+    }
+
+    public void setCalibrationReferenceType(String calibrationReferenceType) {
+        this.calibrationReferenceType = calibrationReferenceType;
+    }
+
+    public BigDecimal getCitizenConfirmedLengthCm() {
+        return citizenConfirmedLengthCm;
+    }
+
+    public void setCitizenConfirmedLengthCm(BigDecimal citizenConfirmedLengthCm) {
+        this.citizenConfirmedLengthCm = citizenConfirmedLengthCm;
+    }
+
+    public BigDecimal getCitizenConfirmedWidthCm() {
+        return citizenConfirmedWidthCm;
+    }
+
+    public void setCitizenConfirmedWidthCm(BigDecimal citizenConfirmedWidthCm) {
+        this.citizenConfirmedWidthCm = citizenConfirmedWidthCm;
     }
 
     public String getPriority() {

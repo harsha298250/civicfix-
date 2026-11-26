@@ -2,6 +2,7 @@ package com.civicfix.complaint.event;
 
 public enum ComplaintEventType {
     COMPLAINT_CREATED,
+    COMPLAINT_UNDER_REVIEW,
     WORKER_ASSIGNED,
     WORK_STARTED,
     RESOLUTION_SUBMITTED,

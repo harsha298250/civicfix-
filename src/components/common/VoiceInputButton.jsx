@@ -19,10 +19,14 @@ export default function VoiceInputButton({ onTranscript, className = '' }) {
     return () => {
       if (recognitionRef.current) {
         try {
+          recognitionRef.current.onresult = null;
+          recognitionRef.current.onerror = null;
+          recognitionRef.current.onend = null;
           recognitionRef.current.abort();
         } catch {
           // Ignore abort on unmount
         }
+        recognitionRef.current = null;
       }
     };
   }, []);
@@ -73,13 +77,25 @@ export default function VoiceInputButton({ onTranscript, className = '' }) {
       recognition.onerror = (event) => {
         console.warn('Speech recognition error:', event.error);
         setIsListening(false);
-        if (event.error === 'not-allowed') {
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
           setErrorMessage(isTamil ? 'மைக் அனுமதி மறுக்கப்பட்டது' : 'Microphone permission denied');
+        } else if (event.error === 'audio-capture') {
+          setErrorMessage(isTamil ? 'மைக்ரோஃபோன் சாதனம் கிடைக்கவில்லை' : 'No microphone found');
+        } else if (event.error === 'network') {
+          setErrorMessage(isTamil ? 'பேச்சு சேவை நெட்வொர்க் பிழை' : 'Speech recognition network error');
+        } else if (event.error === 'no-speech') {
+          setErrorMessage(isTamil ? 'பேச்சு எதுவும் கேட்கவில்லை' : 'No speech detected. Please try again.');
         }
       };
 
       recognition.onend = () => {
         setIsListening(false);
+        if (recognitionRef.current === recognition) {
+          recognition.onresult = null;
+          recognition.onerror = null;
+          recognition.onend = null;
+          recognitionRef.current = null;
+        }
       };
 
       recognition.start();

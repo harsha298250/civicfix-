@@ -22,6 +22,16 @@ public class CreateComplaintRequest {
     @Size(min = 2, max = 100, message = "Category must be valid")
     private String category;
 
+    @Size(max = 200, message = "Custom category description must not exceed 200 characters")
+    private String customCategoryDescription;
+
+    private BigDecimal aiEstimatedLengthCm;
+    private BigDecimal aiEstimatedWidthCm;
+    private BigDecimal aiMeasurementConfidence;
+    private String calibrationReferenceType;
+    private BigDecimal citizenConfirmedLengthCm;
+    private BigDecimal citizenConfirmedWidthCm;
+
     private ComplaintPriority priority = ComplaintPriority.MEDIUM;
 
     @NotBlank(message = "Location address is required")
@@ -108,6 +118,62 @@ public class CreateComplaintRequest {
 
     public Boolean getVisionConsent() {
         return visionConsent != null ? visionConsent : false;
+    }
+
+    public String getCustomCategoryDescription() {
+        return customCategoryDescription;
+    }
+
+    public void setCustomCategoryDescription(String customCategoryDescription) {
+        this.customCategoryDescription = customCategoryDescription;
+    }
+
+    public BigDecimal getAiEstimatedLengthCm() {
+        return aiEstimatedLengthCm;
+    }
+
+    public void setAiEstimatedLengthCm(BigDecimal aiEstimatedLengthCm) {
+        this.aiEstimatedLengthCm = aiEstimatedLengthCm;
+    }
+
+    public BigDecimal getAiEstimatedWidthCm() {
+        return aiEstimatedWidthCm;
+    }
+
+    public void setAiEstimatedWidthCm(BigDecimal aiEstimatedWidthCm) {
+        this.aiEstimatedWidthCm = aiEstimatedWidthCm;
+    }
+
+    public BigDecimal getAiMeasurementConfidence() {
+        return aiMeasurementConfidence;
+    }
+
+    public void setAiMeasurementConfidence(BigDecimal aiMeasurementConfidence) {
+        this.aiMeasurementConfidence = aiMeasurementConfidence;
+    }
+
+    public String getCalibrationReferenceType() {
+        return calibrationReferenceType;
+    }
+
+    public void setCalibrationReferenceType(String calibrationReferenceType) {
+        this.calibrationReferenceType = calibrationReferenceType;
+    }
+
+    public BigDecimal getCitizenConfirmedLengthCm() {
+        return citizenConfirmedLengthCm;
+    }
+
+    public void setCitizenConfirmedLengthCm(BigDecimal citizenConfirmedLengthCm) {
+        this.citizenConfirmedLengthCm = citizenConfirmedLengthCm;
+    }
+
+    public BigDecimal getCitizenConfirmedWidthCm() {
+        return citizenConfirmedWidthCm;
+    }
+
+    public void setCitizenConfirmedWidthCm(BigDecimal citizenConfirmedWidthCm) {
+        this.citizenConfirmedWidthCm = citizenConfirmedWidthCm;
     }
 
     public void setVisionConsent(Boolean visionConsent) {

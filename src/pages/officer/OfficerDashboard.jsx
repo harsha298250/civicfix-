@@ -23,8 +23,11 @@ export const OfficerDashboard = () => {
         officerService.getAnalyticsSummary(),
         officerService.getQueue({ size: 5, page: 0 })
       ]);
+      const activeQueue = (queueData || []).filter(
+        c => c.status !== 'REJECTED' && c.status !== 'CLOSED'
+      );
       setSummary(analyticsData);
-      setQueueComplaints(queueData || []);
+      setQueueComplaints(activeQueue);
     } catch (err) {
       console.error('Failed to load officer dashboard live data:', err);
       setError(err?.message || 'Cannot reach the server. Failed to fetch operations data.');

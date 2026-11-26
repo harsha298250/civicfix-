@@ -124,7 +124,7 @@ export const LocationMiniMap = ({
     <div className="space-y-1">
       <div
         style={{ height }}
-        className="relative w-full rounded-xl overflow-hidden border border-outline-variant/30 shadow-inner bg-slate-100"
+        className="relative isolate z-0 w-full rounded-xl overflow-hidden border border-outline-variant/30 shadow-inner bg-slate-100"
       >
         <div ref={mapContainerRef} style={{ height: '100%', width: '100%' }} />
 

@@ -43,7 +43,14 @@ export const VerifyEmailPage = () => {
       .catch((err) => {
         if (!mounted) return;
         setStatus('error');
-        setStatusMessage(err?.message || 'Verification link is invalid, expired, or has already been used.');
+        const code = err?.code || '';
+        if (code === 'auth/expired-action-code') {
+          setStatusMessage('This verification link has expired. Please request a new verification email below.');
+        } else if (code === 'auth/invalid-action-code') {
+          setStatusMessage('This verification link is invalid or has already been used. Please request a new link or try signing in.');
+        } else {
+          setStatusMessage(err?.message || 'Verification link is invalid, expired, or has already been used.');
+        }
       })
       .finally(() => {
         if (mounted) setVerifying(false);
@@ -65,11 +72,27 @@ export const VerifyEmailPage = () => {
     setResendResult(null);
 
     try {
-      const res = await authService.resendVerification(resendEmail.trim());
-      setResendResult({
-        type: 'success',
-        message: res?.message || 'A new verification link has been sent to your email address.'
-      });
+      let sentViaFirebase = false;
+      if (firebaseAuthService.isConfigured()) {
+        try {
+          await firebaseAuthService.resendVerificationEmail();
+          sentViaFirebase = true;
+        } catch {
+          sentViaFirebase = false;
+        }
+      }
+      if (sentViaFirebase) {
+        setResendResult({
+          type: 'success',
+          message: 'A new Firebase verification link has been sent to your email address.'
+        });
+      } else {
+        const res = await authService.resendVerification(resendEmail.trim());
+        setResendResult({
+          type: 'success',
+          message: res?.message || 'A new verification link has been sent to your email address.'
+        });
+      }
     } catch (err) {
       setResendResult({
         type: 'error',

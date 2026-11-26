@@ -252,7 +252,7 @@ public class DeterministicTriageEngine implements TriageProvider {
     private boolean isValidCategory(String cat) {
         if (cat == null || cat.isBlank()) return false;
         String normalized = normalizeCategory(cat);
-        return CivicLexicon.CATEGORY_KEYWORDS.containsKey(normalized);
+        return "OTHERS".equals(normalized) || CivicLexicon.CATEGORY_KEYWORDS.containsKey(normalized);
     }
 
     private String normalizeCategory(String cat) {
@@ -264,6 +264,7 @@ public class DeterministicTriageEngine implements TriageProvider {
         if (clean.contains("DRAIN")) return CivicLexicon.CAT_DRAINAGE;
         if (clean.contains("TRANSIT") || clean.contains("BUS")) return CivicLexicon.CAT_PUBLIC_TRANSPORT;
         if (clean.contains("PARK") || clean.contains("TREE")) return CivicLexicon.CAT_PARKS;
+        if (clean.contains("OTHER")) return "OTHERS";
         return clean;
     }
 

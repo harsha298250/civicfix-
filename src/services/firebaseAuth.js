@@ -128,7 +128,7 @@ export const firebaseAuthService = {
     }
     const idToken = await firebaseUser.getIdToken();
 
-    const backendUser = await exchangeFirebaseSession(idToken);
+    const backendUser = await exchangeFirebaseSession(idToken, { rememberMe });
 
     const liveUser = {
       id: String(backendUser.id),
@@ -149,7 +149,9 @@ export const firebaseAuthService = {
       authSource: 'FIREBASE_GOOGLE_SESSION'
     };
 
-    authService.setCurrentUser(liveUser);
+    if (liveUser.status !== 'PENDING_VERIFICATION') {
+      authService.setCurrentUser(liveUser);
+    }
     return liveUser;
   },
 
@@ -184,18 +186,28 @@ export const firebaseAuthService = {
     try {
       userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
     } catch (fbErr) {
+      if (import.meta.env?.DEV) {
+        console.error('[Firebase Auth] signInWithEmail error:', fbErr?.code, fbErr?.message);
+      }
       throw new Error(mapFirebaseAuthError(fbErr));
     }
     const firebaseUser = userCredential.user;
     if (!firebaseUser.emailVerified) {
-      throw new Error('Your email address is not verified. Please verify your email before signing in.');
+      try {
+        await reload(firebaseUser);
+      } catch {
+        // Ignore reload error
+      }
+      if (!firebaseUser.emailVerified) {
+        throw new Error('Your email address is not verified. Please verify your email before signing in.');
+      }
     }
 
     // 2. Retrieve Firebase ID token (JWT)
-    const idToken = await firebaseUser.getIdToken();
+    const idToken = await firebaseUser.getIdToken(true);
 
     // 3. Send ID token to Spring Boot backend to verify and establish server-side HTTP session
-    const backendUser = await exchangeFirebaseSession(idToken);
+    const backendUser = await exchangeFirebaseSession(idToken, { rememberMe });
 
     // 4. Update in-memory frontend session state
     const liveUser = {
@@ -217,7 +229,9 @@ export const firebaseAuthService = {
       authSource: 'FIREBASE_SESSION'
     };
 
-    authService.setCurrentUser(liveUser);
+    if (liveUser.status !== 'PENDING_VERIFICATION') {
+      authService.setCurrentUser(liveUser);
+    }
     return liveUser;
   },
 
@@ -299,7 +313,9 @@ export const firebaseAuthService = {
       authSource: 'FIREBASE_SESSION'
     };
 
-    authService.setCurrentUser(liveUser);
+    if (liveUser.status !== 'PENDING_VERIFICATION') {
+      authService.setCurrentUser(liveUser);
+    }
     return liveUser;
   },
 
@@ -367,6 +383,17 @@ export const firebaseAuthService = {
       throw new Error('No active Firebase user session found.');
     }
     await sendEmailVerification(auth.currentUser);
+  },
+
+  /**
+   * Reload current Firebase user and check if email is verified
+   */
+  checkCurrentUserVerification: async () => {
+    if (!isFirebaseConfigured() || !auth || !auth.currentUser) {
+      return false;
+    }
+    await reload(auth.currentUser);
+    return !!auth.currentUser.emailVerified;
   },
 
   /**

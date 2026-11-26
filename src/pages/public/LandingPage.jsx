@@ -87,7 +87,13 @@ export const LandingPage = () => {
           <div className="lg:col-span-5 relative">
             <div className="relative w-full rounded-2xl overflow-hidden shadow-2xl aspect-[4/3] bg-surface-container border border-outline-variant/40">
               <img
-                src="https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=1000&q=80"
+                src="https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&fm=webp&w=800&q=75"
+                srcSet="https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&fm=webp&w=480&q=75 480w, https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&fm=webp&w=800&q=75 800w, https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&fm=webp&w=1000&q=75 1000w"
+                sizes="(max-width: 1024px) 100vw, 42vw"
+                width={800}
+                height={600}
+                decoding="async"
+                fetchPriority="high"
                 alt="Modern city infrastructure with organized streets"
                 className="w-full h-full object-cover"
               />
