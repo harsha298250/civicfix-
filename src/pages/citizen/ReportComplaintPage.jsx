@@ -480,8 +480,8 @@ export const ReportComplaintPage = () => {
           </div>
 
           {/* Stepper Navigation */}
-          <div className="bg-surface-container-lowest rounded-2xl p-4 shadow-sm border border-outline-variant/30">
-            <div className="grid grid-cols-4 gap-2">
+          <div className="bg-surface-container-lowest rounded-2xl p-3 sm:p-4 shadow-sm border border-outline-variant/30">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
                 { num: 1, label: t('reportComplaint.step1Title') },
                 { num: 2, label: t('reportComplaint.step2Title') },

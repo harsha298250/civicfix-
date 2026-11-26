@@ -400,6 +400,21 @@ export const apiClient = {
     deleteAccount: (password) => apiRequest('/citizen/account/delete', {
       method: 'POST',
       body: { password }
+    }),
+    updateProfile: (payload) => apiRequest('/citizen/account/profile', {
+      method: 'PUT',
+      body: payload
+    }),
+    uploadProfilePhoto: (file) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      return apiRequest('/citizen/account/profile/photo', {
+        method: 'POST',
+        body: fd
+      });
+    },
+    deleteProfilePhoto: () => apiRequest('/citizen/account/profile/photo', {
+      method: 'DELETE'
     })
   },
 

@@ -26,7 +26,9 @@
     "actions": "Actions",
     "logout": "Sign Out",
     "profile": "Profile",
-    "or": "or"
+    "or": "or",
+    "saving": "Saving...",
+    "locationNotSet": "Location not set"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -761,5 +763,32 @@
     "systemConfig": "System Configuration",
     "complaintsByStatus": "Complaints by Operational Status",
     "usersByRole": "Users by Municipal Role"
+  },
+  "profile": {
+    "uploadPhoto": "Upload Photo",
+    "changePhoto": "Change Photo",
+    "cameraPhoto": "Camera",
+    "removePhoto": "Remove",
+    "photoInvalidType": "Only JPEG, PNG, and WebP images are supported.",
+    "photoTooLarge": "Profile photo must not exceed 5 MB.",
+    "photoUpdated": "Profile photo updated successfully!",
+    "photoUploadFailed": "Unable to upload profile photo.",
+    "photoRemoved": "Profile photo removed.",
+    "verifiedResidentId": "Verified Resident ID",
+    "trustScore": "Community Trust Score:",
+    "primaryLocation": "Registered Location:",
+    "locationNotSet": "Location not set",
+    "residentialHierarchyLabel": "Residential Location (Tamil Nadu)",
+    "stateFixed": "State: Tamil Nadu",
+    "searchLocationPlaceholder": "Search district, GCC zone (e.g. Royapuram), or ward...",
+    "districtLabel": "District",
+    "selectDistrict": "Select District",
+    "gccZoneLabel": "Greater Chennai Corporation Zone",
+    "selectZone": "Select GCC Zone",
+    "wardOptionalLabel": "Verified Ward (Optional)",
+    "appearanceTheme": "Appearance Theme",
+    "savePreferences": "Save Preferences",
+    "savedSuccess": "Profile and notification preferences updated successfully!",
+    "saveFailed": "Could not update profile on server."
   }
 }

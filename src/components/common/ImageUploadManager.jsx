@@ -20,9 +20,11 @@ export const ImageUploadManager = ({
   const mobileCameraInputRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const cameraStreamRef = useRef(null);
 
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraStream, setCameraStream] = useState(null);
+  const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [validationError, setValidationError] = useState('');
 
@@ -42,33 +44,26 @@ export const ImageUploadManager = ({
 
   // Stop camera stream when modal closes or unmounts
   const stopCameraStream = () => {
-    if (cameraStream) {
-      cameraStream.getTracks().forEach((track) => track.stop());
-      setCameraStream(null);
+    const activeStream = cameraStreamRef.current || cameraStream;
+    if (activeStream) {
+      activeStream.getTracks().forEach((track) => track.stop());
     }
+    cameraStreamRef.current = null;
+    setCameraStream(null);
+    setCameraReady(false);
     setCameraActive(false);
     setCameraError('');
   };
 
   useEffect(() => {
+    cameraStreamRef.current = cameraStream;
     return () => {
-      // Cleanup camera on unmount
-      if (cameraStream) {
-        cameraStream.getTracks().forEach((track) => track.stop());
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks().forEach((track) => track.stop());
+        cameraStreamRef.current = null;
       }
     };
   }, [cameraStream]);
-
-  // Clean up object URLs when photos are replaced or unmounted
-  useEffect(() => {
-    return () => {
-      photos.forEach((p) => {
-        if (p.isLocal && p.url && p.url.startsWith('blob:')) {
-          URL.revokeObjectURL(p.url);
-        }
-      });
-    };
-  }, []);
 
   // Process selected files from input
   const processFiles = async (fileList) => {
@@ -147,43 +142,44 @@ export const ImageUploadManager = ({
   // Start live webcam for desktop / browser
   const handleStartWebcam = async () => {
     setCameraError('');
+    setCameraReady(false);
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setCameraError('Webcam access is not supported by your browser. Please use file selection instead.');
       setCameraActive(true);
       return;
     }
 
-    // Immediately open modal so video container is present
+    // Stop any prior stream before requesting a new one
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach((track) => track.stop());
+      cameraStreamRef.current = null;
+      setCameraStream(null);
+    }
+
+    // Open modal so user sees connecting / permission prompt state
     setCameraActive(true);
 
     try {
-      // First attempt with preferred environment camera
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false
       });
+      cameraStreamRef.current = stream;
       setCameraStream(stream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play().catch(() => {});
-      }
     } catch (err) {
       console.warn('Initial camera stream attempt failed, retrying with generic video constraints:', err);
-      // Fallback: try standard default video stream
       try {
         const fallbackStream = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: false
         });
+        cameraStreamRef.current = fallbackStream;
         setCameraStream(fallbackStream);
-        if (videoRef.current) {
-          videoRef.current.srcObject = fallbackStream;
-          videoRef.current.play().catch(() => {});
-        }
       } catch (err2) {
         console.error('All camera attempts failed:', err2);
+        setCameraReady(false);
         if (err2.name === 'NotAllowedError' || err2.name === 'PermissionDeniedError') {
-          setCameraError('Camera permission was denied in your browser. Please grant camera permission or use photo upload.');
+          setCameraError('Camera permission was denied in your browser. Please allow camera access and click Retry, or choose an image file.');
         } else if (err2.name === 'NotFoundError' || err2.name === 'DevicesNotFoundError') {
           setCameraError('No camera device detected on your hardware.');
         } else {
@@ -193,36 +189,28 @@ export const ImageUploadManager = ({
     }
   };
 
-  // Capture snapshot from webcam or create calibrated verification snapshot
+  // Capture real snapshot from active webcam stream
   const handleCaptureSnapshot = () => {
     const video = videoRef.current;
+    if (!video || !cameraStreamRef.current || !cameraReady || video.videoWidth <= 0 || cameraError) {
+      setCameraError('Camera feed is not active yet. Please allow camera access or retry before capturing.');
+      return;
+    }
+
     const canvas = document.createElement('canvas');
-    const width = (video && video.videoWidth > 0) ? video.videoWidth : 1280;
-    const height = (video && video.videoHeight > 0) ? video.videoHeight : 720;
+    const width = video.videoWidth;
+    const height = video.videoHeight;
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, width, height);
 
-    if (video && video.videoWidth > 0) {
-      ctx.drawImage(video, 0, 0, width, height);
-      // Overlay civic telemetry watermark
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-      ctx.fillRect(0, height - 42, width, 42);
-      ctx.fillStyle = '#10b981';
-      ctx.font = 'bold 15px monospace';
-      ctx.fillText(`CIVICFIX VERIFIED PROOF • ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()} IST`, 16, height - 16);
-    } else {
-      // Fallback: generate high-contrast photographic evidence placeholder
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(0, 0, width, height);
-      ctx.fillStyle = '#38bdf8';
-      ctx.font = 'bold 24px sans-serif';
-      ctx.fillText('CivicFix — Field Inspection Capture', 40, 70);
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = '16px monospace';
-      ctx.fillText(`Timestamp: ${new Date().toISOString()}`, 40, 115);
-      ctx.fillText('Evidence Tag: Authenticated In-Browser Capture', 40, 145);
-    }
+    // Overlay civic telemetry watermark
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillRect(0, height - 42, width, 42);
+    ctx.fillStyle = '#10b981';
+    ctx.font = 'bold 15px monospace';
+    ctx.fillText(`CIVICFIX VERIFIED PROOF • ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()} IST`, 16, height - 16);
 
     canvas.toBlob(
       (blob) => {
@@ -239,6 +227,7 @@ export const ImageUploadManager = ({
           type: 'image/jpeg',
           url: previewUrl,
           isLocal: true,
+          uploadStatus: 'pending',
           source: 'Live Camera Capture'
         };
 
@@ -502,7 +491,7 @@ export const ImageUploadManager = ({
                     {item.uploadStatus === 'uploading' && 'Uploading...'}
                     {item.uploadStatus === 'success' && 'Uploaded to Storage'}
                     {(item.uploadStatus === 'failed' || item.uploadStatus === 'error') && 'Failed'}
-                    {(!item.uploadStatus || item.uploadStatus === 'idle') && 'Staged in Memory'}
+                    {(!item.uploadStatus || item.uploadStatus === 'idle' || item.uploadStatus === 'pending') && 'Pending Upload'}
                   </span>
                 </div>
               </div>
@@ -533,10 +522,20 @@ export const ImageUploadManager = ({
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-secondary text-[20px]">photo_camera</span>
                 <h3 className="font-title text-sm font-bold text-on-surface">Live Camera Capture</h3>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono text-[10px] flex items-center gap-1 font-semibold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Live Viewfinder
-                </span>
+                {cameraStream && cameraReady && !cameraError ? (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono text-[10px] flex items-center gap-1 font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Live Viewfinder
+                  </span>
+                ) : cameraError ? (
+                  <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 font-mono text-[10px] font-semibold">
+                    Camera Unavailable
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-mono text-[10px] font-semibold">
+                    Connecting Camera...
+                  </span>
+                )}
               </div>
               <button
                 type="button"
@@ -549,44 +548,57 @@ export const ImageUploadManager = ({
 
             <div className="p-4 bg-black flex items-center justify-center min-h-[300px] relative">
               {cameraError ? (
-                <div className="text-center p-6 text-white space-y-3">
+                <div className="text-center p-6 text-white space-y-3" role="alert">
                   <span className="material-symbols-outlined text-4xl text-amber-400">videocam_off</span>
                   <p className="text-sm font-semibold text-amber-300">{cameraError}</p>
-                  <p className="text-xs text-gray-400">
-                    If your webcam has a physical privacy slider or is in use by another app, you can use a simulated inspection frame below.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (DEMO_PHOTOS.length > 0) {
-                        handleAttachDemo(DEMO_PHOTOS[0]);
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleStartWebcam}
+                      className="px-3.5 py-1.5 bg-primary-container hover:bg-primary text-white rounded-lg text-xs font-semibold flex items-center gap-1.5"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">refresh</span>
+                      <span>Retry Camera</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
                         stopCameraStream();
-                      }
-                    }}
-                    className="px-3.5 py-1.5 bg-secondary hover:bg-secondary/90 text-white rounded-lg text-xs font-semibold"
-                  >
-                    Attach Simulated Proof
-                  </button>
+                        handleOpenFileDialog();
+                      }}
+                      className="px-3.5 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-semibold"
+                    >
+                      Choose Image File
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <>
                   <video
-                    ref={(el) => {
-                      videoRef.current = el;
-                      if (el && cameraStream && el.srcObject !== cameraStream) {
-                        el.srcObject = cameraStream;
-                        el.play().catch(() => {});
-                      }
-                    }}
+                    ref={videoRef}
                     autoPlay
                     playsInline
                     muted
-                    onLoadedMetadata={(e) => e.target.play().catch(() => {})}
+                    onLoadedMetadata={(e) => {
+                      if (e.target.videoWidth > 0) setCameraReady(true);
+                      e.target.play().catch(() => {});
+                    }}
+                    onPlaying={(e) => {
+                      if (e.target.videoWidth > 0) setCameraReady(true);
+                    }}
                     className="w-full max-h-[360px] object-contain rounded-lg"
                   />
-                  <div className="absolute top-6 left-6 pointer-events-none bg-black/60 backdrop-blur-xs text-white text-[10px] font-mono px-2 py-1 rounded border border-white/20">
-                    REC [●] 1280x720 • GPS Sync
-                  </div>
+                  {!cameraReady && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/75 text-white gap-2">
+                      <span className="material-symbols-outlined text-3xl animate-spin">progress_activity</span>
+                      <span className="text-xs text-gray-300">Requesting camera permission & initializing feed...</span>
+                    </div>
+                  )}
+                  {cameraReady && (
+                    <div className="absolute top-6 left-6 pointer-events-none bg-black/60 backdrop-blur-xs text-white text-[10px] font-mono px-2 py-1 rounded border border-white/20">
+                      REC [●] {videoRef.current?.videoWidth || 1280}x{videoRef.current?.videoHeight || 720} • Live
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -619,7 +631,8 @@ export const ImageUploadManager = ({
                 <button
                   type="button"
                   onClick={handleCaptureSnapshot}
-                  className="px-5 py-2.5 bg-primary-container hover:bg-primary text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-sm transition-all"
+                  disabled={!cameraStream || !cameraReady || Boolean(cameraError)}
+                  className="px-5 py-2.5 bg-primary-container hover:bg-primary text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <span className="material-symbols-outlined text-[18px]">camera</span>
                   <span>Capture Snapshot</span>

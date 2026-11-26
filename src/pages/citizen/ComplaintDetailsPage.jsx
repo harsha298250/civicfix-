@@ -11,6 +11,7 @@ import { LocationMiniMap } from '../../components/common/LocationMiniMap';
 import { COMPLAINT_STATUS } from '../../constants/statusConstants';
 import { apiClient } from '../../services/apiClient.js';
 import ModalDialog from '../../components/common/ModalDialog';
+import AuthenticatedImage from '../../components/common/AuthenticatedImage';
 
 export const ComplaintDetailsPage = () => {
   const { complaintId } = useParams();
@@ -532,14 +533,10 @@ export const ComplaintDetailsPage = () => {
                 <div className="grid grid-cols-2 gap-3">
                   {complaint.photos.map((url, i) => (
                     <div key={i} className="rounded-xl overflow-hidden aspect-video bg-surface-container border border-outline-variant/40">
-                      <img
+                      <AuthenticatedImage
                         src={url}
                         alt={`Reported defect photo ${i + 1}`}
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.onerror = null;
-                          e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='225' viewBox='0 0 400 225'%3E%3Crect width='400' height='225' fill='%231e293b'/%3E%3Ctext x='50%25' y='45%25' dominant-baseline='middle' text-anchor='middle' fill='%2394a3b8' font-family='sans-serif' font-size='14'%3EPhoto Evidence Archived%3C/text%3E%3Ctext x='50%25' y='60%25' dominant-baseline='middle' text-anchor='middle' fill='%2364748b' font-family='sans-serif' font-size='11'%3ECivicFix Municipal Record%3C/text%3E%3C/svg%3E";
-                        }}
                       />
                     </div>
                   ))}
@@ -637,7 +634,7 @@ export const ComplaintDetailsPage = () => {
                     <div className="grid grid-cols-2 gap-3 pt-2">
                       {complaint.resolutionEvidence.photos.map((url, i) => (
                         <div key={i} className="rounded-xl overflow-hidden aspect-video bg-surface-container border border-outline-variant/40">
-                          <img src={url} alt={`Completed repair evidence ${i + 1}`} className="w-full h-full object-cover" />
+                          <AuthenticatedImage src={url} alt={`Completed repair evidence ${i + 1}`} className="w-full h-full object-cover" />
                         </div>
                       ))}
                     </div>

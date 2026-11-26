@@ -286,4 +286,47 @@ class ComplaintAuthorizationIntegrationTest {
                 .andExpect(jsonPath("$.data[4].changedByName", is("Elena Vance")))
                 .andExpect(jsonPath("$.data[5].changedByName", is("Alex Morgan")));
     }
+
+    @Test
+    @DisplayName("Cross-origin Bearer-authenticated citizen can create complaint without CSRF cookie; cookie-only POST without CSRF is rejected; staff endpoints remain restricted")
+    void testBearerCitizenCreateAndRoleRestrictions() throws Exception {
+        MockHttpSession citizenSession = loginAs("alex.m@citizen.org", "CivicSecure#2026!");
+        var citizenUser = userRepository.findByEmailIgnoreCase("alex.m@citizen.org").orElseThrow();
+        var citizenPrincipal = new com.civicfix.security.UserPrincipal(citizenUser);
+
+        CreateComplaintRequest createReq = new CreateComplaintRequest();
+        createReq.setTitle("Broken Streetlight on Royapuram Main Road");
+        createReq.setDescription("Streetlight pole is dark near Royapuram bus terminus.");
+        createReq.setCategory("Streetlights & Electrical");
+        createReq.setPriority(ComplaintPriority.HIGH);
+        createReq.setAddress("MS Koil Street, Royapuram, Chennai");
+        createReq.setWard("Zone 05, Royapuram, Chennai");
+        createReq.setLatitude(new BigDecimal("13.1143000"));
+        createReq.setLongitude(new BigDecimal("80.2932000"));
+
+        // 1. Cookie-only POST without CSRF token must still be rejected with 403
+        mockMvc.perform(post("/api/complaints")
+                        .session(citizenSession)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createReq)))
+                .andExpect(status().isForbidden());
+
+        // 2. Bearer-authenticated citizen POST without CSRF cookie succeeds (201 Created)
+        mockMvc.perform(post("/api/complaints")
+                        .header("Authorization", "Bearer stateless-firebase-jwt-marker")
+                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(citizenPrincipal))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createReq)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success", is(true)))
+                .andExpect(jsonPath("$.data.status", is("SUBMITTED")));
+
+        // 3. Citizen remains strictly forbidden from Admin, Officer, and Supervisor endpoints
+        mockMvc.perform(get("/api/admin/users").session(citizenSession))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/officer/analytics/summary").session(citizenSession))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/supervisor/escalations").session(citizenSession))
+                .andExpect(status().isForbidden());
+    }
 }

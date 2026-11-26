@@ -44,6 +44,18 @@ public class User {
     @Column(length = 150)
     private String ward;
 
+    @Column(length = 120)
+    private String district;
+
+    @Column(length = 150)
+    private String zone;
+
+    @Column(name = "profile_photo_object_key", length = 500)
+    private String profilePhotoObjectKey;
+
+    @Column(name = "profile_photo_url", length = 1000)
+    private String profilePhotoUrl;
+
     @Column(name = "trust_score")
     private Integer trustScore = 90;
 
@@ -229,5 +241,37 @@ public class User {
 
     public boolean hasRole(RoleName roleName) {
         return roles.stream().anyMatch(r -> r.getName() == roleName);
+    }
+
+    public String getDistrict() {
+        return district;
+    }
+
+    public void setDistrict(String district) {
+        this.district = district;
+    }
+
+    public String getZone() {
+        return zone;
+    }
+
+    public void setZone(String zone) {
+        this.zone = zone;
+    }
+
+    public String getProfilePhotoObjectKey() {
+        return profilePhotoObjectKey;
+    }
+
+    public void setProfilePhotoObjectKey(String profilePhotoObjectKey) {
+        this.profilePhotoObjectKey = profilePhotoObjectKey;
+    }
+
+    public String getProfilePhotoUrl() {
+        return profilePhotoUrl;
+    }
+
+    public void setProfilePhotoUrl(String profilePhotoUrl) {
+        this.profilePhotoUrl = profilePhotoUrl;
     }
 }

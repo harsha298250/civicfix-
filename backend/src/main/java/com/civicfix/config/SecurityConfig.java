@@ -104,11 +104,16 @@ public class SecurityConfig {
                 )
             )
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            // Cookie-based CSRF protection with readable XSRF-TOKEN for frontend SPA
+            // Cookie-based CSRF protection with readable XSRF-TOKEN for cookie-session SPA;
+            // requests carrying a stateless Authorization: Bearer <token> header are exempt per OWASP JWT guidance
             .csrf(csrf -> csrf
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(requestHandler)
                 .ignoringRequestMatchers("/api/auth/login", "/api/auth/google", "/api/auth/register", "/api/auth/verify-email", "/api/auth/resend-verification", "/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/staff-activation/**", "/api/auth/firebase/session", "/api/webhooks/**", "/api/health", "/actuator/**")
+                .ignoringRequestMatchers(request -> {
+                    String authHeader = request.getHeader("Authorization");
+                    return authHeader != null && authHeader.startsWith("Bearer ");
+                })
             )
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint(authenticationEntryPoint)

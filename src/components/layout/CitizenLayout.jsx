@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { useTranslation } from '../../context/LanguageContext';
 import LanguageToggle from '../common/LanguageToggle';
 import ThemeToggle from '../common/ThemeToggle';
+import AuthenticatedImage from '../common/AuthenticatedImage';
 import InstallPwaButton from '../common/InstallPwaButton';
 import { DemoRoleSwitcher } from '../common/DemoRoleSwitcher';
 import SkipToContent from '../common/SkipToContent';
@@ -114,8 +115,17 @@ export const CitizenLayout = () => {
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
                 className="flex items-center gap-2 pl-2 bg-surface-container-low rounded-full pr-3 py-1 hover:bg-surface-container transition-colors"
               >
-                <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold">
-                  {currentUser?.avatar || 'AM'}
+                <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold overflow-hidden shrink-0">
+                  {currentUser?.profilePhotoUrl ? (
+                    <AuthenticatedImage
+                      src={currentUser.profilePhotoUrl}
+                      alt={currentUser?.name || 'Resident'}
+                      className="w-full h-full object-cover"
+                      fallback={<span>{currentUser?.avatar || (currentUser?.name ? currentUser.name.slice(0, 2).toUpperCase() : 'AM')}</span>}
+                    />
+                  ) : (
+                    currentUser?.avatar || (currentUser?.name ? currentUser.name.slice(0, 2).toUpperCase() : 'AM')
+                  )}
                 </div>
                 <div className="hidden sm:flex flex-col text-left">
                   <span className="font-label-md text-xs text-on-surface leading-tight font-semibold">

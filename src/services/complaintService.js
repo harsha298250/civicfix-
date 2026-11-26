@@ -1,5 +1,19 @@
 import { COMPLAINT_STATUS } from '../constants/statusConstants.js';
-import { apiClient } from './apiClient.js';
+import { apiClient, getApiBaseUrl } from './apiClient.js';
+
+export const resolveMediaUrl = (url) => {
+  if (!url || typeof url !== 'string') return url;
+  const trimmed = url.trim();
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('blob:') || trimmed.startsWith('data:')) {
+    return trimmed;
+  }
+  const base = getApiBaseUrl().replace(/\/+$/, '');
+  if (trimmed.startsWith('/api/')) {
+    const originBase = base.endsWith('/api') ? base.slice(0, -4) : base;
+    return originBase ? `${originBase}${trimmed}` : trimmed;
+  }
+  return trimmed.startsWith('/') ? `${base}${trimmed}` : `${base}/${trimmed}`;
+};
 
 export const normalizeCategory = (cat) => {
   if (!cat) return { id: 'roads', name: 'Roads & Potholes' };
@@ -402,10 +416,10 @@ export const complaintService = {
       priority: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(newComplaint.priority)
         ? newComplaint.priority
         : 'MEDIUM',
-      address: newComplaint.address ? newComplaint.address.trim() : 'Anna Salai, Chennai',
+      address: newComplaint.address ? newComplaint.address.trim() : '',
       latitude: newComplaint.coordinates?.lat != null ? Number(newComplaint.coordinates.lat) : 13.0604,
       longitude: newComplaint.coordinates?.lng != null ? Number(newComplaint.coordinates.lng) : 80.2642,
-      ward: newComplaint.ward ? newComplaint.ward.trim() : 'Ward 08, Anna Nagar',
+      ward: newComplaint.ward && newComplaint.ward.trim() ? newComplaint.ward.trim() : null,
       visionConsent: Boolean(newComplaint.visionConsent)
     };
 

@@ -16,6 +16,9 @@ public class AuthUserResponse {
     private Set<String> roles;
     private String department;
     private String ward;
+    private String district;
+    private String zone;
+    private String profilePhotoUrl;
     private Integer trustScore;
     private String accountStatus;
     private boolean emailVerified;
@@ -30,6 +33,9 @@ public class AuthUserResponse {
         resp.setPhone(user.getPhone());
         resp.setDepartment(user.getDepartment());
         resp.setWard(user.getWard());
+        resp.setDistrict(user.getDistrict());
+        resp.setZone(user.getZone());
+        resp.setProfilePhotoUrl(user.getProfilePhotoUrl());
         resp.setTrustScore(user.getTrustScore());
         resp.setAccountStatus(user.getAccountStatus());
         resp.setEmailVerified(user.isEmailVerified());
@@ -111,6 +117,30 @@ public class AuthUserResponse {
 
     public void setWard(String ward) {
         this.ward = ward;
+    }
+
+    public String getDistrict() {
+        return district;
+    }
+
+    public void setDistrict(String district) {
+        this.district = district;
+    }
+
+    public String getZone() {
+        return zone;
+    }
+
+    public void setZone(String zone) {
+        this.zone = zone;
+    }
+
+    public String getProfilePhotoUrl() {
+        return profilePhotoUrl;
+    }
+
+    public void setProfilePhotoUrl(String profilePhotoUrl) {
+        this.profilePhotoUrl = profilePhotoUrl;
     }
 
     public Integer getTrustScore() {

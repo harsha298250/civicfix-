@@ -29,7 +29,11 @@ public class RestAccessDeniedHandler implements AccessDeniedHandler {
         body.put("timestamp", OffsetDateTime.now().toString());
         body.put("status", 403);
         body.put("error", "Forbidden");
-        body.put("message", "Access Denied: Your assigned role does not have authorization for this action.");
+        if (accessDeniedException instanceof org.springframework.security.web.csrf.CsrfException) {
+            body.put("message", "Security token validation failed. Please refresh the page and try again.");
+        } else {
+            body.put("message", "Access Denied: Your assigned role does not have authorization for this action.");
+        }
         body.put("path", request.getRequestURI());
 
         objectMapper.writeValue(response.getOutputStream(), body);

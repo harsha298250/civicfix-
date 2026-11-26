@@ -74,7 +74,7 @@ export const CitizenDashboard = () => {
               <span>•</span>
               <span className="flex items-center gap-1 text-on-surface font-medium">
                 <span className="material-symbols-outlined text-[14px] text-primary-container">near_me</span>
-                <span>{currentUser?.ward || 'Location not set'}</span>
+                <span>{currentUser?.ward || t('profile.locationNotSet') || 'Location not set'}</span>
               </span>
               <span>•</span>
               <span className="flex items-center gap-1 text-secondary font-medium">
